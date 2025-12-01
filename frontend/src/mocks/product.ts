@@ -1,0 +1,71 @@
+// Mock de dados de produto GTIN
+// Remover este arquivo ao integrar com backend real
+
+export interface Product {
+  gtin: string;
+  gtin_type: string;
+  brand: string;
+  product_name: string;
+  owner_tax_id: string;
+  origin_country: string;
+  ncm: string;
+  ncm_formatted: string;
+  cest: string[];
+  gross_weight: {
+    value: number;
+    unit: string;
+  };
+  dsit_timestamp: string;
+  updated_at: string;
+}
+
+export const mockProducts: Record<string, Product> = {
+  "7898708460003": {
+    gtin: "7898708460003",
+    gtin_type: "13",
+    brand: "ZEHN BIER",
+    product_name: "CHOPP PORTER 1 LITRO",
+    owner_tax_id: "22705048000138",
+    origin_country: "BR",
+    ncm: "22030000",
+    ncm_formatted: "2203.00.00",
+    cest: ["0302300"],
+    gross_weight: { value: 1130.0, unit: "GRM" },
+    dsit_timestamp: "2024-08-19T00:00:00Z",
+    updated_at: "2025-11-11T00:00:00Z",
+  },
+  "7891000100103": {
+    gtin: "7891000100103",
+    gtin_type: "13",
+    brand: "NESCAFÉ",
+    product_name: "CAFÉ SOLÚVEL TRADIÇÃO 200G",
+    owner_tax_id: "33033028000180",
+    origin_country: "BR",
+    ncm: "21011110",
+    ncm_formatted: "2101.11.10",
+    cest: ["1700600"],
+    gross_weight: { value: 220.0, unit: "GRM" },
+    dsit_timestamp: "2024-07-10T00:00:00Z",
+    updated_at: "2025-10-05T00:00:00Z",
+  },
+  "7891910000197": {
+    gtin: "7891910000197",
+    gtin_type: "13",
+    brand: "COCA-COLA",
+    product_name: "REFRIGERANTE COCA-COLA 2L",
+    owner_tax_id: "45985371000108",
+    origin_country: "BR",
+    ncm: "22021000",
+    ncm_formatted: "2202.10.00",
+    cest: ["0300700"],
+    gross_weight: { value: 2100.0, unit: "GRM" },
+    dsit_timestamp: "2024-09-01T00:00:00Z",
+    updated_at: "2025-11-01T00:00:00Z",
+  },
+};
+
+// Função para simular busca de produto
+export function findProduct(gtin: string): Product | null {
+  return mockProducts[gtin] || null;
+}
+
