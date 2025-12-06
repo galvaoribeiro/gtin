@@ -39,3 +39,4 @@ export const securitySettings = {
   activeSessions: 2,
 };
 
+

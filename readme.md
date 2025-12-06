@@ -46,9 +46,9 @@ Armazena os dados confiáveis carregados da sua base.
 - `brand`
 - `product_name`
 - `owner_tax_id` (CNPJ/CPF)
+- `image_url`
 - `origin_country` (ex.: BR)
 - `ncm` (8 dígitos)
-- `ncm_formatted`
 - `cest` (jsonb: lista com 0–3 CESTs)
 - `gross_weight_value` (numeric)
 - `gross_weight_unit`
@@ -97,6 +97,7 @@ Erros: `401` (ausência), `403` (chave inativa), `429` (limite atingido).
   "brand": "ZEHN BIER",
   "product_name": "CHOPP PORTER 1 LITRO",
   "owner_tax_id": "22705048000138",
+  "image_url": "https://...jpeg",
   "origin_country": "BR",
   "ncm": "22030000",
   "ncm_formatted": "2203.00.00",
