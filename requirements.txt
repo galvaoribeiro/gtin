@@ -1,0 +1,14 @@
+# GTIN→NCM Data Platform - Backend Dependencies
+# ===============================================
+
+# Framework Web
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# Banco de Dados
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.11
+
+# Configuração
+python-dotenv==1.0.1
+
