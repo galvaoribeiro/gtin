@@ -1,0 +1,71 @@
+"""
+Modelos SQLAlchemy para Organizations e API Keys.
+=================================================
+Define as tabelas para autenticação e controle de acesso.
+"""
+
+import secrets
+from datetime import datetime
+from typing import Optional
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship, DeclarativeBase
+
+
+class Base(DeclarativeBase):
+    """Classe base para todos os modelos SQLAlchemy."""
+    pass
+
+
+class Organization(Base):
+    """
+    Modelo para organizações/clientes.
+    
+    Cada organização pode ter múltiplas API keys e um plano de uso.
+    """
+    __tablename__ = "organizations"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False, comment="Nome da organização/cliente")
+    plan = Column(String(50), nullable=False, default="starter", comment="Plano: starter, pro, enterprise")
+    daily_limit = Column(Integer, nullable=False, default=100, comment="Limite de consultas por dia")
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relacionamento com API keys
+    api_keys = relationship("ApiKey", back_populates="organization", cascade="all, delete-orphan")
+    
+    def __repr__(self) -> str:
+        return f"<Organization(id={self.id}, name='{self.name}', plan='{self.plan}')>"
+
+
+class ApiKey(Base):
+    """
+    Modelo para API Keys.
+    
+    Cada API key pertence a uma organização e pode ser ativada/desativada.
+    """
+    __tablename__ = "api_keys"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    key = Column(String(64), nullable=False, unique=True, index=True, comment="API Key em texto simples")
+    is_active = Column(Boolean, nullable=False, default=True, comment="Se a key está ativa")
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True, comment="Última vez que a key foi usada")
+    
+    # Relacionamento com organização
+    organization = relationship("Organization", back_populates="api_keys")
+    
+    def __repr__(self) -> str:
+        return f"<ApiKey(id={self.id}, org_id={self.organization_id}, active={self.is_active})>"
+    
+    @staticmethod
+    def generate_key() -> str:
+        """
+        Gera uma API key segura de 32 bytes (64 caracteres hex).
+        
+        Returns:
+            String hexadecimal de 64 caracteres.
+        """
+        return secrets.token_hex(32)
+

@@ -2,6 +2,7 @@
 Endpoints de consulta de GTIN.
 ==============================
 Implementa GET /v1/gtins/{gtin} e POST /v1/gtins:batch
+Protegidos por autenticação via API key.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,6 +10,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.db.models import Organization
+from app.api.deps import get_current_organization_from_api_key
 from app.schemas.product import (
     ProductResponse,
     BatchRequest,
@@ -77,13 +80,18 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
     "/{gtin}",
     response_model=ProductResponse,
     summary="Consultar produto por GTIN",
-    description="Retorna os dados de um produto a partir do seu código GTIN (código de barras).",
+    description="Retorna os dados de um produto a partir do seu código GTIN (código de barras). Requer API key válida.",
     responses={
         200: {"description": "Produto encontrado"},
+        401: {"description": "API key inválida ou não fornecida"},
         404: {"description": "Produto não encontrado"},
     }
 )
-def get_product_by_gtin(gtin: str, db: Session = Depends(get_db)):
+def get_product_by_gtin(
+    gtin: str,
+    org: Organization = Depends(get_current_organization_from_api_key),
+    db: Session = Depends(get_db),
+):
     """
     Consulta um produto pelo GTIN.
     
@@ -113,13 +121,18 @@ def get_product_by_gtin(gtin: str, db: Session = Depends(get_db)):
     ":batch",
     response_model=BatchResponse,
     summary="Consultar produtos em lote",
-    description="Consulta múltiplos produtos de uma vez. Máximo de 100 GTINs por requisição.",
+    description="Consulta múltiplos produtos de uma vez. Máximo de 100 GTINs por requisição. Requer API key válida.",
     responses={
         200: {"description": "Resultados da consulta em lote"},
         400: {"description": "Requisição inválida"},
+        401: {"description": "API key inválida ou não fornecida"},
     }
 )
-def get_products_batch(request: BatchRequest, db: Session = Depends(get_db)):
+def get_products_batch(
+    request: BatchRequest,
+    org: Organization = Depends(get_current_organization_from_api_key),
+    db: Session = Depends(get_db),
+):
     """
     Consulta múltiplos produtos por GTIN.
     

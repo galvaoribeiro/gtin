@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
+# Importar Base para permitir create_all
+from app.db.models import Base
+
 # Carregar variáveis de ambiente do arquivo .env
 load_dotenv()
 
@@ -86,6 +89,14 @@ def test_db_connection() -> bool:
     except Exception as e:
         print(f"Erro ao conectar ao banco de dados: {e}")
         return False
+
+
+def create_tables():
+    """
+    Cria todas as tabelas definidas nos modelos.
+    Útil para ambiente de desenvolvimento.
+    """
+    Base.metadata.create_all(bind=engine)
 
 
 if __name__ == "__main__":

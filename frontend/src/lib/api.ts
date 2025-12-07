@@ -6,6 +6,24 @@
 // URL base da API (definida em .env.local)
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+// API Key para autenticação (definida em .env.local)
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+
+/**
+ * Retorna os headers padrão para requisições autenticadas
+ */
+function getAuthHeaders(): HeadersInit {
+  const headers: HeadersInit = {
+    "Accept": "application/json",
+  };
+  
+  if (API_KEY) {
+    headers["Authorization"] = `Bearer ${API_KEY}`;
+  }
+  
+  return headers;
+}
+
 /**
  * Interface do produto retornado pela API
  */
@@ -111,12 +129,13 @@ export async function fetchGtin(gtin: string): Promise<Product> {
   try {
     const response = await fetch(url, {
       method: "GET",
-      headers: {
-        "Accept": "application/json",
-      },
+      headers: getAuthHeaders(),
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new ApiError("API key inválida ou não fornecida", 401);
+      }
       if (response.status === 404) {
         throw new ApiError("GTIN não encontrado", 404);
       }
@@ -204,13 +223,17 @@ export async function fetchGtinsBatch(gtins: string[]): Promise<BatchResponse> {
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Accept": "application/json",
+        ...getAuthHeaders(),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ gtins }),
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new ApiError("API key inválida ou não fornecida", 401);
+      }
+      
       let detail: string | undefined;
       try {
         const errorBody = await response.json();
