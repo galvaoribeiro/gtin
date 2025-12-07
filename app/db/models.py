@@ -48,10 +48,11 @@ class ApiKey(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    name = Column(String(100), nullable=True, default="Nova chave", comment="Nome/descricao da API key")
     key = Column(String(64), nullable=False, unique=True, index=True, comment="API Key em texto simples")
-    is_active = Column(Boolean, nullable=False, default=True, comment="Se a key está ativa")
+    is_active = Column(Boolean, nullable=False, default=True, comment="Se a key esta ativa")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    last_used_at = Column(DateTime, nullable=True, comment="Última vez que a key foi usada")
+    last_used_at = Column(DateTime, nullable=True, comment="Ultima vez que a key foi usada")
     
     # Relacionamento com organização
     organization = relationship("Organization", back_populates="api_keys")
@@ -62,10 +63,21 @@ class ApiKey(Base):
     @staticmethod
     def generate_key() -> str:
         """
-        Gera uma API key segura de 32 bytes (64 caracteres hex).
+        Gera uma API key segura com prefixo sk_live_.
         
         Returns:
-            String hexadecimal de 64 caracteres.
+            String no formato sk_live_XXXXXXXX (32 chars random).
         """
-        return secrets.token_hex(32)
+        return f"sk_live_{secrets.token_hex(16)}"
+    
+    def get_masked_key(self) -> str:
+        """
+        Retorna a key mascarada para exibicao segura.
+        
+        Returns:
+            String no formato sk_live_XXXX...XXXX
+        """
+        if len(self.key) > 16:
+            return f"{self.key[:12]}...{self.key[-4:]}"
+        return f"{self.key[:4]}...{self.key[-4:]}"
 

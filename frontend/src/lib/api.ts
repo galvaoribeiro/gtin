@@ -274,3 +274,168 @@ export async function fetchGtinsBatch(gtins: string[]): Promise<BatchResponse> {
   }
 }
 
+// =============================================================================
+// Dashboard API Keys
+// =============================================================================
+
+/**
+ * Interface de API Key retornada pelo backend
+ */
+export interface DashboardApiKey {
+  id: number;
+  name: string | null;
+  masked_key: string;
+  status: "active" | "revoked";
+  created_at: string;
+  last_used_at: string | null;
+}
+
+/**
+ * Interface de API Key criada (com key completa)
+ */
+export interface DashboardApiKeyCreated extends DashboardApiKey {
+  key: string; // Key completa - mostrada apenas uma vez!
+}
+
+/**
+ * Lista todas as API keys do dashboard
+ * 
+ * @returns Lista de API keys
+ */
+export async function getDashboardApiKeys(): Promise<DashboardApiKey[]> {
+  const url = `${API_BASE_URL}/v1/dashboard/api-keys`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        `Erro ao buscar API keys: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+/**
+ * Cria uma nova API key
+ * 
+ * @param name - Nome opcional para a chave
+ * @returns API key criada com a key completa
+ */
+export async function createDashboardApiKey(name?: string): Promise<DashboardApiKeyCreated> {
+  const url = `${API_BASE_URL}/v1/dashboard/api-keys`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: name || "Nova chave" }),
+    });
+
+    if (!response.ok) {
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        `Erro ao criar API key: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+/**
+ * Revoga uma API key
+ * 
+ * @param id - ID da API key a ser revogada
+ * @returns API key atualizada
+ */
+export async function revokeDashboardApiKey(id: number): Promise<DashboardApiKey> {
+  const url = `${API_BASE_URL}/v1/dashboard/api-keys/${id}/revoke`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        `Erro ao revogar API key: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
