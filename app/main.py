@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db.session import test_db_connection
+from app.api.v1.gtins import router as gtins_router
 
 # Criar aplicação FastAPI
 app = FastAPI(
@@ -47,4 +48,8 @@ def health_check_db():
         return {"status": "ok", "database": "connected"}
     else:
         return {"status": "error", "database": "disconnected"}
+
+
+# Incluir routers da API v1
+app.include_router(gtins_router)
 
