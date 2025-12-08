@@ -9,9 +9,10 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.db.models import User
+from app.db.models import User, ApiKey
 from app.api.deps import get_current_user
 from app.schemas.product import ProductResponse
+from app.core.usage import record_api_usage
 
 
 router = APIRouter(prefix="/v1/dashboard", tags=["Dashboard"])
@@ -71,6 +72,17 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
     }
 
 
+def get_user_api_key(db: Session, organization_id: int) -> ApiKey | None:
+    """
+    Retorna a primeira API key ativa da organização para registro de uso.
+    """
+    return (
+        db.query(ApiKey)
+        .filter(ApiKey.organization_id == organization_id, ApiKey.is_active == True)
+        .first()
+    )
+
+
 @router.get(
     "/gtins/{gtin}",
     response_model=ProductResponse,
@@ -91,13 +103,19 @@ def get_product_by_gtin_dashboard(
     Consulta um produto pelo GTIN (endpoint de dashboard).
     
     Requer autenticação JWT (não usa API key).
+    Registra uso na primeira API key ativa da organização.
     
     - **gtin**: Código de barras do produto (8, 12, 13 ou 14 dígitos)
     """
     # Normalizar GTIN (remover caracteres não numéricos)
     normalized_gtin = normalize_gtin(gtin)
     
+    # Obter API key da organização para registro de uso
+    api_key = get_user_api_key(db, current_user.organization_id)
+    
     if not normalized_gtin:
+        if api_key:
+            record_api_usage(db, api_key.id, 400)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="GTIN inválido: deve conter apenas números"
@@ -106,10 +124,16 @@ def get_product_by_gtin_dashboard(
     product = fetch_product_by_gtin(db, normalized_gtin)
     
     if product is None:
+        if api_key:
+            record_api_usage(db, api_key.id, 404)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Produto com GTIN '{normalized_gtin}' não encontrado"
         )
+    
+    # Registrar sucesso
+    if api_key:
+        record_api_usage(db, api_key.id, 200)
     
     return product
 

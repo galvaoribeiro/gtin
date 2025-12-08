@@ -74,7 +74,19 @@ def run_migrations():
             else:
                 print("[MIGRATION] Tabela 'users' ja existe.")
             
-            # Migração 3: Criar tabela 'api_key_usage_daily' se não existir
+            # Migração 3: Verificar/corrigir tabela 'api_key_usage_daily'
+            # Primeiro verificar se a tabela tem estrutura errada (coluna 'date' em vez de 'usage_date')
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'api_key_usage_daily' AND column_name = 'date'
+            """))
+            if result.fetchone():
+                print("[MIGRATION] Tabela 'api_key_usage_daily' com estrutura incorreta. Recriando...")
+                conn.execute(text("DROP TABLE IF EXISTS api_key_usage_daily CASCADE"))
+                conn.commit()
+            
+            # Criar tabela se não existir
             result = conn.execute(text("""
                 SELECT table_name 
                 FROM information_schema.tables 
@@ -92,6 +104,12 @@ def run_migrations():
                         error_count INTEGER NOT NULL DEFAULT 0,
                         CONSTRAINT uq_api_key_usage_daily UNIQUE (api_key_id, usage_date)
                     )
+                """))
+                conn.execute(text("""
+                    CREATE INDEX ix_api_key_usage_daily_api_key_id ON api_key_usage_daily(api_key_id)
+                """))
+                conn.execute(text("""
+                    CREATE INDEX ix_api_key_usage_daily_usage_date ON api_key_usage_daily(usage_date)
                 """))
                 conn.commit()
                 print("[MIGRATION] Tabela 'api_key_usage_daily' criada com sucesso!")
