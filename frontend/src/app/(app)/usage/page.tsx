@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -42,12 +42,31 @@ export default function UsagePage() {
   const [summary, setSummary] = useState<UsageSummaryResponse | null>(null);
   const [dailySeries, setDailySeries] = useState<DailySeriesResponse | null>(null);
   const router = useRouter();
+  
+  // Refs para evitar chamadas duplicadas e cleanup
+  const isLoadingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    // Marcar como montado
+    isMountedRef.current = true;
+    
     loadData();
+    
+    // Cleanup: marcar como desmontado
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   const loadData = async () => {
+    // Evitar chamadas duplicadas
+    if (isLoadingRef.current) {
+      return;
+    }
+    
+    isLoadingRef.current = true;
+    
     try {
       setLoading(true);
       setError(null);
@@ -58,10 +77,17 @@ export default function UsagePage() {
         getUsageDaily(), // Últimos 30 dias por default
       ]);
 
-      setSummary(summaryData);
-      setDailySeries(dailyData);
+      // Só atualizar estado se ainda estiver montado
+      if (isMountedRef.current) {
+        setSummary(summaryData);
+        setDailySeries(dailyData);
+      }
     } catch (err) {
       console.error("Erro ao carregar dados de uso:", err);
+      
+      // Só atualizar estado se ainda estiver montado
+      if (!isMountedRef.current) return;
+      
       if (err instanceof ApiError) {
         if (err.status === 401) {
           router.push("/login");
@@ -74,7 +100,10 @@ export default function UsagePage() {
         setError("Erro ao carregar dados de uso");
       }
     } finally {
-      setLoading(false);
+      isLoadingRef.current = false;
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

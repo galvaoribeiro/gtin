@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -20,14 +20,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+import { useAuth } from "@/lib/auth-context";
 import {
   getUsageSummary,
   getUsageDaily,
-  getCurrentUser,
   ApiError,
   type UsageSummaryResponse,
   type DailySeriesResponse,
-  type UserData,
 } from "@/lib/api";
 
 export default function DashboardPage() {
@@ -35,48 +34,56 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<UsageSummaryResponse | null>(null);
   const [dailySeries, setDailySeries] = useState<DailySeriesResponse | null>(null);
-  const [user, setUser] = useState<UserData | null>(null);
   const router = useRouter();
+  
+  // Usar user do auth-context em vez de buscar novamente
+  const { user } = useAuth();
+  
+  // Refs para evitar chamadas duplicadas e cleanup
+  const isLoadingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    // Marcar como montado
+    isMountedRef.current = true;
+    
     loadData();
+    
+    // Cleanup: marcar como desmontado
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   const loadData = async () => {
+    // Evitar chamadas duplicadas
+    if (isLoadingRef.current) {
+      return;
+    }
+    
+    isLoadingRef.current = true;
+    
     try {
       setLoading(true);
       setError(null);
 
-      // Primeiro carregar usuário para verificar autenticação
-      let userData: UserData;
-      try {
-        userData = await getCurrentUser();
-        setUser(userData);
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 401) {
-          router.push("/login");
-          return;
-        }
-        throw err;
-      }
-
-      // Depois carregar métricas (podem estar vazias, não é erro)
-      try {
-        const [summaryData, dailyData] = await Promise.all([
-          getUsageSummary(7),
-          getUsageDaily(),
-        ]);
+      // Carregar métricas (podem estar vazias, não é erro)
+      const [summaryData, dailyData] = await Promise.all([
+        getUsageSummary(7),
+        getUsageDaily(),
+      ]);
+      
+      // Só atualizar estado se ainda estiver montado
+      if (isMountedRef.current) {
         setSummary(summaryData);
         setDailySeries(dailyData);
-      } catch (metricsErr) {
-        // Métricas podem falhar se não houver dados, continuar mesmo assim
-        console.error("Erro ao carregar métricas:", metricsErr);
-        // Definir valores vazios
-        setSummary(null);
-        setDailySeries(null);
       }
     } catch (err) {
-      console.error("Erro ao carregar dashboard:", err);
+      console.error("Erro ao carregar métricas:", err);
+      
+      // Só atualizar estado se ainda estiver montado
+      if (!isMountedRef.current) return;
+      
       if (err instanceof ApiError) {
         if (err.status === 401) {
           router.push("/login");
@@ -84,10 +91,15 @@ export default function DashboardPage() {
         }
         setError(err.detail || err.message);
       } else {
-        setError("Erro ao carregar dados do dashboard");
+        // Métricas podem falhar, não é crítico
+        setSummary(null);
+        setDailySeries(null);
       }
     } finally {
-      setLoading(false);
+      isLoadingRef.current = false;
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

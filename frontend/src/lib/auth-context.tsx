@@ -1,13 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   login as apiLogin,
   logout as apiLogout,
   getCurrentUser,
   isAuthenticated,
-  getAuthToken,
+  clearAuthToken,
   type LoginCredentials,
   type UserData,
   ApiError,
@@ -33,22 +33,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+  
+  // Refs para evitar chamadas duplicadas e race conditions
+  const isCheckingAuth = useRef(false);
+  const hasCheckedAuth = useRef(false);
 
-  // Verificar autenticação ao carregar
+  // Verificar autenticação ao carregar - APENAS UMA VEZ
   useEffect(() => {
     async function checkAuth() {
-      // Verificar se há token salvo
-      if (isAuthenticated()) {
-        try {
-          const userData = await getCurrentUser();
-          setUser(userData);
-        } catch (err) {
-          // Token inválido ou expirado
-          console.warn("Token inválido ou expirado:", err);
-          setUser(null);
-        }
+      // Evitar múltiplas chamadas simultâneas
+      if (isCheckingAuth.current || hasCheckedAuth.current) {
+        return;
       }
-      setIsLoading(false);
+      
+      isCheckingAuth.current = true;
+      
+      try {
+        // Verificar se há token salvo
+        if (isAuthenticated()) {
+          try {
+            const userData = await getCurrentUser();
+            setUser(userData);
+          } catch (err) {
+            // Token inválido ou expirado - limpar token
+            console.warn("Token inválido ou expirado:", err);
+            clearAuthToken();
+            setUser(null);
+          }
+        }
+      } finally {
+        isCheckingAuth.current = false;
+        hasCheckedAuth.current = true;
+        setIsLoading(false);
+      }
     }
 
     checkAuth();
