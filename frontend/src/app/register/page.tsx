@@ -13,15 +13,22 @@ import {
 } from "@/components/ui/card";
 import Link from "next/link";
 
-export default function LoginPage() {
-  const { login, isLoading, error } = useAuth();
+export default function RegisterPage() {
+  const { register, isLoading, error } = useAuth();
+  const [organizationName, setOrganizationName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
+
+    if (!organizationName.trim()) {
+      setLocalError("Digite o nome da sua empresa");
+      return;
+    }
 
     if (!email.trim()) {
       setLocalError("Digite seu email");
@@ -33,8 +40,22 @@ export default function LoginPage() {
       return;
     }
 
+    if (password.length < 8) {
+      setLocalError("A senha deve ter no mínimo 8 caracteres");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setLocalError("As senhas não coincidem");
+      return;
+    }
+
     try {
-      await login({ email, password });
+      await register({
+        email,
+        password,
+        organization_name: organizationName,
+      });
     } catch {
       // Erro já tratado no contexto
     }
@@ -61,16 +82,16 @@ export default function LoginPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
                 />
               </svg>
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-white">
-            Entrar no Painel
+            Criar Conta
           </CardTitle>
           <CardDescription className="text-zinc-400">
-            Acesse sua conta para gerenciar a plataforma
+            Registre-se para acessar a plataforma GTIN
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -96,6 +117,26 @@ export default function LoginPage() {
                 </p>
               </div>
             )}
+
+            {/* Nome da Empresa */}
+            <div className="space-y-2">
+              <label
+                htmlFor="organizationName"
+                className="text-sm font-medium text-zinc-300"
+              >
+                Nome da Empresa
+              </label>
+              <Input
+                id="organizationName"
+                type="text"
+                placeholder="Minha Empresa Ltda"
+                value={organizationName}
+                onChange={(e) => setOrganizationName(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                disabled={isLoading}
+                autoComplete="organization"
+              />
+            </div>
 
             {/* Email */}
             <div className="space-y-2">
@@ -128,16 +169,36 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Mínimo 8 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                 disabled={isLoading}
-                autoComplete="current-password"
+                autoComplete="new-password"
               />
             </div>
 
-            {/* Botão de Login */}
+            {/* Confirmar Senha */}
+            <div className="space-y-2">
+              <label
+                htmlFor="confirmPassword"
+                className="text-sm font-medium text-zinc-300"
+              >
+                Confirmar Senha
+              </label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Digite a senha novamente"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+            </div>
+
+            {/* Botão de Registro */}
             <Button
               type="submit"
               className="w-full bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white font-medium shadow-lg shadow-emerald-500/20 transition-all duration-200"
@@ -165,23 +226,23 @@ export default function LoginPage() {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     />
                   </svg>
-                  Entrando...
+                  Criando conta...
                 </span>
               ) : (
-                "Entrar"
+                "Criar Conta"
               )}
             </Button>
           </form>
 
-          {/* Links de navegação */}
+          {/* Link para Login */}
           <div className="mt-6 text-center space-y-2">
             <p className="text-sm text-zinc-400">
-              Não tem uma conta?{" "}
+              Já tem uma conta?{" "}
               <Link
-                href="/register"
+                href="/login"
                 className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
               >
-                Criar conta
+                Entrar
               </Link>
             </p>
             <Link
@@ -191,24 +252,6 @@ export default function LoginPage() {
               ← Voltar para a página inicial
             </Link>
           </div>
-
-          {/* Credenciais de desenvolvimento */}
-          {process.env.NODE_ENV === "development" && (
-            <div className="mt-6 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
-              <p className="text-xs text-zinc-500 mb-2 font-medium">
-                Credenciais de desenvolvimento:
-              </p>
-              <div className="space-y-1 text-xs font-mono">
-                <p className="text-zinc-400">
-                  Email:{" "}
-                  <span className="text-emerald-400">admin@example.com</span>
-                </p>
-                <p className="text-zinc-400">
-                  Senha: <span className="text-emerald-400">admin123</span>
-                </p>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

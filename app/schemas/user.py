@@ -25,6 +25,12 @@ class UserCreate(UserBase):
     organization_id: int = Field(..., description="ID da organização")
 
 
+class UserRegister(UserBase):
+    """Schema para registro público de usuário (cria org automaticamente)."""
+    password: str = Field(..., min_length=8, description="Senha (mínimo 8 caracteres)")
+    organization_name: str = Field(..., min_length=2, max_length=255, description="Nome da organização")
+
+
 class UserResponse(UserBase):
     """Schema de resposta para User."""
     id: int = Field(..., description="ID do usuário")

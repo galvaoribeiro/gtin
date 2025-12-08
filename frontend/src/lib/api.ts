@@ -84,6 +84,15 @@ export interface LoginCredentials {
 }
 
 /**
+ * Interface para dados de registro
+ */
+export interface RegisterData {
+  email: string;
+  password: string;
+  organization_name: string;
+}
+
+/**
  * Interface para resposta de token
  */
 export interface TokenResponse {
@@ -141,6 +150,57 @@ export async function login(credentials: LoginCredentials): Promise<TokenRespons
     setAuthToken(data.access_token);
     
     return data;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+/**
+ * Registra um novo usuário e organização
+ */
+export async function register(data: RegisterData): Promise<TokenResponse> {
+  const url = `${API_BASE_URL}/v1/auth/register`;
+  
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+      
+      throw new ApiError(
+        detail || "Erro ao criar conta",
+        response.status,
+        detail
+      );
+    }
+    
+    const tokenData: TokenResponse = await response.json();
+    
+    // Salvar token automaticamente (login automático)
+    setAuthToken(tokenData.access_token);
+    
+    return tokenData;
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;

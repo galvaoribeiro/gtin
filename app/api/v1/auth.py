@@ -10,9 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.db.models import User
-from app.schemas.user import UserLogin, Token, UserResponse
-from app.core.security import verify_password, create_access_token
+from app.db.models import User, Organization
+from app.schemas.user import UserLogin, Token, UserResponse, UserRegister
+from app.core.security import verify_password, create_access_token, get_password_hash
 from app.core.config import settings
 from app.api.deps import get_current_user
 
@@ -74,6 +74,68 @@ def login(
         )
     
     # Criar token JWT
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(user.id), "email": user.email},
+        expires_delta=access_token_expires,
+    )
+    
+    return Token(access_token=access_token, token_type="bearer")
+
+
+@router.post(
+    "/register",
+    response_model=Token,
+    summary="Registro de novo usuário",
+    description="Cria uma nova organização e usuário, retornando um token JWT para login automático.",
+    responses={
+        200: {"description": "Registro bem sucedido"},
+        400: {"description": "Email já cadastrado"},
+    }
+)
+def register(
+    data: UserRegister,
+    db: Session = Depends(get_db),
+):
+    """
+    Registra um novo usuário criando automaticamente uma organização.
+    
+    - **email**: Email do usuário (único)
+    - **password**: Senha (mínimo 8 caracteres)
+    - **organization_name**: Nome da organização/empresa
+    
+    Returns:
+        Token JWT de acesso (login automático)
+    """
+    # Verificar se email já existe
+    existing_user = db.query(User).filter(User.email == data.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este email já está cadastrado",
+        )
+    
+    # Criar organização com plano starter
+    organization = Organization(
+        name=data.organization_name,
+        plan="starter",
+        daily_limit=100,
+    )
+    db.add(organization)
+    db.flush()  # Para obter o ID da organização
+    
+    # Criar usuário
+    user = User(
+        email=data.email,
+        hashed_password=get_password_hash(data.password),
+        organization_id=organization.id,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    # Criar token JWT para login automático
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": str(user.id), "email": user.email},

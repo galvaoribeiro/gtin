@@ -5,10 +5,12 @@ import { useRouter, usePathname } from "next/navigation";
 import {
   login as apiLogin,
   logout as apiLogout,
+  register as apiRegister,
   getCurrentUser,
   isAuthenticated,
   clearAuthToken,
   type LoginCredentials,
+  type RegisterData,
   type UserData,
   ApiError,
 } from "./api";
@@ -18,6 +20,7 @@ interface AuthContextType {
   isLoading: boolean;
   isLoggedIn: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   error: string | null;
 }
@@ -25,7 +28,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Rotas que não precisam de autenticação
-const publicRoutes = ["/login", "/", "/docs", "/pricing", "/sobre"];
+const publicRoutes = ["/login", "/register", "/", "/docs", "/pricing", "/sobre"];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
@@ -84,8 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       router.push("/login");
     }
 
-    // Se está na página de login e já está logado, redireciona para dashboard
-    if (pathname === "/login" && user) {
+    // Se está na página de login ou registro e já está logado, redireciona para dashboard
+    if ((pathname === "/login" || pathname === "/register") && user) {
       router.push("/dashboard");
     }
   }, [isLoading, user, pathname, router]);
@@ -111,6 +114,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const register = async (data: RegisterData) => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      await apiRegister(data);
+      const userData = await getCurrentUser();
+      setUser(userData);
+      router.push("/dashboard");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.detail || err.message);
+      } else {
+        setError("Erro ao criar conta. Tente novamente.");
+      }
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     apiLogout();
     setUser(null);
@@ -124,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isLoggedIn: !!user,
         login,
+        register,
         logout,
         error,
       }}
