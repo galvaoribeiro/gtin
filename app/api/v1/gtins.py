@@ -5,13 +5,14 @@ Implementa GET /v1/gtins/{gtin} e POST /v1/gtins:batch
 Protegidos por autenticação via API key.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.db.models import Organization
-from app.api.deps import get_current_organization_from_api_key
+from app.api.deps import get_api_key_auth, ApiKeyAuth
+from app.core.usage import record_api_usage
 from app.schemas.product import (
     ProductResponse,
     BatchRequest,
@@ -89,7 +90,8 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
 )
 def get_product_by_gtin(
     gtin: str,
-    org: Organization = Depends(get_current_organization_from_api_key),
+    request: Request,
+    auth: ApiKeyAuth = Depends(get_api_key_auth),
     db: Session = Depends(get_db),
 ):
     """
@@ -101,6 +103,8 @@ def get_product_by_gtin(
     normalized_gtin = normalize_gtin(gtin)
     
     if not normalized_gtin:
+        # Registrar erro e lançar exceção
+        record_api_usage(db, auth.api_key.id, 400)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="GTIN inválido: deve conter apenas números"
@@ -109,11 +113,15 @@ def get_product_by_gtin(
     product = fetch_product_by_gtin(db, normalized_gtin)
     
     if product is None:
+        # Registrar erro 404
+        record_api_usage(db, auth.api_key.id, 404)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Produto com GTIN '{normalized_gtin}' não encontrado"
         )
     
+    # Registrar sucesso
+    record_api_usage(db, auth.api_key.id, 200)
     return product
 
 
@@ -129,8 +137,9 @@ def get_product_by_gtin(
     }
 )
 def get_products_batch(
-    request: BatchRequest,
-    org: Organization = Depends(get_current_organization_from_api_key),
+    batch_request: BatchRequest,
+    request: Request,
+    auth: ApiKeyAuth = Depends(get_api_key_auth),
     db: Session = Depends(get_db),
 ):
     """
@@ -144,7 +153,7 @@ def get_products_batch(
     total_found = 0
     
     # Normalizar todos os GTINs
-    normalized_gtins = [normalize_gtin(g) for g in request.gtins]
+    normalized_gtins = [normalize_gtin(g) for g in batch_request.gtins]
     
     # Buscar todos os produtos de uma vez (mais eficiente)
     if normalized_gtins:
@@ -195,7 +204,7 @@ def get_products_batch(
             }
         
         # Montar resposta mantendo a ordem dos GTINs solicitados
-        for original_gtin, normalized_gtin in zip(request.gtins, normalized_gtins):
+        for original_gtin, normalized_gtin in zip(batch_request.gtins, normalized_gtins):
             if normalized_gtin in found_products:
                 results.append(BatchResponseItem(
                     gtin=original_gtin,
@@ -210,8 +219,11 @@ def get_products_batch(
                     product=None
                 ))
     
+    # Registrar sucesso (batch sempre retorna 200)
+    record_api_usage(db, auth.api_key.id, 200)
+    
     return BatchResponse(
-        total_requested=len(request.gtins),
+        total_requested=len(batch_request.gtins),
         total_found=total_found,
         results=results
     )

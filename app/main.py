@@ -16,6 +16,7 @@ from app.api.v1.gtins import router as gtins_router
 from app.api.v1.api_keys import router as api_keys_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.dashboard import router as dashboard_router
+from app.api.v1.metrics import router as metrics_router
 
 
 def run_migrations():
@@ -72,6 +73,36 @@ def run_migrations():
                 print("[MIGRATION] Tabela 'users' criada com sucesso!")
             else:
                 print("[MIGRATION] Tabela 'users' ja existe.")
+            
+            # Migração 3: Criar tabela 'api_key_usage_daily' se não existir
+            result = conn.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_name = 'api_key_usage_daily'
+            """))
+            
+            if not result.fetchone():
+                print("[MIGRATION] Criando tabela 'api_key_usage_daily'...")
+                conn.execute(text("""
+                    CREATE TABLE api_key_usage_daily (
+                        id SERIAL PRIMARY KEY,
+                        api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+                        usage_date DATE NOT NULL,
+                        success_count INTEGER NOT NULL DEFAULT 0,
+                        error_count INTEGER NOT NULL DEFAULT 0,
+                        CONSTRAINT uq_api_key_usage_daily UNIQUE (api_key_id, usage_date)
+                    )
+                """))
+                conn.execute(text("""
+                    CREATE INDEX ix_api_key_usage_daily_api_key_id ON api_key_usage_daily(api_key_id)
+                """))
+                conn.execute(text("""
+                    CREATE INDEX ix_api_key_usage_daily_usage_date ON api_key_usage_daily(usage_date)
+                """))
+                conn.commit()
+                print("[MIGRATION] Tabela 'api_key_usage_daily' criada com sucesso!")
+            else:
+                print("[MIGRATION] Tabela 'api_key_usage_daily' ja existe.")
                 
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")
@@ -152,4 +183,5 @@ app.include_router(gtins_router)
 app.include_router(api_keys_router)
 app.include_router(auth_router)
 app.include_router(dashboard_router)
+app.include_router(metrics_router)
 

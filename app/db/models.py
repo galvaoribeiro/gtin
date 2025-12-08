@@ -5,10 +5,10 @@ Define as tabelas para autenticação e controle de acesso.
 """
 
 import secrets
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship, DeclarativeBase
 
 
@@ -104,4 +104,28 @@ class ApiKey(Base):
         if len(self.key) > 16:
             return f"{self.key[:12]}...{self.key[-4:]}"
         return f"{self.key[:4]}...{self.key[-4:]}"
+
+
+class ApiKeyUsageDaily(Base):
+    """
+    Modelo para registrar uso diário por API Key.
+    
+    Armazena contadores de sucesso/erro por dia (fuso America/Sao_Paulo).
+    """
+    __tablename__ = "api_key_usage_daily"
+    __table_args__ = (
+        UniqueConstraint("api_key_id", "usage_date", name="uq_api_key_usage_daily"),
+    )
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id", ondelete="CASCADE"), nullable=False, index=True)
+    usage_date = Column(Date, nullable=False, index=True, comment="Data do uso (America/Sao_Paulo)")
+    success_count = Column(Integer, nullable=False, default=0, comment="Total de chamadas com sucesso (2xx)")
+    error_count = Column(Integer, nullable=False, default=0, comment="Total de chamadas com erro (4xx/5xx)")
+    
+    # Relacionamento com API Key
+    api_key = relationship("ApiKey", backref="usage_records")
+    
+    def __repr__(self) -> str:
+        return f"<ApiKeyUsageDaily(api_key_id={self.api_key_id}, date={self.usage_date}, success={self.success_count}, error={self.error_count})>"
 

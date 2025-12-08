@@ -4,16 +4,24 @@ Dependências compartilhadas da API.
 Inclui autenticação por API key, JWT e outras dependências.
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from fastapi import Depends, HTTPException, Security, status
+from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.db.models import ApiKey, Organization, User
 from app.core.security import decode_access_token
+
+
+@dataclass
+class ApiKeyAuth:
+    """Resultado da autenticação por API key."""
+    organization: Organization
+    api_key: ApiKey
 
 
 # =============================================================================
@@ -62,19 +70,23 @@ def extract_api_key(
     return None
 
 
-def get_current_organization_from_api_key(
+def get_api_key_auth(
+    request: Request,
     api_key: Optional[str] = Depends(extract_api_key),
     db: Session = Depends(get_db),
-) -> Organization:
+) -> ApiKeyAuth:
     """
-    Dependência que valida a API key e retorna a organização associada.
+    Dependência que valida a API key e retorna organização + API key.
+    
+    Também armazena o api_key_id no request.state para uso posterior (logging).
     
     Args:
+        request: Objeto Request do FastAPI
         api_key: API key extraída do header
         db: Sessão do banco de dados
         
     Returns:
-        Organization associada à API key válida
+        ApiKeyAuth com Organization e ApiKey associados
         
     Raises:
         HTTPException 401: Se a API key não for fornecida, inválida ou inativa
@@ -112,7 +124,7 @@ def get_current_organization_from_api_key(
     api_key_record.last_used_at = datetime.utcnow()
     db.commit()
     
-    # Carregar e retornar a organização
+    # Carregar a organização
     organization = (
         db.query(Organization)
         .filter(Organization.id == api_key_record.organization_id)
@@ -127,7 +139,27 @@ def get_current_organization_from_api_key(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    return organization
+    # Armazenar api_key_id no request.state para uso no logging
+    request.state.api_key_id = api_key_record.id
+    
+    return ApiKeyAuth(organization=organization, api_key=api_key_record)
+
+
+def get_current_organization_from_api_key(
+    auth: ApiKeyAuth = Depends(get_api_key_auth),
+) -> Organization:
+    """
+    Dependência que valida a API key e retorna apenas a organização.
+    
+    Mantida para compatibilidade com código existente.
+    
+    Args:
+        auth: Resultado da autenticação por API key
+        
+    Returns:
+        Organization associada à API key válida
+    """
+    return auth.organization
 
 
 # =============================================================================
