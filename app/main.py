@@ -93,16 +93,77 @@ def run_migrations():
                         CONSTRAINT uq_api_key_usage_daily UNIQUE (api_key_id, usage_date)
                     )
                 """))
-                conn.execute(text("""
-                    CREATE INDEX ix_api_key_usage_daily_api_key_id ON api_key_usage_daily(api_key_id)
-                """))
-                conn.execute(text("""
-                    CREATE INDEX ix_api_key_usage_daily_usage_date ON api_key_usage_daily(usage_date)
-                """))
                 conn.commit()
                 print("[MIGRATION] Tabela 'api_key_usage_daily' criada com sucesso!")
             else:
                 print("[MIGRATION] Tabela 'api_key_usage_daily' ja existe.")
+            
+            # Garantir que a coluna usage_date exista (ambientes criados antes desta coluna)
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'api_key_usage_daily' AND column_name = 'usage_date'
+            """))
+            if not result.fetchone():
+                print("[MIGRATION] Adicionando coluna 'usage_date' em api_key_usage_daily...")
+                conn.execute(text("ALTER TABLE api_key_usage_daily ADD COLUMN usage_date DATE"))
+                conn.execute(text("UPDATE api_key_usage_daily SET usage_date = CURRENT_DATE WHERE usage_date IS NULL"))
+                conn.execute(text("ALTER TABLE api_key_usage_daily ALTER COLUMN usage_date SET NOT NULL"))
+                conn.commit()
+                print("[MIGRATION] Coluna 'usage_date' adicionada com sucesso.")
+            
+            # Garantir que as colunas de contagem existam (ambientes legados)
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'api_key_usage_daily' AND column_name = 'success_count'
+            """))
+            if not result.fetchone():
+                print("[MIGRATION] Adicionando coluna 'success_count' em api_key_usage_daily...")
+                conn.execute(text("ALTER TABLE api_key_usage_daily ADD COLUMN success_count INTEGER"))
+                conn.execute(text("UPDATE api_key_usage_daily SET success_count = 0 WHERE success_count IS NULL"))
+                conn.execute(text("ALTER TABLE api_key_usage_daily ALTER COLUMN success_count SET NOT NULL"))
+                conn.execute(text("ALTER TABLE api_key_usage_daily ALTER COLUMN success_count SET DEFAULT 0"))
+                conn.commit()
+                print("[MIGRATION] Coluna 'success_count' adicionada com sucesso.")
+            
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'api_key_usage_daily' AND column_name = 'error_count'
+            """))
+            if not result.fetchone():
+                print("[MIGRATION] Adicionando coluna 'error_count' em api_key_usage_daily...")
+                conn.execute(text("ALTER TABLE api_key_usage_daily ADD COLUMN error_count INTEGER"))
+                conn.execute(text("UPDATE api_key_usage_daily SET error_count = 0 WHERE error_count IS NULL"))
+                conn.execute(text("ALTER TABLE api_key_usage_daily ALTER COLUMN error_count SET NOT NULL"))
+                conn.execute(text("ALTER TABLE api_key_usage_daily ALTER COLUMN error_count SET DEFAULT 0"))
+                conn.commit()
+                print("[MIGRATION] Coluna 'error_count' adicionada com sucesso.")
+            
+            # Garantir índices e unique constraint necessários
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_api_key_usage_daily_api_key_id 
+                ON api_key_usage_daily(api_key_id)
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_api_key_usage_daily_usage_date 
+                ON api_key_usage_daily(usage_date)
+            """))
+            conn.execute(text("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.table_constraints 
+                        WHERE table_name = 'api_key_usage_daily' 
+                          AND constraint_name = 'uq_api_key_usage_daily'
+                    ) THEN
+                        ALTER TABLE api_key_usage_daily 
+                            ADD CONSTRAINT uq_api_key_usage_daily UNIQUE (api_key_id, usage_date);
+                    END IF;
+                END $$;
+            """))
+            conn.commit()
                 
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")
