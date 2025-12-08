@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,13 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 // API helper para chamadas reais
-import { fetchGtin, ApiError, type Product } from "@/lib/api";
-
-// Fallback para mocks (opcional, apenas em desenvolvimento)
-import { findProduct as findMockProduct } from "@/mocks/product";
-
-// Flag para usar mocks como fallback em desenvolvimento
-const USE_MOCK_FALLBACK = process.env.NODE_ENV === "development";
+import { fetchGtinDashboard, ApiError, type Product } from "@/lib/api";
 
 export default function GtinsPage() {
   const [gtin, setGtin] = useState("");
@@ -27,7 +22,7 @@ export default function GtinsPage() {
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [usingMock, setUsingMock] = useState(false);
+  const router = useRouter();
 
   const handleSearch = async () => {
     if (!gtin.trim()) return;
@@ -36,27 +31,19 @@ export default function GtinsPage() {
     setNotFound(false);
     setResult(null);
     setError(null);
-    setUsingMock(false);
 
     try {
-      // Tenta buscar na API real
-      const product = await fetchGtin(gtin.trim());
+      // Busca na API usando JWT
+      const product = await fetchGtinDashboard(gtin.trim());
       setResult(product);
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 404) {
+        if (err.status === 401) {
+          // Sessão expirada - redireciona para login
+          router.push("/login");
+        } else if (err.status === 404) {
           // GTIN não encontrado na API
           setNotFound(true);
-        } else if (err.status === 0 && USE_MOCK_FALLBACK) {
-          // Erro de conexão - usar mock como fallback em dev
-          console.warn("API offline, usando mock como fallback");
-          const mockProduct = findMockProduct(gtin.trim());
-          if (mockProduct) {
-            setResult(mockProduct as Product);
-            setUsingMock(true);
-          } else {
-            setNotFound(true);
-          }
         } else {
           // Outro erro da API
           setError(err.detail || err.message);
@@ -197,33 +184,6 @@ export default function GtinsPage() {
                 GTIN <strong className="font-mono">{gtin}</strong> não encontrado
                 na base de dados.
               </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Aviso de uso de mock */}
-      {usingMock && (
-        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
-              <svg
-                className="h-4 w-4"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
-                />
-              </svg>
-              <span>
-                API offline — exibindo dados de demonstração (mock)
-              </span>
             </div>
           </CardContent>
         </Card>

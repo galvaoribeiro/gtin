@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,6 +35,7 @@ export default function ApiKeysPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const router = useRouter();
 
   // Carregar API keys ao montar o componente
   useEffect(() => {
@@ -48,6 +50,11 @@ export default function ApiKeysPage() {
       setApiKeys(keys);
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.status === 401) {
+          // Sessão expirada - redireciona para login
+          router.push("/login");
+          return;
+        }
         setError(err.detail || err.message);
       } else {
         setError("Erro ao carregar API keys");
@@ -83,6 +90,10 @@ export default function ApiKeysPage() {
       }, 60000);
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.status === 401) {
+          router.push("/login");
+          return;
+        }
         setError(err.detail || err.message);
       } else {
         setError("Erro ao gerar nova chave");
@@ -107,6 +118,10 @@ export default function ApiKeysPage() {
       );
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.status === 401) {
+          router.push("/login");
+          return;
+        }
         setError(err.detail || err.message);
       } else {
         setError("Erro ao revogar chave");

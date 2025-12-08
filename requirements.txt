@@ -12,3 +12,7 @@ psycopg2-binary==2.9.11
 # Configuração
 python-dotenv==1.0.1
 
+# Autenticação JWT
+python-jose[cryptography]==3.3.0
+bcrypt==4.2.1
+

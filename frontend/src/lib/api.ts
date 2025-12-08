@@ -6,23 +6,211 @@
 // URL base da API (definida em .env.local)
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-// API Key para autenticação (definida em .env.local)
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+// =============================================================================
+// Auth Token Management
+// =============================================================================
+
+let authToken: string | null = null;
 
 /**
- * Retorna os headers padrão para requisições autenticadas
+ * Define o token de autenticação JWT
  */
-function getAuthHeaders(): HeadersInit {
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+  if (typeof window !== "undefined") {
+    if (token) {
+      localStorage.setItem("auth_token", token);
+    } else {
+      localStorage.removeItem("auth_token");
+    }
+  }
+}
+
+/**
+ * Obtém o token de autenticação
+ */
+export function getAuthToken(): string | null {
+  if (authToken) return authToken;
+  
+  if (typeof window !== "undefined") {
+    authToken = localStorage.getItem("auth_token");
+  }
+  return authToken;
+}
+
+/**
+ * Limpa o token de autenticação (logout)
+ */
+export function clearAuthToken(): void {
+  authToken = null;
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("auth_token");
+  }
+}
+
+/**
+ * Verifica se o usuário está autenticado
+ */
+export function isAuthenticated(): boolean {
+  return !!getAuthToken();
+}
+
+/**
+ * Retorna os headers de autenticação JWT para o dashboard
+ */
+function getJwtAuthHeaders(): HeadersInit {
+  const token = getAuthToken();
   const headers: HeadersInit = {
     "Accept": "application/json",
   };
   
-  if (API_KEY) {
-    headers["Authorization"] = `Bearer ${API_KEY}`;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
   
   return headers;
 }
+
+// =============================================================================
+// Auth Endpoints
+// =============================================================================
+
+/**
+ * Interface para credenciais de login
+ */
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+/**
+ * Interface para resposta de token
+ */
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+}
+
+/**
+ * Interface para dados do usuário
+ */
+export interface UserData {
+  id: number;
+  email: string;
+  organization_id: number;
+  organization_name: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+/**
+ * Faz login e retorna o token JWT
+ */
+export async function login(credentials: LoginCredentials): Promise<TokenResponse> {
+  const url = `${API_BASE_URL}/v1/auth/login`;
+  
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(credentials),
+    });
+    
+    if (!response.ok) {
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+      
+      throw new ApiError(
+        detail || "Email ou senha incorretos",
+        response.status,
+        detail
+      );
+    }
+    
+    const data: TokenResponse = await response.json();
+    
+    // Salvar token automaticamente
+    setAuthToken(data.access_token);
+    
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+/**
+ * Obtém os dados do usuário autenticado
+ */
+export async function getCurrentUser(): Promise<UserData> {
+  const url = `${API_BASE_URL}/v1/auth/me`;
+  
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getJwtAuthHeaders(),
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+      
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+      
+      throw new ApiError(
+        `Erro ao obter dados do usuário: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+    
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+/**
+ * Faz logout limpando o token
+ */
+export function logout(): void {
+  clearAuthToken();
+}
+
+// =============================================================================
+// Product/GTIN Types and Helpers
+// =============================================================================
 
 /**
  * Interface do produto retornado pela API
@@ -116,25 +304,30 @@ function transformProduct(apiProduct: ApiProduct): Product {
   };
 }
 
+// =============================================================================
+// Dashboard GTIN Endpoint (usa JWT)
+// =============================================================================
+
 /**
- * Consulta um produto pelo GTIN
+ * Consulta um produto pelo GTIN via dashboard (usa JWT)
  * 
  * @param gtin - Código GTIN do produto
  * @returns Produto encontrado
  * @throws ApiError se o produto não for encontrado ou houver erro
  */
-export async function fetchGtin(gtin: string): Promise<Product> {
-  const url = `${API_BASE_URL}/v1/gtins/${encodeURIComponent(gtin)}`;
+export async function fetchGtinDashboard(gtin: string): Promise<Product> {
+  const url = `${API_BASE_URL}/v1/dashboard/gtins/${encodeURIComponent(gtin)}`;
 
   try {
     const response = await fetch(url, {
       method: "GET",
-      headers: getAuthHeaders(),
+      headers: getJwtAuthHeaders(),
     });
 
     if (!response.ok) {
       if (response.status === 401) {
-        throw new ApiError("API key inválida ou não fornecida", 401);
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
       }
       if (response.status === 404) {
         throw new ApiError("GTIN não encontrado", 404);
@@ -173,6 +366,9 @@ export async function fetchGtin(gtin: string): Promise<Product> {
   }
 }
 
+// Alias para compatibilidade - agora usa endpoint de dashboard
+export const fetchGtin = fetchGtinDashboard;
+
 /**
  * Verifica a saúde da API
  * 
@@ -210,72 +406,8 @@ export interface BatchResponse {
   results: BatchResult[];
 }
 
-/**
- * Consulta múltiplos GTINs em lote
- * 
- * @param gtins - Lista de GTINs para consultar
- * @returns Resultado da consulta em lote
- */
-export async function fetchGtinsBatch(gtins: string[]): Promise<BatchResponse> {
-  const url = `${API_BASE_URL}/v1/gtins:batch`;
-
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        ...getAuthHeaders(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ gtins }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new ApiError("API key inválida ou não fornecida", 401);
-      }
-      
-      let detail: string | undefined;
-      try {
-        const errorBody = await response.json();
-        detail = errorBody.detail;
-      } catch {
-        // Ignora erro ao parsear resposta
-      }
-
-      throw new ApiError(
-        `Erro ao consultar API: ${response.status}`,
-        response.status,
-        detail
-      );
-    }
-
-    const data = await response.json();
-    
-    // Transforma os produtos encontrados
-    return {
-      total_requested: data.total_requested,
-      total_found: data.total_found,
-      results: data.results.map((item: { gtin: string; found: boolean; product: ApiProduct | null }) => ({
-        gtin: item.gtin,
-        found: item.found,
-        product: item.product ? transformProduct(item.product) : null,
-      })),
-    };
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-
-    throw new ApiError(
-      "Erro de conexão com o servidor",
-      0,
-      error instanceof Error ? error.message : "Erro desconhecido"
-    );
-  }
-}
-
 // =============================================================================
-// Dashboard API Keys
+// Dashboard API Keys (usa JWT)
 // =============================================================================
 
 /**
@@ -308,12 +440,15 @@ export async function getDashboardApiKeys(): Promise<DashboardApiKey[]> {
   try {
     const response = await fetch(url, {
       method: "GET",
-      headers: {
-        "Accept": "application/json",
-      },
+      headers: getJwtAuthHeaders(),
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+      
       let detail: string | undefined;
       try {
         const errorBody = await response.json();
@@ -356,13 +491,18 @@ export async function createDashboardApiKey(name?: string): Promise<DashboardApi
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Accept": "application/json",
+        ...getJwtAuthHeaders(),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ name: name || "Nova chave" }),
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+      
       let detail: string | undefined;
       try {
         const errorBody = await response.json();
@@ -404,12 +544,15 @@ export async function revokeDashboardApiKey(id: number): Promise<DashboardApiKey
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Accept": "application/json",
-      },
+      headers: getJwtAuthHeaders(),
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+      
       let detail: string | undefined;
       try {
         const errorBody = await response.json();
@@ -438,4 +581,3 @@ export async function revokeDashboardApiKey(id: number): Promise<DashboardApiKey
     );
   }
 }
-

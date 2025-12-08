@@ -2,6 +2,7 @@
 Endpoints de gerenciamento de API Keys para o Dashboard.
 ========================================================
 Implementa GET, POST e revoke de API keys.
+Protegido por autenticação JWT.
 """
 
 from datetime import datetime
@@ -12,7 +13,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.db.models import ApiKey, Organization
+from app.db.models import ApiKey, Organization, User
+from app.api.deps import get_current_user, get_current_organization_from_user
 
 
 router = APIRouter(prefix="/v1/dashboard/api-keys", tags=["Dashboard - API Keys"])
@@ -58,20 +60,6 @@ class CreateApiKeyRequest(BaseModel):
 # Helper Functions
 # =============================================================================
 
-def get_dev_organization(db: Session) -> Organization:
-    """
-    Retorna a organizacao de desenvolvimento.
-    Por enquanto, busca a primeira organizacao ou cria uma se nao existir.
-    """
-    org = db.query(Organization).first()
-    if not org:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Nenhuma organizacao encontrada. Execute o seed primeiro."
-        )
-    return org
-
-
 def api_key_to_response(api_key: ApiKey) -> ApiKeyResponse:
     """Converte um modelo ApiKey para o schema de resposta."""
     return ApiKeyResponse(
@@ -92,17 +80,20 @@ def api_key_to_response(api_key: ApiKey) -> ApiKeyResponse:
     "",
     response_model=list[ApiKeyResponse],
     summary="Listar API Keys",
-    description="Retorna todas as API keys da organizacao de desenvolvimento.",
+    description="Retorna todas as API keys da organização do usuário autenticado.",
 )
-def list_api_keys(db: Session = Depends(get_db)):
+def list_api_keys(
+    org: Organization = Depends(get_current_organization_from_user),
+    db: Session = Depends(get_db),
+):
     """
-    Lista todas as API keys da organizacao.
+    Lista todas as API keys da organização.
+    
+    Requer autenticação JWT.
     
     Returns:
         Lista de API keys com informacoes basicas (key mascarada).
     """
-    org = get_dev_organization(db)
-    
     api_keys = (
         db.query(ApiKey)
         .filter(ApiKey.organization_id == org.id)
@@ -118,14 +109,17 @@ def list_api_keys(db: Session = Depends(get_db)):
     response_model=ApiKeyCreatedResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Criar nova API Key",
-    description="Gera uma nova API key para a organizacao. A key completa so e exibida uma vez!",
+    description="Gera uma nova API key para a organização. A key completa só é exibida uma vez!",
 )
 def create_api_key(
     request: CreateApiKeyRequest = CreateApiKeyRequest(),
+    org: Organization = Depends(get_current_organization_from_user),
     db: Session = Depends(get_db),
 ):
     """
     Cria uma nova API key.
+    
+    Requer autenticação JWT.
     
     IMPORTANTE: A key completa so e retornada nesta resposta!
     Guarde-a em local seguro.
@@ -133,8 +127,6 @@ def create_api_key(
     Returns:
         API key criada com a key completa.
     """
-    org = get_dev_organization(db)
-    
     # Gerar nova key
     new_key_value = ApiKey.generate_key()
     
@@ -167,9 +159,15 @@ def create_api_key(
     summary="Revogar API Key",
     description="Marca uma API key como inativa/revogada.",
 )
-def revoke_api_key(api_key_id: int, db: Session = Depends(get_db)):
+def revoke_api_key(
+    api_key_id: int,
+    org: Organization = Depends(get_current_organization_from_user),
+    db: Session = Depends(get_db),
+):
     """
     Revoga uma API key, tornando-a inativa.
+    
+    Requer autenticação JWT.
     
     Args:
         api_key_id: ID da API key a ser revogada.
@@ -177,8 +175,6 @@ def revoke_api_key(api_key_id: int, db: Session = Depends(get_db)):
     Returns:
         API key atualizada.
     """
-    org = get_dev_organization(db)
-    
     # Buscar API key
     api_key = (
         db.query(ApiKey)

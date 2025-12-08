@@ -14,19 +14,21 @@ from app.db.session import test_db_connection, create_tables, SessionLocal
 from app.db.seed import seed_initial_data
 from app.api.v1.gtins import router as gtins_router
 from app.api.v1.api_keys import router as api_keys_router
+from app.api.v1.auth import router as auth_router
+from app.api.v1.dashboard import router as dashboard_router
 
 
 def run_migrations():
     """
     Executa migrações pendentes.
-    Por enquanto, apenas verifica e adiciona a coluna 'name' na tabela api_keys.
+    Verifica e adiciona colunas/tabelas necessárias.
     """
     from sqlalchemy import text
     from app.db.session import engine
     
     try:
         with engine.connect() as conn:
-            # Verificar se a coluna 'name' existe
+            # Migração 1: Adicionar coluna 'name' na tabela api_keys
             result = conn.execute(text("""
                 SELECT column_name 
                 FROM information_schema.columns 
@@ -43,6 +45,34 @@ def run_migrations():
                 print("[MIGRATION] Coluna 'name' adicionada com sucesso!")
             else:
                 print("[MIGRATION] Coluna 'name' ja existe.")
+            
+            # Migração 2: Criar tabela 'users' se não existir
+            result = conn.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_name = 'users'
+            """))
+            
+            if not result.fetchone():
+                print("[MIGRATION] Criando tabela 'users'...")
+                conn.execute(text("""
+                    CREATE TABLE users (
+                        id SERIAL PRIMARY KEY,
+                        email VARCHAR(255) NOT NULL UNIQUE,
+                        hashed_password VARCHAR(255) NOT NULL,
+                        organization_id INTEGER NOT NULL REFERENCES organizations(id),
+                        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+                conn.execute(text("""
+                    CREATE INDEX ix_users_email ON users(email)
+                """))
+                conn.commit()
+                print("[MIGRATION] Tabela 'users' criada com sucesso!")
+            else:
+                print("[MIGRATION] Tabela 'users' ja existe.")
+                
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")
 
@@ -120,4 +150,6 @@ def health_check_db():
 # Incluir routers da API v1
 app.include_router(gtins_router)
 app.include_router(api_keys_router)
+app.include_router(auth_router)
+app.include_router(dashboard_router)
 

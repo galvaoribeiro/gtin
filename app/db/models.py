@@ -1,6 +1,6 @@
 """
-Modelos SQLAlchemy para Organizations e API Keys.
-=================================================
+Modelos SQLAlchemy para Organizations, Users e API Keys.
+========================================================
 Define as tabelas para autenticação e controle de acesso.
 """
 
@@ -33,9 +33,33 @@ class Organization(Base):
     
     # Relacionamento com API keys
     api_keys = relationship("ApiKey", back_populates="organization", cascade="all, delete-orphan")
+    # Relacionamento com usuários
+    users = relationship("User", back_populates="organization", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<Organization(id={self.id}, name='{self.name}', plan='{self.plan}')>"
+
+
+class User(Base):
+    """
+    Modelo para usuários do painel administrativo.
+    
+    Cada usuário pertence a uma organização e pode fazer login no dashboard.
+    """
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), nullable=False, unique=True, index=True, comment="Email do usuário")
+    hashed_password = Column(String(255), nullable=False, comment="Senha hasheada com bcrypt")
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True, comment="Se o usuário está ativo")
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relacionamento com organização
+    organization = relationship("Organization", back_populates="users")
+    
+    def __repr__(self) -> str:
+        return f"<User(id={self.id}, email='{self.email}', org_id={self.organization_id})>"
 
 
 class ApiKey(Base):

@@ -1,24 +1,37 @@
 """
 Dependências compartilhadas da API.
 ===================================
-Inclui autenticação por API key e outras dependências.
+Inclui autenticação por API key, JWT e outras dependências.
 """
 
 from datetime import datetime
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Security, status
-from fastapi.security import APIKeyHeader
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.db.models import ApiKey, Organization
+from app.db.models import ApiKey, Organization, User
+from app.core.security import decode_access_token
 
+
+# =============================================================================
+# API Key Authentication (para endpoints públicos de API)
+# =============================================================================
 
 # Definir header de API key
 # Aceita tanto "Authorization: Bearer <KEY>" quanto "X-API-Key: <KEY>"
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 authorization_header = APIKeyHeader(name="Authorization", auto_error=False)
+
+
+# =============================================================================
+# JWT Authentication (para dashboard/painel)
+# =============================================================================
+
+# OAuth2 scheme para JWT
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/v1/auth/login", auto_error=False)
 
 
 def extract_api_key(
@@ -115,4 +128,82 @@ def get_current_organization_from_api_key(
         )
     
     return organization
+
+
+# =============================================================================
+# JWT User Authentication (para dashboard)
+# =============================================================================
+
+def get_current_user(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> User:
+    """
+    Dependência que valida o JWT e retorna o usuário autenticado.
+    
+    Args:
+        token: JWT extraído do header Authorization: Bearer <token>
+        db: Sessão do banco de dados
+        
+    Returns:
+        User autenticado com sua Organization carregada
+        
+    Raises:
+        HTTPException 401: Se o token não for fornecido, inválido ou expirado
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Não autenticado",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    if not token:
+        raise credentials_exception
+    
+    # Decodificar e validar token
+    payload = decode_access_token(token)
+    if payload is None:
+        raise credentials_exception
+    
+    # Extrair user_id do token
+    user_id_str: str = payload.get("sub")
+    if user_id_str is None:
+        raise credentials_exception
+    
+    try:
+        user_id = int(user_id_str)
+    except ValueError:
+        raise credentials_exception
+    
+    # Buscar usuário no banco
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if user is None:
+        raise credentials_exception
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuário desativado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    return user
+
+
+def get_current_organization_from_user(
+    current_user: User = Depends(get_current_user),
+) -> Organization:
+    """
+    Dependência que retorna a organização do usuário autenticado.
+    
+    Útil para endpoints de dashboard que precisam da organização.
+    
+    Args:
+        current_user: Usuário autenticado via JWT
+        
+    Returns:
+        Organization do usuário
+    """
+    return current_user.organization
 

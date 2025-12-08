@@ -1,0 +1,26 @@
+iniciar o backend:
+
+Use no PowerShell, na raiz do projeto (C:\Users\ronal\OneDrive\Documentos(C)\sites\GTIN):
+1) Ativar o venv (se quiser):
+.\pyenv\Scripts\activate
+2) Rodar o backend:
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+(se preferir sem ativar: 
+
+.\pyenv\Scripts\python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)
+
+.\pyenv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --mesma coisa
+
+iniciar o frontend
+cd frontend
+npm run dev
+
+curl -H "Authorization: Bearer sk_live_73315c1260e4c1089250da527dfc01b6" \         http://localhost:8000/v1/gtins/7899309639317
+
+7898969955072
+
+
+cd C:\Users\ronal\OneDrive\Documentos(C)\sites\GTIN
+.\pyenv\Scripts\pip.exe install python-jose[cryptography] passlib[bcrypt] email-validator
+

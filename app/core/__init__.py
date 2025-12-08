@@ -1,0 +1,4 @@
+"""
+Core module - Configurações e utilitários centrais.
+"""
+
