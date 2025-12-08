@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -26,22 +28,151 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Importação dos dados mockados
 import {
-  usageHistory,
-  usageByEndpoint,
-  usageSummary,
-} from "@/mocks/usageHistory";
+  getUsageSummary,
+  getUsageDaily,
+  ApiError,
+  type UsageSummaryResponse,
+  type DailySeriesResponse,
+} from "@/lib/api";
 
 export default function UsagePage() {
-  // Pegar últimos 14 dias para o gráfico
-  const chartData = usageHistory.slice(0, 14).reverse().map((item) => ({
-    dia: new Date(item.date).toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-    }),
-    consultas: item.consultas,
-  }));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<UsageSummaryResponse | null>(null);
+  const [dailySeries, setDailySeries] = useState<DailySeriesResponse | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Carregar resumo (30 dias) e série diária em paralelo
+      const [summaryData, dailyData] = await Promise.all([
+        getUsageSummary(30),
+        getUsageDaily(), // Últimos 30 dias por default
+      ]);
+
+      setSummary(summaryData);
+      setDailySeries(dailyData);
+    } catch (err) {
+      console.error("Erro ao carregar dados de uso:", err);
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          router.push("/login");
+          return;
+        }
+        setError(err.detail || err.message);
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Erro ao carregar dados de uso");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calcular estatísticas do mês
+  const getMonthStats = () => {
+    if (!dailySeries || dailySeries.series.length === 0) {
+      return {
+        total: 0,
+        average: 0,
+        peak: 0,
+        peakDate: null as string | null,
+      };
+    }
+
+    const series = dailySeries.series;
+    let total = 0;
+    let peak = 0;
+    let peakDate: string | null = null;
+
+    for (const day of series) {
+      total += day.total_count;
+      if (day.total_count > peak) {
+        peak = day.total_count;
+        peakDate = day.date;
+      }
+    }
+
+    const average = series.length > 0 ? Math.round(total / series.length) : 0;
+
+    return { total, average, peak, peakDate };
+  };
+
+  // Formatar série para o gráfico (últimos 14 dias)
+  const getChartData = () => {
+    if (!dailySeries) return [];
+    
+    // Pegar os últimos 14 dias
+    const last14 = dailySeries.series.slice(-14);
+    
+    return last14.map((item) => ({
+      dia: new Date(item.date + "T12:00:00").toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      }),
+      consultas: item.total_count,
+      sucesso: item.success_count,
+      erro: item.error_count,
+    }));
+  };
+
+  const monthStats = getMonthStats();
+  const chartData = getChartData();
+
+  // Limite diário (TODO: integrar com plano da organização)
+  const dailyLimit = 1000;
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
+            Uso da API
+          </h1>
+          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+            Acompanhe o consumo detalhado da sua conta
+          </p>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-zinc-500">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
+            Uso da API
+          </h1>
+          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+            Acompanhe o consumo detalhado da sua conta
+          </p>
+        </div>
+        <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-red-800 dark:text-red-200">
+              Erro ao carregar dados
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-red-700 dark:text-red-300">{error}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -58,9 +189,9 @@ export default function UsagePage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Este Mês</CardDescription>
+            <CardDescription>Últimos 30 Dias</CardDescription>
             <CardTitle className="text-2xl">
-              {usageSummary.thisMonth.total.toLocaleString()}
+              {monthStats.total.toLocaleString()}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -74,7 +205,7 @@ export default function UsagePage() {
           <CardHeader className="pb-2">
             <CardDescription>Média Diária</CardDescription>
             <CardTitle className="text-2xl">
-              {usageSummary.thisMonth.average}
+              {monthStats.average.toLocaleString()}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -86,30 +217,36 @@ export default function UsagePage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Pico do Mês</CardDescription>
+            <CardDescription>Pico do Período</CardDescription>
             <CardTitle className="text-2xl">
-              {usageSummary.thisMonth.peak}
+              {monthStats.peak.toLocaleString()}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              em {new Date(usageSummary.thisMonth.peakDate).toLocaleDateString("pt-BR")}
+              {monthStats.peakDate
+                ? `em ${new Date(monthStats.peakDate + "T12:00:00").toLocaleDateString("pt-BR")}`
+                : "—"}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>vs. Mês Anterior</CardDescription>
+            <CardDescription>Taxa de Sucesso</CardDescription>
             <CardTitle className="text-2xl">
               <Badge variant="default" className="text-lg">
-                {usageSummary.growth}
+                {summary && summary.total_calls > 0
+                  ? `${Math.round((summary.total_success / summary.total_calls) * 100)}%`
+                  : "—"}
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              crescimento
+              {summary
+                ? `${summary.total_success.toLocaleString()} sucesso / ${summary.total_error.toLocaleString()} erro`
+                : "—"}
             </p>
           </CardContent>
         </Card>
@@ -124,64 +261,95 @@ export default function UsagePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-700" />
-                <XAxis
-                  dataKey="dia"
-                  className="text-xs"
-                  tick={{ fill: "currentColor" }}
-                />
-                <YAxis
-                  className="text-xs"
-                  tick={{ fill: "currentColor" }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--background)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Bar
-                  dataKey="consultas"
-                  fill="#18181b"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {chartData.length === 0 ? (
+            <div className="flex h-[300px] items-center justify-center">
+              <p className="text-zinc-500">Nenhum dado de uso encontrado</p>
+            </div>
+          ) : (
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-700" />
+                  <XAxis
+                    dataKey="dia"
+                    className="text-xs"
+                    tick={{ fill: "currentColor" }}
+                  />
+                  <YAxis
+                    className="text-xs"
+                    tick={{ fill: "currentColor" }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "var(--background)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                    }}
+                    formatter={(value: number, name: string) => {
+                      const labels: Record<string, string> = {
+                        consultas: "Total",
+                        sucesso: "Sucesso",
+                        erro: "Erro",
+                      };
+                      return [value.toLocaleString(), labels[name] || name];
+                    }}
+                  />
+                  <Bar
+                    dataKey="consultas"
+                    fill="#18181b"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Uso por Endpoint */}
+      {/* Uso por API Key */}
       <Card>
         <CardHeader>
-          <CardTitle>Uso por Endpoint</CardTitle>
+          <CardTitle>Uso por API Key</CardTitle>
           <CardDescription>
-            Distribuição das chamadas por tipo de requisição
+            Distribuição das chamadas por chave de API (últimos 30 dias)
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {usageByEndpoint.map((endpoint) => (
-              <div key={endpoint.endpoint} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <code className="text-sm font-medium">{endpoint.endpoint}</code>
-                  <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                    {endpoint.count.toLocaleString()} ({endpoint.percentage}%)
-                  </span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-zinc-200 dark:bg-zinc-700">
-                  <div
-                    className="h-2 rounded-full bg-zinc-900 dark:bg-white"
-                    style={{ width: `${endpoint.percentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+          {!summary || summary.by_api_key.length === 0 ? (
+            <p className="py-4 text-center text-zinc-500">
+              Nenhuma API key com uso registrado
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {summary.by_api_key.map((apiKey) => {
+                const percentage = summary.total_calls > 0
+                  ? Math.round((apiKey.total_calls / summary.total_calls) * 100)
+                  : 0;
+                return (
+                  <div key={apiKey.api_key_id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {apiKey.api_key_name || `API Key #${apiKey.api_key_id}`}
+                      </span>
+                      <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                        {apiKey.total_calls.toLocaleString()} ({percentage}%)
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-zinc-200 dark:bg-zinc-700">
+                      <div
+                        className="h-2 rounded-full bg-zinc-900 dark:bg-white"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-zinc-500">
+                      <span>Sucesso: {apiKey.total_success.toLocaleString()}</span>
+                      <span>Erro: {apiKey.total_error.toLocaleString()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -190,47 +358,62 @@ export default function UsagePage() {
         <CardHeader>
           <CardTitle>Histórico Detalhado</CardTitle>
           <CardDescription>
-            Consumo diário dos últimos dias
+            Consumo diário dos últimos 30 dias
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Consultas</TableHead>
-                <TableHead>Limite</TableHead>
-                <TableHead>Uso</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {usageHistory.map((day) => {
-                const percentage = Math.round((day.consultas / day.limite) * 100);
-                return (
-                  <TableRow key={day.date}>
-                    <TableCell>
-                      {new Date(day.date).toLocaleDateString("pt-BR")}
-                    </TableCell>
-                    <TableCell>{day.consultas.toLocaleString()}</TableCell>
-                    <TableCell>{day.limite.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-24 rounded-full bg-zinc-200 dark:bg-zinc-700">
-                          <div
-                            className="h-2 rounded-full bg-zinc-900 dark:bg-white"
-                            style={{ width: `${Math.min(percentage, 100)}%` }}
-                          />
+          {!dailySeries || dailySeries.series.length === 0 ? (
+            <p className="py-4 text-center text-zinc-500">
+              Nenhum dado de uso encontrado
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Consultas</TableHead>
+                  <TableHead>Sucesso</TableHead>
+                  <TableHead>Erro</TableHead>
+                  <TableHead>Limite</TableHead>
+                  <TableHead>Uso</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {/* Mostrar em ordem decrescente (mais recente primeiro) */}
+                {[...dailySeries.series].reverse().map((day) => {
+                  const percentage = Math.round((day.total_count / dailyLimit) * 100);
+                  return (
+                    <TableRow key={day.date}>
+                      <TableCell>
+                        {new Date(day.date + "T12:00:00").toLocaleDateString("pt-BR")}
+                      </TableCell>
+                      <TableCell>{day.total_count.toLocaleString()}</TableCell>
+                      <TableCell className="text-green-600 dark:text-green-400">
+                        {day.success_count.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-red-600 dark:text-red-400">
+                        {day.error_count.toLocaleString()}
+                      </TableCell>
+                      <TableCell>{dailyLimit.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-24 rounded-full bg-zinc-200 dark:bg-zinc-700">
+                            <div
+                              className="h-2 rounded-full bg-zinc-900 dark:bg-white"
+                              style={{ width: `${Math.min(percentage, 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                            {percentage}%
+                          </span>
                         </div>
-                        <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                          {percentage}%
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

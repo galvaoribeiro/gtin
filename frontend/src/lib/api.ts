@@ -581,3 +581,242 @@ export async function revokeDashboardApiKey(id: number): Promise<DashboardApiKey
     );
   }
 }
+
+// =============================================================================
+// Métricas de Uso (usa JWT)
+// =============================================================================
+
+/**
+ * Interface para uso diário
+ */
+export interface DailyUsage {
+  date: string;
+  success_count: number;
+  error_count: number;
+  total_count: number;
+}
+
+/**
+ * Interface para resumo de uso por API key
+ */
+export interface ApiKeyUsageSummary {
+  api_key_id: number;
+  api_key_name: string | null;
+  total_success: number;
+  total_error: number;
+  total_calls: number;
+}
+
+/**
+ * Interface para resposta de resumo de uso
+ */
+export interface UsageSummaryResponse {
+  period_days: number;
+  start_date: string;
+  end_date: string;
+  total_success: number;
+  total_error: number;
+  total_calls: number;
+  by_api_key: ApiKeyUsageSummary[];
+}
+
+/**
+ * Interface para resposta de série diária
+ */
+export interface DailySeriesResponse {
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  series: DailyUsage[];
+}
+
+/**
+ * Interface para série diária de uma API key
+ */
+export interface ApiKeyDailySeriesResponse {
+  api_key_id: number;
+  api_key_name: string | null;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  total_success: number;
+  total_error: number;
+  series: DailyUsage[];
+}
+
+/**
+ * Obtém resumo de uso agregado
+ * 
+ * @param days - Número de dias para o período (padrão: 7)
+ * @returns Resumo de uso agregado
+ */
+export async function getUsageSummary(days: number = 7): Promise<UsageSummaryResponse> {
+  const url = `${API_BASE_URL}/v1/metrics/summary?days=${days}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getJwtAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+      
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        `Erro ao buscar resumo de uso: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+/**
+ * Obtém série diária de uso agregado
+ * 
+ * @param startDate - Data inicial (opcional)
+ * @param endDate - Data final (opcional)
+ * @returns Série diária de uso
+ */
+export async function getUsageDaily(startDate?: string, endDate?: string): Promise<DailySeriesResponse> {
+  let url = `${API_BASE_URL}/v1/metrics/daily`;
+  const params = new URLSearchParams();
+  
+  if (startDate) params.append("start_date", startDate);
+  if (endDate) params.append("end_date", endDate);
+  
+  if (params.toString()) {
+    url += `?${params.toString()}`;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getJwtAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+      
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        `Erro ao buscar série diária: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+/**
+ * Obtém série diária de uso de uma API key específica
+ * 
+ * @param apiKeyId - ID da API key
+ * @param startDate - Data inicial (opcional)
+ * @param endDate - Data final (opcional)
+ * @returns Série diária de uso da API key
+ */
+export async function getUsageByApiKey(
+  apiKeyId: number,
+  startDate?: string,
+  endDate?: string
+): Promise<ApiKeyDailySeriesResponse> {
+  let url = `${API_BASE_URL}/v1/metrics/api-keys/${apiKeyId}`;
+  const params = new URLSearchParams();
+  
+  if (startDate) params.append("start_date", startDate);
+  if (endDate) params.append("end_date", endDate);
+  
+  if (params.toString()) {
+    url += `?${params.toString()}`;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getJwtAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+      
+      if (response.status === 404) {
+        throw new ApiError("API key não encontrada", 404);
+      }
+      
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        `Erro ao buscar uso da API key: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
