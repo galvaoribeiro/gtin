@@ -113,9 +113,15 @@ def get_product_by_gtin_dashboard(
     # Obter API key da organização para registro de uso
     api_key = get_user_api_key(db, current_user.organization_id)
     
+    # Bloquear uso se não houver API key ativa para garantir contagem
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Nenhuma API key ativa para esta organização. Crie ou reative uma API key para fazer a consulta.",
+        )
+    
     if not normalized_gtin:
-        if api_key:
-            record_api_usage(db, api_key.id, 400)
+        record_api_usage(db, api_key.id, 400)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="GTIN inválido: deve conter apenas números"
@@ -124,8 +130,7 @@ def get_product_by_gtin_dashboard(
     product = fetch_product_by_gtin(db, normalized_gtin)
     
     if product is None:
-        if api_key:
-            record_api_usage(db, api_key.id, 404)
+        record_api_usage(db, api_key.id, 404)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Produto com GTIN '{normalized_gtin}' não encontrado"
