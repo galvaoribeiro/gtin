@@ -36,6 +36,8 @@ class UserResponse(UserBase):
     id: int = Field(..., description="ID do usuário")
     organization_id: int = Field(..., description="ID da organização")
     organization_name: Optional[str] = Field(None, description="Nome da organização")
+    plan: Optional[str] = Field(None, description="Plano atual: basic, starter, pro, enterprise")
+    daily_limit: Optional[int] = Field(None, description="Limite de consultas por dia")
     is_active: bool = Field(..., description="Se o usuário está ativo")
     created_at: datetime = Field(..., description="Data de criação")
     

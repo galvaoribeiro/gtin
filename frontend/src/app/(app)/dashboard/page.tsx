@@ -105,12 +105,14 @@ export default function DashboardPage() {
 
   // Derivar uso de hoje do último dia da série
   const getUsageToday = () => {
+    // Usar limite real do plano do usuário
+    const limite = user?.daily_limit || 15;
+    
     if (!dailySeries || dailySeries.series.length === 0) {
-      return { consultas: 0, limite: 1000, percentual: 0 };
+      return { consultas: 0, limite, percentual: 0 };
     }
     // Pegar o último dia (mais recente)
     const today = dailySeries.series[dailySeries.series.length - 1];
-    const limite = 1000; // TODO: pegar do plano da organização
     const consultas = today.total_count;
     return {
       consultas,
@@ -142,11 +144,26 @@ export default function DashboardPage() {
   const usageToday = getUsageToday();
   const chartData = getChartData();
 
-  // Placeholder para plano atual (TODO: integrar com backend quando disponível)
-  const currentPlan = {
-    name: "Pro",
-    dailyLimit: 1000,
-    rateLimit: "30 req/min",
+  // Formatar nome do plano para exibição
+  const getPlanDisplayName = (plan: string | null | undefined): string => {
+    const planNames: Record<string, string> = {
+      basic: "Basic",
+      starter: "Starter",
+      pro: "Pro",
+      enterprise: "Enterprise",
+    };
+    return planNames[plan || "basic"] || plan || "Basic";
+  };
+
+  // Obter rate limit baseado no plano
+  const getRateLimit = (plan: string | null | undefined): string => {
+    const rateLimits: Record<string, string> = {
+      basic: "5 req/min",
+      starter: "10 req/min",
+      pro: "30 req/min",
+      enterprise: "100 req/min",
+    };
+    return rateLimits[plan || "basic"] || "5 req/min";
   };
 
   if (loading) {
@@ -210,12 +227,12 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Plano Atual</CardDescription>
-            <CardTitle className="text-2xl">{currentPlan.name}</CardTitle>
+            <CardTitle className="text-2xl">{getPlanDisplayName(user?.plan)}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-sm text-zinc-600 dark:text-zinc-400">
-              <p>Limite: {currentPlan.dailyLimit.toLocaleString()} consultas/dia</p>
-              <p>Rate: {currentPlan.rateLimit}</p>
+              <p>Limite: {(user?.daily_limit || 15).toLocaleString()} consultas/dia</p>
+              <p>Rate: {getRateLimit(user?.plan)}</p>
             </div>
           </CardContent>
         </Card>

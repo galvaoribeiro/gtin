@@ -108,6 +108,8 @@ export interface UserData {
   email: string;
   organization_id: number;
   organization_name: string | null;
+  plan: string | null;
+  daily_limit: number | null;
   is_active: boolean;
   created_at: string;
 }

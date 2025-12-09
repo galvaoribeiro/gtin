@@ -115,11 +115,11 @@ def register(
             detail="Este email já está cadastrado",
         )
     
-    # Criar organização com plano starter
+    # Criar organização com plano basic (gratuito)
     organization = Organization(
         name=data.organization_name,
-        plan="starter",
-        daily_limit=100,
+        plan="basic",
+        daily_limit=15,
     )
     db.add(organization)
     db.flush()  # Para obter o ID da organização
@@ -161,11 +161,14 @@ def get_me(current_user: User = Depends(get_current_user)):
     
     Requer autenticação via JWT (Bearer token).
     """
+    organization = current_user.organization
     return UserResponse(
         id=current_user.id,
         email=current_user.email,
         organization_id=current_user.organization_id,
-        organization_name=current_user.organization.name if current_user.organization else None,
+        organization_name=organization.name if organization else None,
+        plan=organization.plan if organization else None,
+        daily_limit=organization.daily_limit if organization else None,
         is_active=current_user.is_active,
         created_at=current_user.created_at,
     )

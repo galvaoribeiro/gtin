@@ -17,8 +17,8 @@ from pydantic import BaseModel, Field
 class OrganizationBase(BaseModel):
     """Schema base para Organization."""
     name: str = Field(..., description="Nome da organização/cliente")
-    plan: str = Field(default="starter", description="Plano: starter, pro, enterprise")
-    daily_limit: int = Field(default=100, description="Limite de consultas por dia")
+    plan: str = Field(default="basic", description="Plano: basic, starter, pro, enterprise")
+    daily_limit: int = Field(default=15, description="Limite de consultas por dia")
 
 
 class OrganizationCreate(OrganizationBase):
