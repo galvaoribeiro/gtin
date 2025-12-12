@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.models import Organization
 from app.api.deps import get_api_key_auth, ApiKeyAuth
-from app.core.usage import record_api_usage
+from app.core.usage import record_api_usage, record_api_usage_batch
 from app.schemas.product import (
     ProductResponse,
     BatchRequest,
@@ -219,11 +219,21 @@ def get_products_batch(
                     product=None
                 ))
     
-    # Registrar sucesso (batch sempre retorna 200)
-    record_api_usage(db, auth.api_key.id, 200)
+    total_requested = len(batch_request.gtins)
+    
+    # Registrar uso proporcional ao total solicitado:
+    # - GTINs encontrados contam como sucesso
+    # - GTINs não encontrados contam como erro
+    if total_requested > 0:
+        record_api_usage_batch(
+            db,
+            auth.api_key.id,
+            success_count=total_found,
+            error_count=total_requested - total_found,
+        )
     
     return BatchResponse(
-        total_requested=len(batch_request.gtins),
+        total_requested=total_requested,
         total_found=total_found,
         results=results
     )

@@ -62,3 +62,34 @@ def record_api_usage(
     
     db.execute(query, {"api_key_id": api_key_id, "usage_date": today})
     db.commit()
+
+
+def record_api_usage_batch(
+    db: Session,
+    api_key_id: int,
+    success_count: int,
+    error_count: int,
+) -> None:
+    """
+    Registra múltiplas chamadas de API na tabela de uso diário.
+    
+    Útil para endpoints em lote (batch) onde várias consultas são feitas em uma única request.
+    """
+    today = get_today_sao_paulo()
+    
+    query = text("""
+        INSERT INTO api_key_usage_daily (api_key_id, usage_date, success_count, error_count)
+        VALUES (:api_key_id, :usage_date, :success_count, :error_count)
+        ON CONFLICT (api_key_id, usage_date)
+        DO UPDATE SET 
+            success_count = api_key_usage_daily.success_count + :success_count,
+            error_count = api_key_usage_daily.error_count + :error_count
+    """)
+    
+    db.execute(query, {
+        "api_key_id": api_key_id,
+        "usage_date": today,
+        "success_count": success_count,
+        "error_count": error_count,
+    })
+    db.commit()
