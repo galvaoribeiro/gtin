@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.models import Organization
 from app.api.deps import get_api_key_auth, ApiKeyAuth
-from app.core.usage import record_api_usage, record_api_usage_batch
+from app.core.usage import record_api_usage, record_api_usage_batch, get_organization_daily_usage
 from app.schemas.product import (
     ProductResponse,
     BatchRequest,
@@ -101,6 +101,15 @@ def get_product_by_gtin(
     """
     # Normalizar GTIN (remover caracteres não numéricos)
     normalized_gtin = normalize_gtin(gtin)
+    
+    # Enforce limite diário por organização (cada GTIN conta 1)
+    org = auth.organization
+    used_today = get_organization_daily_usage(db, org.id)
+    if used_today + 1 > org.daily_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
+        )
     
     if not normalized_gtin:
         # Registrar erro e lançar exceção
@@ -220,6 +229,15 @@ def get_products_batch(
                 ))
     
     total_requested = len(batch_request.gtins)
+    
+    # Enforce limite diário por organização (cada GTIN conta 1)
+    org = auth.organization
+    used_today = get_organization_daily_usage(db, org.id)
+    if used_today + total_requested > org.daily_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
+        )
     
     # Registrar uso proporcional ao total solicitado:
     # - GTINs encontrados contam como sucesso

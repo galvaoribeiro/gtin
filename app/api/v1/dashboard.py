@@ -12,7 +12,7 @@ from app.db.session import get_db
 from app.db.models import User, ApiKey
 from app.api.deps import get_current_user
 from app.schemas.product import ProductResponse
-from app.core.usage import record_api_usage
+from app.core.usage import record_api_usage, get_organization_daily_usage
 
 
 router = APIRouter(prefix="/v1/dashboard", tags=["Dashboard"])
@@ -118,6 +118,15 @@ def get_product_by_gtin_dashboard(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Nenhuma API key ativa para esta organização. Crie ou reative uma API key para fazer a consulta.",
+        )
+    
+    # Enforce limite diário por organização (cada GTIN conta 1)
+    org = current_user.organization
+    used_today = get_organization_daily_usage(db, org.id)
+    if used_today + 1 > org.daily_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
         )
     
     if not normalized_gtin:

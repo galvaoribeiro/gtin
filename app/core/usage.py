@@ -10,6 +10,8 @@ import pytz
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from fastapi import HTTPException, status
+
 
 # Fuso horário de São Paulo
 SAO_PAULO_TZ = pytz.timezone("America/Sao_Paulo")
@@ -93,3 +95,19 @@ def record_api_usage_batch(
         "error_count": error_count,
     })
     db.commit()
+
+
+def get_organization_daily_usage(db: Session, organization_id: int) -> int:
+    """
+    Retorna o total de chamadas (sucesso + erro) da organização no dia atual.
+    """
+    today = get_today_sao_paulo()
+    query = text("""
+        SELECT COALESCE(SUM(u.success_count + u.error_count), 0) AS total
+        FROM api_key_usage_daily u
+        JOIN api_keys ak ON ak.id = u.api_key_id
+        WHERE ak.organization_id = :org_id
+          AND u.usage_date = :usage_date
+    """)
+    total = db.execute(query, {"org_id": organization_id, "usage_date": today}).scalar()
+    return int(total or 0)
