@@ -13,10 +13,15 @@ export default function HomePage() {
           Consulte NCM, CEST, descrição, marca e muito mais através de uma API 
           de alto desempenho ou pelo painel web.
         </p>
-        <div className="mt-10">
+        <div className="mt-10 flex gap-4">
           <Button asChild size="lg">
             <Link href="/pricing">
               Começar agora
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <Link href="/docs">
+              Documentação
             </Link>
           </Button>
         </div>
