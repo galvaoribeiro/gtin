@@ -431,6 +431,75 @@ export async function fetchGtinDashboard(gtin: string): Promise<Product> {
 // Alias para compatibilidade - agora usa endpoint de dashboard
 export const fetchGtin = fetchGtinDashboard;
 
+// =============================================================================
+// Public GTIN Endpoint (sem autenticação)
+// =============================================================================
+
+/**
+ * Consulta pública de produto por GTIN (sem autenticação).
+ * 
+ * Endpoint público para consultas gratuitas na landing page.
+ * Rate limit: 30 requisições por minuto por IP.
+ * 
+ * @param gtin - Código GTIN do produto
+ * @returns Produto encontrado
+ * @throws ApiError se o produto não for encontrado ou houver erro
+ */
+export async function fetchGtinPublic(gtin: string): Promise<Product> {
+  const url = `${API_BASE_URL}/v1/public/gtins/${encodeURIComponent(gtin)}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new ApiError("GTIN não encontrado", 404);
+      }
+      if (response.status === 400) {
+        throw new ApiError("GTIN inválido", 400);
+      }
+      if (response.status === 429) {
+        throw new ApiError("Limite de requisições excedido. Tente novamente em alguns instantes.", 429);
+      }
+      
+      // Tenta extrair detalhes do erro
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        detail || `Erro ao consultar API: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    const apiProduct: ApiProduct = await response.json();
+    return transformProduct(apiProduct);
+  } catch (error) {
+    // Re-lança ApiError como está
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    // Erro de rede ou outro erro
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
 /**
  * Verifica a saúde da API
  * 

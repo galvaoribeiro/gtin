@@ -15,18 +15,64 @@ import {
   Code2, 
   Terminal,
   Menu,
-  X
+  X,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 
 // Importando os componentes que criamos no Passo 2
 import { Typewriter } from "@/components/landing-page/components/ui/typewriter";
 import { FadeIn } from "@/components/landing-page/components/ui/fade-in";
 
+// Importar funções de API
+import { fetchGtinPublic, type Product, ApiError } from "@/lib/api";
+
 // Caminho da imagem (Certifique-se de que o arquivo existe em public/landing/)
 const heroImageSrc = "/landing/hero-3d.png"; 
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  // Estados para busca de GTIN
+  const [gtinInput, setGtinInput] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchResult, setSearchResult] = useState<Product | null>(null);
+  
+  // Função para buscar GTIN
+  const handleSearch = async (gtin?: string) => {
+    const gtinToSearch = gtin || gtinInput;
+    
+    if (!gtinToSearch.trim()) {
+      setSearchError("Digite um GTIN para consultar");
+      return;
+    }
+    
+    setIsSearching(true);
+    setSearchError(null);
+    setSearchResult(null);
+    
+    try {
+      const product = await fetchGtinPublic(gtinToSearch.trim());
+      setSearchResult(product);
+      setSearchError(null);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setSearchError(error.detail || error.message);
+      } else {
+        setSearchError("Erro ao consultar GTIN. Tente novamente.");
+      }
+      setSearchResult(null);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+  
+  // Função para exemplo clicável
+  const handleExampleClick = (gtin: string) => {
+    setGtinInput(gtin);
+    handleSearch(gtin);
+  };
 
   return (
     <div className="min-h-screen bg-background font-sans text-foreground selection:bg-accent selection:text-primary">
@@ -102,19 +148,107 @@ export default function LandingPage() {
                         type="text" 
                         placeholder="Digite um GTIN (ex: 7894900011517)" 
                         className="w-full h-14 pl-12 pr-4 rounded-full border border-primary/20 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-base"
+                        value={gtinInput}
+                        onChange={(e) => setGtinInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleSearch();
+                          }
+                        }}
+                        disabled={isSearching}
                     />
-                    <Button className="absolute right-2 top-2 bottom-2 rounded-full px-6 bg-primary hover:bg-primary/90 text-white font-medium">
-                        Consultar
+                    <Button 
+                        className="absolute right-2 top-2 bottom-2 rounded-full px-6 bg-primary hover:bg-primary/90 text-white font-medium disabled:opacity-50"
+                        onClick={() => handleSearch()}
+                        disabled={isSearching}
+                    >
+                        {isSearching ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Buscando...
+                          </>
+                        ) : (
+                          "Consultar"
+                        )}
                     </Button>
                     </div>
+                    
+                    {/* Exemplos clicáveis */}
                     <div className="mt-3 flex flex-wrap gap-2 px-2">
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Exemplos:</span>
                     {["7894900011517", "7891000100103", "7896004001358"].map(gtin => (
-                        <button key={gtin} className="text-xs bg-primary/5 hover:bg-primary/10 text-primary px-2 py-0.5 rounded-full transition-colors border border-primary/10 font-mono">
+                        <button 
+                          key={gtin} 
+                          className="text-xs bg-primary/5 hover:bg-primary/10 text-primary px-2 py-0.5 rounded-full transition-colors border border-primary/10 font-mono disabled:opacity-50"
+                          onClick={() => handleExampleClick(gtin)}
+                          disabled={isSearching}
+                        >
                         {gtin}
                         </button>
                     ))}
                     </div>
+                    
+                    {/* Mensagem de erro */}
+                    {searchError && (
+                      <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-red-800">Erro na consulta</p>
+                          <p className="text-sm text-red-600 mt-1">{searchError}</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Resultado da busca */}
+                    {searchResult && (
+                      <div className="mt-4 p-6 bg-white border border-primary/20 rounded-xl shadow-sm space-y-4">
+                        <div className="flex items-center gap-2 pb-3 border-b border-border/50">
+                          <CheckCircle2 className="w-5 h-5 text-green-500" />
+                          <h3 className="font-semibold text-primary">Produto Encontrado</h3>
+                        </div>
+                        
+                        <div className="space-y-3 text-sm">
+                          <div>
+                            <span className="font-medium text-muted-foreground">GTIN:</span>
+                            <span className="ml-2 font-mono text-primary">{searchResult.gtin}</span>
+                          </div>
+                          
+                          {searchResult.product_name && (
+                            <div>
+                              <span className="font-medium text-muted-foreground">Produto:</span>
+                              <span className="ml-2 text-foreground">{searchResult.product_name}</span>
+                            </div>
+                          )}
+                          
+                          {searchResult.brand && (
+                            <div>
+                              <span className="font-medium text-muted-foreground">Marca:</span>
+                              <span className="ml-2 text-foreground">{searchResult.brand}</span>
+                            </div>
+                          )}
+                          
+                          {searchResult.ncm && (
+                            <div>
+                              <span className="font-medium text-muted-foreground">NCM:</span>
+                              <span className="ml-2 font-mono text-primary">{searchResult.ncm_formatted || searchResult.ncm}</span>
+                            </div>
+                          )}
+                          
+                          {searchResult.cest && searchResult.cest.length > 0 && (
+                            <div>
+                              <span className="font-medium text-muted-foreground">CEST:</span>
+                              <span className="ml-2 font-mono text-primary">{searchResult.cest.join(", ")}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="pt-3 border-t border-border/50">
+                          <p className="text-xs text-muted-foreground">
+                            💡 Crie uma conta para consultas ilimitadas e acesso via API
+                          </p>
+                        </div>
+                      </div>
+                    )}
                 </div>
                 </div>
             </FadeIn>

@@ -17,6 +17,7 @@ from app.api.v1.api_keys import router as api_keys_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.metrics import router as metrics_router
+from app.api.v1.public import router as public_router
 
 
 def run_migrations():
@@ -258,6 +259,7 @@ def health_check_db():
 
 
 # Incluir routers da API v1
+app.include_router(public_router)  # Público (sem auth)
 app.include_router(gtins_router)
 app.include_router(api_keys_router)
 app.include_router(auth_router)
