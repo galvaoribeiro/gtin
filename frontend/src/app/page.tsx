@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";   // Adaptado para Next.js
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,8 @@ import {
   Menu,
   X,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle
 } from "lucide-react";
 
 // Importando os componentes que criamos no Passo 2
@@ -30,12 +31,23 @@ import { fetchGtinPublic, type Product, ApiError } from "@/lib/api";
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isResultOpen, setIsResultOpen] = useState(false);
+  const [isRateLimitError, setIsRateLimitError] = useState(false);
   
   // Estados para busca de GTIN
   const [gtinInput, setGtinInput] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchResult, setSearchResult] = useState<Product | null>(null);
+
+  // Limpa mensagem de erro automaticamente após alguns segundos
+  useEffect(() => {
+    if (!searchError) return;
+    const timer = setTimeout(() => {
+      setSearchError(null);
+      setIsRateLimitError(false);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [searchError]);
   
   // Função para buscar GTIN
   const handleSearch = async (gtin?: string) => {
@@ -50,6 +62,7 @@ export default function LandingPage() {
     setSearchError(null);
     setSearchResult(null);
     setIsResultOpen(false);
+    setIsRateLimitError(false);
     
     try {
       const product = await fetchGtinPublic(gtinToSearch.trim());
@@ -58,9 +71,15 @@ export default function LandingPage() {
       setIsResultOpen(true);
     } catch (error) {
       if (error instanceof ApiError) {
-        setSearchError(error.detail || error.message);
+        const friendly =
+          error.status === 429
+            ? "Muitas requisições. Aguarde alguns minutos e tente novamente."
+            : error.detail || error.message;
+        setSearchError(friendly);
+        setIsRateLimitError(error.status === 429);
       } else {
         setSearchError("Erro ao consultar GTIN. Tente novamente.");
+        setIsRateLimitError(false);
       }
       setSearchResult(null);
       setIsResultOpen(false);
@@ -121,6 +140,31 @@ export default function LandingPage() {
           </div>
         )}
       </nav>
+
+      {/* Alerta flutuante de erro */}
+      {searchError && (
+        <div
+          className={`fixed right-4 top-24 z-50 max-w-sm rounded-xl border shadow-lg px-4 py-3 ${
+            isRateLimitError
+              ? "border-blue-200 bg-blue-50 text-blue-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            {isRateLimitError ? (
+              <AlertTriangle className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+            )}
+            <div className="flex-1 space-y-1">
+              <p className="font-semibold">
+                {isRateLimitError ? "Atenção" : "Erro na consulta"}
+              </p>
+              <p className="text-sm leading-relaxed">{searchError}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hero Section */}
       <section className="pt-32 pb-16 md:pt-40 md:pb-32 px-6 overflow-hidden">
@@ -188,17 +232,6 @@ export default function LandingPage() {
                         </button>
                     ))}
                     </div>
-                    
-                    {/* Mensagem de erro */}
-                    {searchError && (
-                      <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-red-800">Erro na consulta</p>
-                          <p className="text-sm text-red-600 mt-1">{searchError}</p>
-                        </div>
-                      </div>
-                    )}
                     
                 </div>
                 </div>
