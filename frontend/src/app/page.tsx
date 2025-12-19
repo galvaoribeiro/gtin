@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image"; // Adaptado para Next.js
 import Link from "next/link";   // Adaptado para Next.js
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/landing-page/components/ui/dialog";
 import { 
   CheckCircle2, 
   Database, 
@@ -27,11 +27,9 @@ import { FadeIn } from "@/components/landing-page/components/ui/fade-in";
 // Importar funções de API
 import { fetchGtinPublic, type Product, ApiError } from "@/lib/api";
 
-// Caminho da imagem (Certifique-se de que o arquivo existe em public/landing/)
-const heroImageSrc = "/landing/hero-3d.png"; 
-
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isResultOpen, setIsResultOpen] = useState(false);
   
   // Estados para busca de GTIN
   const [gtinInput, setGtinInput] = useState("");
@@ -51,11 +49,13 @@ export default function LandingPage() {
     setIsSearching(true);
     setSearchError(null);
     setSearchResult(null);
+    setIsResultOpen(false);
     
     try {
       const product = await fetchGtinPublic(gtinToSearch.trim());
       setSearchResult(product);
       setSearchError(null);
+      setIsResultOpen(true);
     } catch (error) {
       if (error instanceof ApiError) {
         setSearchError(error.detail || error.message);
@@ -63,6 +63,7 @@ export default function LandingPage() {
         setSearchError("Erro ao consultar GTIN. Tente novamente.");
       }
       setSearchResult(null);
+      setIsResultOpen(false);
     } finally {
       setIsSearching(false);
     }
@@ -123,8 +124,8 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="pt-32 pb-16 md:pt-40 md:pb-32 px-6 overflow-hidden">
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-6 space-y-8">
+        <div className="max-w-5xl mx-auto flex flex-col items-center text-center gap-8">
+          <div className="w-full space-y-8 flex flex-col items-center">
             <FadeIn delay={0}>
                 <Badge variant="outline" className="rounded-full px-4 py-1.5 border-primary/20 bg-primary/5 text-primary text-sm font-medium">
                 GTIN→NCM Data Platform
@@ -199,62 +200,12 @@ export default function LandingPage() {
                       </div>
                     )}
                     
-                    {/* Resultado da busca */}
-                    {searchResult && (
-                      <div className="mt-4 p-6 bg-white border border-primary/20 rounded-xl shadow-sm space-y-4">
-                        <div className="flex items-center gap-2 pb-3 border-b border-border/50">
-                          <CheckCircle2 className="w-5 h-5 text-green-500" />
-                          <h3 className="font-semibold text-primary">Produto Encontrado</h3>
-                        </div>
-                        
-                        <div className="space-y-3 text-sm">
-                          <div>
-                            <span className="font-medium text-muted-foreground">GTIN:</span>
-                            <span className="ml-2 font-mono text-primary">{searchResult.gtin}</span>
-                          </div>
-                          
-                          {searchResult.product_name && (
-                            <div>
-                              <span className="font-medium text-muted-foreground">Produto:</span>
-                              <span className="ml-2 text-foreground">{searchResult.product_name}</span>
-                            </div>
-                          )}
-                          
-                          {searchResult.brand && (
-                            <div>
-                              <span className="font-medium text-muted-foreground">Marca:</span>
-                              <span className="ml-2 text-foreground">{searchResult.brand}</span>
-                            </div>
-                          )}
-                          
-                          {searchResult.ncm && (
-                            <div>
-                              <span className="font-medium text-muted-foreground">NCM:</span>
-                              <span className="ml-2 font-mono text-primary">{searchResult.ncm_formatted || searchResult.ncm}</span>
-                            </div>
-                          )}
-                          
-                          {searchResult.cest && searchResult.cest.length > 0 && (
-                            <div>
-                              <span className="font-medium text-muted-foreground">CEST:</span>
-                              <span className="ml-2 font-mono text-primary">{searchResult.cest.join(", ")}</span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="pt-3 border-t border-border/50">
-                          <p className="text-xs text-muted-foreground">
-                            💡 Crie uma conta para consultas ilimitadas e acesso via API
-                          </p>
-                        </div>
-                      </div>
-                    )}
                 </div>
                 </div>
             </FadeIn>
             
             <FadeIn delay={0.6}>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground pt-4">
+                <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground pt-4">
                 <div className="flex -space-x-2">
                     {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs font-medium overflow-hidden">
@@ -266,45 +217,66 @@ export default function LandingPage() {
                 </div>
             </FadeIn>
           </div>
-          
-          <div className="lg:col-span-6 relative">
-             <FadeIn delay={0.5} direction="left">
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-border/50 bg-white">
-                <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent pointer-events-none z-10" />
-                
-                {/* Imagem Otimizada do Next.js */}
-                <div className="relative aspect-[4/3] w-full">
-                    <Image 
-                        src={heroImageSrc} 
-                        alt="GTINX Data Visualization" 
-                        fill
-                        className="object-cover"
-                        priority
-                    />
-                </div>
-                
-                {/* Floating UI Element Mockup */}
-                <div className="absolute bottom-6 left-6 right-6 bg-white/90 backdrop-blur-md rounded-xl p-4 shadow-lg border border-white/20 z-20">
-                    <div className="flex items-center gap-3 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Status da API: Operacional</span>
-                    </div>
-                    <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Latência média</span>
-                        <span className="font-mono text-primary font-medium">24ms</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Produtos indexados</span>
-                        <span className="font-mono text-primary font-medium">32.4M+</span>
-                    </div>
-                    </div>
-                </div>
-                </div>
-            </FadeIn>
-          </div>
         </div>
       </section>
+
+      {/* Modal de resultado da consulta */}
+      <Dialog open={isResultOpen && !!searchResult} onOpenChange={setIsResultOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              Produto encontrado
+            </DialogTitle>
+            <DialogDescription>Resultado da consulta pelo GTIN informado.</DialogDescription>
+          </DialogHeader>
+
+          {searchResult && (
+            <div className="space-y-4">
+              <div className="space-y-3 text-sm">
+                <div>
+                  <span className="font-medium text-muted-foreground">GTIN:</span>
+                  <span className="ml-2 font-mono text-primary">{searchResult.gtin}</span>
+                </div>
+                
+                {searchResult.product_name && (
+                  <div>
+                    <span className="font-medium text-muted-foreground">Produto:</span>
+                    <span className="ml-2 text-foreground">{searchResult.product_name}</span>
+                  </div>
+                )}
+                
+                {searchResult.brand && (
+                  <div>
+                    <span className="font-medium text-muted-foreground">Marca:</span>
+                    <span className="ml-2 text-foreground">{searchResult.brand}</span>
+                  </div>
+                )}
+                
+                {searchResult.ncm && (
+                  <div>
+                    <span className="font-medium text-muted-foreground">NCM:</span>
+                    <span className="ml-2 font-mono text-primary">{searchResult.ncm_formatted || searchResult.ncm}</span>
+                  </div>
+                )}
+                
+                {searchResult.cest && searchResult.cest.length > 0 && (
+                  <div>
+                    <span className="font-medium text-muted-foreground">CEST:</span>
+                    <span className="ml-2 font-mono text-primary">{searchResult.cest.join(", ")}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-border/50">
+                <p className="text-xs text-muted-foreground">
+                  💡 Crie uma conta para consultas ilimitadas e acesso via API
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Stats Section */}
       <section className="py-20 bg-[#0F172A] text-white">
