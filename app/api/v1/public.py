@@ -124,3 +124,4 @@ def get_product_by_gtin_public(
     # Retornar produto sem registrar uso
     return product
 
+
