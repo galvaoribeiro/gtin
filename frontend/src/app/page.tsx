@@ -73,8 +73,7 @@ export default function LandingPage() {
       if (error instanceof ApiError) {
         const friendly =
           error.status === 429
-            ? error.detail ||
-              "Você atingiu o limite diário para visitantes anônimos. Para continuar consultando gratuitamente, crie sua conta gratuita."
+            ? "Muitas requisições. Aguarde alguns minutos e tente novamente."
             : error.detail || error.message;
         setSearchError(friendly);
         setIsRateLimitError(error.status === 429);
