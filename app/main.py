@@ -18,6 +18,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.metrics import router as metrics_router
 from app.api.v1.public import router as public_router
+from app.api.v1.billing import router as billing_router
 
 
 def run_migrations():
@@ -183,6 +184,36 @@ def run_migrations():
                 END $$;
             """))
             conn.commit()
+            
+            # Migração 4: Adicionar campos Stripe na tabela organizations
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'organizations' AND column_name = 'stripe_customer_id'
+            """))
+            
+            if not result.fetchone():
+                print("[MIGRATION] Adicionando campos Stripe na tabela organizations...")
+                conn.execute(text("""
+                    ALTER TABLE organizations
+                    ADD COLUMN stripe_customer_id VARCHAR(255) NULL,
+                    ADD COLUMN stripe_subscription_id VARCHAR(255) NULL,
+                    ADD COLUMN subscription_status VARCHAR(50) NULL,
+                    ADD COLUMN current_period_end TIMESTAMP NULL,
+                    ADD COLUMN default_payment_method VARCHAR(255) NULL
+                """))
+                conn.execute(text("""
+                    CREATE UNIQUE INDEX ix_organizations_stripe_customer_id 
+                    ON organizations(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL
+                """))
+                conn.execute(text("""
+                    CREATE INDEX ix_organizations_stripe_subscription_id 
+                    ON organizations(stripe_subscription_id) WHERE stripe_subscription_id IS NOT NULL
+                """))
+                conn.commit()
+                print("[MIGRATION] Campos Stripe adicionados com sucesso!")
+            else:
+                print("[MIGRATION] Campos Stripe ja existem.")
                 
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")
@@ -265,4 +296,5 @@ app.include_router(api_keys_router)
 app.include_router(auth_router)
 app.include_router(dashboard_router)
 app.include_router(metrics_router)
+app.include_router(billing_router)
 

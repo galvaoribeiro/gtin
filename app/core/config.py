@@ -24,6 +24,16 @@ class Settings:
     
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    
+    # Stripe Settings
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    
+    # Stripe Price IDs por plano
+    STRIPE_PRICE_STARTER: str = os.getenv("STRIPE_PRICE_STARTER", "")
+    STRIPE_PRICE_PRO: str = os.getenv("STRIPE_PRICE_PRO", "")
+    STRIPE_PRICE_ENTERPRISE: str = os.getenv("STRIPE_PRICE_ENTERPRISE", "")
 
 
 settings = Settings()

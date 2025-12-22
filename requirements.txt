@@ -19,3 +19,6 @@ bcrypt==4.2.1
 # Utilitários
 pytz==2024.1
 
+# Pagamentos
+stripe==11.1.1
+

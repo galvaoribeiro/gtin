@@ -951,3 +951,215 @@ export async function getUsageByApiKey(
     );
   }
 }
+
+// =============================================================================
+// Billing & Subscription (usa JWT)
+// =============================================================================
+
+/**
+ * Interface para dados da subscription
+ */
+export interface SubscriptionData {
+  plan: string;
+  status: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  daily_limit: number;
+}
+
+/**
+ * Interface para invoice
+ */
+export interface InvoiceData {
+  id: string;
+  date: string;
+  amount: number;
+  status: string;
+  invoice_pdf: string | null;
+}
+
+/**
+ * Interface para método de pagamento
+ */
+export interface PaymentMethodData {
+  id: string;
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+  is_default: boolean;
+}
+
+/**
+ * Interface para dados completos de billing
+ */
+export interface BillingData {
+  subscription: SubscriptionData;
+  invoices: InvoiceData[];
+  payment_methods: PaymentMethodData[];
+}
+
+/**
+ * Obtém dados de billing (subscription, invoices, payment methods)
+ */
+export async function getBillingData(): Promise<BillingData> {
+  const url = `${API_BASE_URL}/api/v1/billing/data`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getJwtAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+      
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        `Erro ao buscar dados de billing: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+/**
+ * Interface para resposta de checkout session
+ */
+export interface CheckoutSessionResponse {
+  url: string;
+  session_id: string;
+}
+
+/**
+ * Cria uma sessão de checkout do Stripe
+ * 
+ * @param plan - Plano desejado (starter, pro, enterprise)
+ * @returns URL do checkout e session ID
+ */
+export async function createCheckoutSession(plan: string): Promise<CheckoutSessionResponse> {
+  const url = `${API_BASE_URL}/api/v1/billing/checkout-session`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        ...getJwtAuthHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ plan }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+      
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        detail || `Erro ao criar sessão de checkout: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+/**
+ * Interface para resposta de portal de billing
+ */
+export interface BillingPortalResponse {
+  url: string;
+}
+
+/**
+ * Cria uma sessão do portal de billing do Stripe
+ * 
+ * @returns URL do portal de billing
+ */
+export async function createBillingPortalSession(): Promise<BillingPortalResponse> {
+  const url = `${API_BASE_URL}/api/v1/billing/customer-portal`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: getJwtAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+      
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        detail || `Erro ao criar portal de billing: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}

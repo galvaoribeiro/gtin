@@ -22,14 +22,22 @@ class Organization(Base):
     Modelo para organizações/clientes.
     
     Cada organização pode ter múltiplas API keys e um plano de uso.
+    Planos: basic (grátis), starter, pro, enterprise
     """
     __tablename__ = "organizations"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False, comment="Nome da organização/cliente")
-    plan = Column(String(50), nullable=False, default="starter", comment="Plano: starter, pro, enterprise")
-    daily_limit = Column(Integer, nullable=False, default=100, comment="Limite de consultas por dia")
+    plan = Column(String(50), nullable=False, default="basic", comment="Plano: basic, starter, pro, enterprise")
+    daily_limit = Column(Integer, nullable=False, default=15, comment="Limite de consultas por dia")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Campos Stripe
+    stripe_customer_id = Column(String(255), nullable=True, unique=True, index=True, comment="ID do customer no Stripe")
+    stripe_subscription_id = Column(String(255), nullable=True, index=True, comment="ID da subscription ativa no Stripe")
+    subscription_status = Column(String(50), nullable=True, comment="Status da subscription: active, past_due, canceled, etc")
+    current_period_end = Column(DateTime, nullable=True, comment="Data de término do período atual de cobrança")
+    default_payment_method = Column(String(255), nullable=True, comment="ID do método de pagamento padrão")
     
     # Relacionamento com API keys
     api_keys = relationship("ApiKey", back_populates="organization", cascade="all, delete-orphan")
@@ -38,6 +46,16 @@ class Organization(Base):
     
     def __repr__(self) -> str:
         return f"<Organization(id={self.id}, name='{self.name}', plan='{self.plan}')>"
+    
+    def get_daily_limit_by_plan(self) -> int:
+        """Retorna o limite diário baseado no plano."""
+        limits = {
+            "basic": 15,
+            "starter": 1000,
+            "pro": 5000,
+            "enterprise": 50000,
+        }
+        return limits.get(self.plan, 15)
 
 
 class User(Base):
