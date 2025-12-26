@@ -31,6 +31,12 @@ class UserRegister(UserBase):
     organization_name: str = Field(..., min_length=2, max_length=255, description="Nome da organização")
 
 
+class UserUpdate(BaseModel):
+    """Schema para atualizar dados do usuário e organização."""
+    email: Optional[EmailStr] = Field(None, description="Novo email do usuário")
+    organization_name: Optional[str] = Field(None, min_length=2, max_length=255, description="Novo nome da organização")
+
+
 class UserResponse(UserBase):
     """Schema de resposta para User."""
     id: int = Field(..., description="ID do usuário")

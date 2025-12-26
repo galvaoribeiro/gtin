@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.db.models import User, Organization
-from app.schemas.user import UserLogin, Token, UserResponse, UserRegister
+from app.schemas.user import UserLogin, Token, UserResponse, UserRegister, UserUpdate
 from app.core.security import verify_password, create_access_token, get_password_hash
 from app.core.config import settings
 from app.api.deps import get_current_user
@@ -162,6 +162,61 @@ def get_me(current_user: User = Depends(get_current_user)):
     Requer autenticação via JWT (Bearer token).
     """
     organization = current_user.organization
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        organization_id=current_user.organization_id,
+        organization_name=organization.name if organization else None,
+        plan=organization.plan if organization else None,
+        daily_limit=organization.daily_limit if organization else None,
+        is_active=current_user.is_active,
+        created_at=current_user.created_at,
+    )
+
+
+@router.put(
+    "/me",
+    response_model=UserResponse,
+    summary="Atualizar dados do usuário/organização",
+    description="Atualiza email do usuário e/ou nome da organização.",
+    responses={
+        200: {"description": "Dados atualizados"},
+        400: {"description": "Email já cadastrado"},
+        401: {"description": "Não autenticado"},
+    }
+)
+def update_me(
+    data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Atualiza email do usuário autenticado e/ou nome da organização.
+    """
+    organization = current_user.organization
+
+    # Atualizar email se enviado
+    if data.email and data.email != current_user.email:
+        existing_user = db.query(User).filter(
+            User.email == data.email,
+            User.id != current_user.id
+        ).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Este email já está cadastrado",
+            )
+        current_user.email = data.email
+
+    # Atualizar nome da organização se enviado
+    if data.organization_name and organization:
+        organization.name = data.organization_name
+
+    db.commit()
+    db.refresh(current_user)
+    if organization:
+        db.refresh(organization)
+
     return UserResponse(
         id=current_user.id,
         email=current_user.email,

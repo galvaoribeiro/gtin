@@ -264,6 +264,62 @@ export async function getCurrentUser(): Promise<UserData> {
 }
 
 /**
+ * Atualiza dados do usuário/organização
+ */
+export interface UpdateUserPayload {
+  email?: string;
+  organization_name?: string;
+}
+
+export async function updateCurrentUser(payload: UpdateUserPayload): Promise<UserData> {
+  const url = `${API_BASE_URL}/v1/auth/me`;
+
+  try {
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        ...getJwtAuthHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        detail || `Erro ao atualizar usuário: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+/**
  * Faz logout limpando o token
  */
 export function logout(): void {
