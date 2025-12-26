@@ -296,6 +296,19 @@ class StripeService:
             raise ValueError(f"Assinatura inválida: {e}")
     
     @classmethod
+    def _map_price_to_plan(cls, price_id: Optional[str]) -> str:
+        """Inverte o mapa de prices para plano."""
+        if not price_id:
+            return "basic"
+        for plan, pid in cls.PLAN_PRICE_MAP.items():
+            print(f"plan in _map_price_to_plan: {plan}")
+            print(f"pid in _map_price_to_plan: {pid}")
+            print(f"price_id in _map_price_to_plan: {price_id}")
+            if pid == price_id:
+                return plan
+        return "basic"
+
+    @classmethod
     def extract_subscription_data(cls, subscription: stripe.Subscription) -> Dict[str, Any]:
         """
         Extrai dados relevantes de uma subscription para persistir no banco.
@@ -306,13 +319,46 @@ class StripeService:
         Returns:
             Dicionário com dados da subscription
         """
-        plan_name = subscription.metadata.get("plan", "starter")
-        
+        # Alguns eventos (ex.: created) podem não trazer todos os campos.
+        # Usamos .get e fallback no item 0.
+        # NOTE: StripeObject se comporta como dict.
+        current_period_end = (
+            subscription.get("current_period_end")
+            or subscription.get("current_period_end", None)
+        )
+        print(f"current_period_end in extract_subscription_data: {current_period_end}")
+        if not current_period_end:
+            try:
+                items = subscription.get("items", {}).get("data", [])
+                #print(f"items in extract_subscription_data (current_period_end): {items}")
+                if items:
+                    current_period_end = items[0].get("current_period_end")
+            except Exception:
+                current_period_end = None
+        # Fallback: se ainda não houver, mantém None
+
+        # Plano: usa metadata.plan; se vazio, mapeia pelo price_id do item 0
+        plan_name = subscription.get("metadata", {}).get("plan")
+        print(f"plan_name in extract_subscription_data: {plan_name}")
+        if not plan_name:
+            try:
+                items = subscription.get("items", {}).get("data", [])
+                #print(f"items in extract_subscription_data (plan_name): {items}")
+                if items:
+                    price_id = items[0].get("price", {}).get("id")
+                    print(f"price_id in extract_subscription_data (plan_name): {price_id}")
+                    plan_name = cls._map_price_to_plan(price_id)
+            except Exception:
+                plan_name = "basic"
+
+        # Default payment method pode vir como None em created
+        default_pm = subscription.get("default_payment_method")
+        print(f"default_pm in extract_subscription_data: {default_pm}")
         return {
-            "stripe_subscription_id": subscription.id,
-            "subscription_status": subscription.status,
-            "current_period_end": datetime.fromtimestamp(subscription.current_period_end),
-            "plan": plan_name,
-            "default_payment_method": subscription.default_payment_method,
+            "stripe_subscription_id": subscription.get("id"),
+            "subscription_status": subscription.get("status"),
+            "current_period_end": datetime.fromtimestamp(current_period_end) if current_period_end else None,
+            "plan": plan_name or "basic",
+            "default_payment_method": default_pm,
         }
 

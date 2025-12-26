@@ -348,27 +348,37 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     
     # Subscription criada ou atualizada
     if event_type in ["customer.subscription.created", "customer.subscription.updated"]:
+        print(f"[WEBHOOK] Subscription criada ou atualizada: {data_object}")
         subscription_id = data_object["id"]
         customer_id = data_object["customer"]
         organization_id = data_object.get("metadata", {}).get("organization_id")
-        
+
         # Buscar organização
         org = None
         if organization_id:
             org = db.query(Organization).filter(Organization.id == int(organization_id)).first()
         else:
             org = db.query(Organization).filter(Organization.stripe_customer_id == customer_id).first()
-        
+
         if org:
-            # Atualizar dados da subscription
-            subscription_data = StripeService.extract_subscription_data(data_object)
+            # Garantir que temos a subscription completa (alguns eventos criados não trazem current_period_end)
+            subscription_obj = StripeService.get_subscription(subscription_id) or data_object
+            subscription_data = StripeService.extract_subscription_data(subscription_obj)
+
             org.stripe_subscription_id = subscription_data["stripe_subscription_id"]
             org.subscription_status = subscription_data["subscription_status"]
             org.current_period_end = subscription_data["current_period_end"]
             org.plan = subscription_data["plan"]
             org.daily_limit = org.get_daily_limit_by_plan()
             org.default_payment_method = subscription_data["default_payment_method"]
-            
+
+            print(f"org.stripe_subscription_id: {org.stripe_subscription_id}")
+            print(f"org.subscription_status: {org.subscription_status}")
+            print(f"org.current_period_end: {org.current_period_end}")
+            print(f"org.plan: {org.plan}")
+            print(f"org.daily_limit: {org.daily_limit}")
+            print(f"org.default_payment_method: {org.default_payment_method}")
+
             db.commit()
             print(f"[WEBHOOK] Organização {org.id} atualizada: {org.plan}, status={org.subscription_status}")
     
@@ -379,7 +389,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         org = db.query(Organization).filter(
             Organization.stripe_subscription_id == subscription_id
         ).first()
-        
+
         if org:
             org.plan = "basic"
             org.subscription_status = "canceled"
@@ -401,12 +411,47 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     elif event_type == "invoice.payment_failed":
         customer_id = data_object["customer"]
         org = db.query(Organization).filter(Organization.stripe_customer_id == customer_id).first()
-        
+
         if org:
             print(f"[WEBHOOK] Pagamento falhou para organização {org.id}")
             org.subscription_status = "past_due"
             db.commit()
             # Enviar notificação por email, etc.
     
+    # Checkout concluído: atualizar imediatamente usando a subscription retornada
+    elif event_type == "checkout.session.completed":
+        print(f"[WEBHOOK] Checkout concluído: {data_object}")
+        subscription_id = data_object.get("subscription")
+        customer_id = data_object.get("customer")
+        organization_id = data_object.get("metadata", {}).get("organization_id")
+
+        org = None
+        if organization_id:
+            org = db.query(Organization).filter(Organization.id == int(organization_id)).first()
+        elif customer_id:
+            org = db.query(Organization).filter(Organization.stripe_customer_id == customer_id).first()
+
+        if org and subscription_id:
+            subscription_obj = StripeService.get_subscription(subscription_id)
+            if subscription_obj:
+                subscription_data = StripeService.extract_subscription_data(subscription_obj)
+                org.stripe_subscription_id = subscription_data["stripe_subscription_id"]
+                org.subscription_status = subscription_data["subscription_status"]
+                org.current_period_end = subscription_data["current_period_end"]
+                org.plan = subscription_data["plan"]
+                org.daily_limit = org.get_daily_limit_by_plan()
+                org.default_payment_method = subscription_data["default_payment_method"]
+                db.commit()
+                
+
+                print(f"org.stripe_subscription_id: {org.stripe_subscription_id}")
+                print(f"org.subscription_status: {org.subscription_status}")
+                print(f"org.current_period_end: {org.current_period_end}")
+                print(f"org.plan: {org.plan}")
+                print(f"org.daily_limit: {org.daily_limit}")
+                print(f"org.default_payment_method: {org.default_payment_method}")
+
+                print(f"[WEBHOOK] (checkout.completed) Organização {org.id} atualizada para {org.plan}")
+
     return {"status": "success"}
 
