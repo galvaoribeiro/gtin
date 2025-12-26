@@ -95,6 +95,15 @@ export default function LandingPage() {
     handleSearch(gtin);
   };
 
+  // Função para scroll suave até uma seção
+  const handleScrollTo = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setIsMenuOpen(false); // Fechar menu mobile se estiver aberto
+  };
+
   return (
     <div className="min-h-screen bg-background font-sans text-foreground selection:bg-accent selection:text-primary">
       
@@ -110,15 +119,41 @@ export default function LandingPage() {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
-            <a href="#benefits" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Benefícios</a>
-            <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Funcionalidades</a>
-            <a href="#api" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">API</a>
-            <a href="#pricing" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Planos</a>
+            <button 
+              onClick={() => handleScrollTo("benefits")} 
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              Benefícios
+            </button>
+            <button 
+              onClick={() => handleScrollTo("features")} 
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              Funcionalidades
+            </button>
+            <button 
+              onClick={() => handleScrollTo("api")} 
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              API
+            </button>
+            <button 
+              onClick={() => handleScrollTo("pricing")} 
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              Planos
+            </button>
             <div className="flex items-center gap-4 ml-4">
-              <Button variant="ghost" className="font-medium text-muted-foreground hover:text-primary">Login</Button>
-              <Button className="rounded-full px-6 bg-primary hover:bg-primary/90 text-white font-medium">
-                Começar agora
-              </Button>
+              <Link href="/login">
+                <Button variant="ghost" className="font-medium text-muted-foreground hover:text-primary">
+                  Login
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button className="rounded-full px-6 bg-primary hover:bg-primary/90 text-white font-medium">
+                  Começar agora
+                </Button>
+              </Link>
             </div>
           </div>
 
@@ -131,13 +166,37 @@ export default function LandingPage() {
         {/* Mobile Nav */}
         {isMenuOpen && (
           <div className="md:hidden absolute top-16 left-0 right-0 bg-background border-b border-border p-6 flex flex-col gap-4 shadow-lg animate-in slide-in-from-top-5">
-            <a href="#benefits" className="text-base font-medium" onClick={() => setIsMenuOpen(false)}>Benefícios</a>
-            <a href="#features" className="text-base font-medium" onClick={() => setIsMenuOpen(false)}>Funcionalidades</a>
-            <a href="#api" className="text-base font-medium" onClick={() => setIsMenuOpen(false)}>API</a>
-            <a href="#pricing" className="text-base font-medium" onClick={() => setIsMenuOpen(false)}>Planos</a>
+            <button 
+              onClick={() => handleScrollTo("benefits")} 
+              className="text-base font-medium text-left cursor-pointer"
+            >
+              Benefícios
+            </button>
+            <button 
+              onClick={() => handleScrollTo("features")} 
+              className="text-base font-medium text-left cursor-pointer"
+            >
+              Funcionalidades
+            </button>
+            <button 
+              onClick={() => handleScrollTo("api")} 
+              className="text-base font-medium text-left cursor-pointer"
+            >
+              API
+            </button>
+            <button 
+              onClick={() => handleScrollTo("pricing")} 
+              className="text-base font-medium text-left cursor-pointer"
+            >
+              Planos
+            </button>
             <div className="h-px bg-border my-2" />
-            <Button variant="ghost" className="justify-start">Login</Button>
-            <Button className="w-full bg-primary text-white">Começar agora</Button>
+            <Link href="/login" className="w-full">
+              <Button variant="ghost" className="justify-start w-full">Login</Button>
+            </Link>
+            <Link href="/register" className="w-full">
+              <Button className="w-full bg-primary text-white">Começar agora</Button>
+            </Link>
           </div>
         )}
       </nav>
