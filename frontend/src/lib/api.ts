@@ -402,6 +402,17 @@ function formatNcm(ncm: string | null): string {
  * Transforma o produto da API para o formato do frontend
  */
 function transformProduct(apiProduct: ApiProduct): Product {
+  // Garantir que cest seja sempre um array
+  let cestArray: string[] = [];
+  if (apiProduct.cest) {
+    if (Array.isArray(apiProduct.cest)) {
+      cestArray = apiProduct.cest;
+    } else if (typeof apiProduct.cest === 'string') {
+      // Se vier como string, tentar parsear
+      cestArray = [apiProduct.cest];
+    }
+  }
+  
   return {
     gtin: apiProduct.gtin,
     gtin_type: apiProduct.gtin_type?.toString() || "13",
@@ -411,7 +422,7 @@ function transformProduct(apiProduct: ApiProduct): Product {
     origin_country: apiProduct.origin_country || "",
     ncm: apiProduct.ncm || "",
     ncm_formatted: formatNcm(apiProduct.ncm),
-    cest: apiProduct.cest || [],
+    cest: cestArray,
     gross_weight: {
       value: apiProduct.gross_weight_value || 0,
       unit: apiProduct.gross_weight_unit || "GRM",
