@@ -46,8 +46,8 @@ class BatchRequest(BaseModel):
     gtins: list[str] = Field(
         ..., 
         description="Lista de GTINs para consultar",
-        min_length=1,
-        max_length=100  # Limite de 100 GTINs por requisição
+        min_items=1,
+        max_items=100  # Limite de 100 GTINs por requisição
     )
 
 

@@ -160,7 +160,17 @@ def get_products_batch(
     """
     results: list[BatchResponseItem] = []
     total_found = 0
-    
+    total_requested = len(batch_request.gtins)
+
+    # Enforce limite diário por organização (cada GTIN conta 1) antes de qualquer acesso ao DB
+    org = auth.organization
+    used_today = get_organization_daily_usage(db, org.id)
+    if used_today + total_requested > org.daily_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
+        )
+
     # Normalizar todos os GTINs
     normalized_gtins = [normalize_gtin(g) for g in batch_request.gtins]
     
@@ -227,17 +237,6 @@ def get_products_batch(
                     found=False,
                     product=None
                 ))
-    
-    total_requested = len(batch_request.gtins)
-    
-    # Enforce limite diário por organização (cada GTIN conta 1)
-    org = auth.organization
-    used_today = get_organization_daily_usage(db, org.id)
-    if used_today + total_requested > org.daily_limit:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
-        )
     
     # Registrar uso proporcional ao total solicitado:
     # - GTINs encontrados contam como sucesso
