@@ -378,7 +378,7 @@ export default function LandingPage() {
 
               <div className="pt-3 border-t border-border/50">
                 <p className="text-xs text-muted-foreground">
-                  💡 Crie uma conta para consultas ilimitadas e acesso via API
+                  💡 Crie uma conta para mais consultas e acesso via API
                 </p>
               </div>
             </div>
