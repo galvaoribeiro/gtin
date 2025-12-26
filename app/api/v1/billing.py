@@ -348,7 +348,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     
     # Subscription criada ou atualizada
     if event_type in ["customer.subscription.created", "customer.subscription.updated"]:
-        print(f"[WEBHOOK] Subscription criada ou atualizada: {data_object}")
+        print(f"[WEBHOOK] Subscription criada ou atualizada")
         subscription_id = data_object["id"]
         customer_id = data_object["customer"]
         organization_id = data_object.get("metadata", {}).get("organization_id")
@@ -420,7 +420,8 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     
     # Checkout concluído: atualizar imediatamente usando a subscription retornada
     elif event_type == "checkout.session.completed":
-        print(f"[WEBHOOK] Checkout concluído: {data_object}")
+        print(f"[WEBHOOK] Checkout concluído")
+        #print(f"[WEBHOOK] Checkout concluído: {data_object}")
         subscription_id = data_object.get("subscription")
         customer_id = data_object.get("customer")
         organization_id = data_object.get("metadata", {}).get("organization_id")

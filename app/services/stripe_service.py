@@ -110,6 +110,13 @@ class StripeService:
                 "organization_id": str(organization_id),
                 "plan": plan,
             },
+            # Propaga metadata também para a subscription gerada
+            subscription_data={
+                "metadata": {
+                    "organization_id": str(organization_id),
+                    "plan": plan,
+                }
+            },
             allow_promotion_codes=True,
             billing_address_collection="required",
         )
