@@ -19,6 +19,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/landing-page/components/ui/dialog";
 
 // Importação das funções de API
 import {
@@ -35,6 +44,8 @@ export default function ApiKeysPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [keyName, setKeyName] = useState("");
   const router = useRouter();
 
   // Carregar API keys ao montar o componente
@@ -64,12 +75,12 @@ export default function ApiKeysPage() {
     }
   };
 
-  const handleGenerateKey = async () => {
+  const handleGenerateKey = async (name?: string) => {
     try {
       setActionLoading(true);
       setError(null);
       
-      const newKey = await createDashboardApiKey();
+      const newKey = await createDashboardApiKey(name || undefined);
       
       // Adiciona a nova chave no início da lista
       setApiKeys((prev) => [{
@@ -83,6 +94,10 @@ export default function ApiKeysPage() {
       
       // Mostra a key completa
       setNewKeyVisible(newKey.key);
+
+      // Fecha o dialog e limpa o campo
+      setDialogOpen(false);
+      setKeyName("");
 
       // Esconde a chave completa após 60 segundos
       setTimeout(() => {
@@ -155,8 +170,8 @@ export default function ApiKeysPage() {
             Gerencie suas chaves de acesso à API
           </p>
         </div>
-        <Button onClick={handleGenerateKey} disabled={actionLoading}>
-          {actionLoading ? "Gerando..." : "Gerar Nova Chave"}
+        <Button onClick={() => setDialogOpen(true)} disabled={actionLoading}>
+          Gerar Nova Chave
         </Button>
       </div>
 
@@ -173,6 +188,59 @@ export default function ApiKeysPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Dialog para criar nova chave */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gerar Nova API Key</DialogTitle>
+            <DialogDescription>
+              Dê um nome descritivo para sua nova chave de API. Isso ajudará você a identificá-la no futuro.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="key-name" className="text-sm font-medium">
+                Nome da chave
+              </label>
+              <Input
+                id="key-name"
+                placeholder="Ex: Chave de produção, Chave de desenvolvimento..."
+                value={keyName}
+                onChange={(e) => setKeyName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !actionLoading) {
+                    handleGenerateKey(keyName.trim() || undefined);
+                  }
+                }}
+                maxLength={100}
+                autoFocus
+              />
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Deixe em branco para usar o nome padrão &quot;Nova chave&quot;
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDialogOpen(false);
+                setKeyName("");
+              }}
+              disabled={actionLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => handleGenerateKey(keyName.trim() || undefined)}
+              disabled={actionLoading}
+            >
+              {actionLoading ? "Gerando..." : "Gerar Chave"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Alerta de nova chave */}
       {newKeyVisible && (
