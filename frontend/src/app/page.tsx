@@ -28,6 +28,13 @@ import { FadeIn } from "@/components/landing-page/components/ui/fade-in";
 // Importar funções de API
 import { fetchGtinPublic, type Product, ApiError } from "@/lib/api";
 
+const FAKE_COMPANY_NAMES = [
+  "Atlas Contábil",
+  "Neon Retail",
+  "Delta ERP",
+  "Vetta Commerce",
+];
+
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isResultOpen, setIsResultOpen] = useState(false);
@@ -300,8 +307,12 @@ export default function LandingPage() {
             <FadeIn delay={0.6}>
                 <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground pt-4">
                 <div className="flex -space-x-2">
-                    {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs font-medium overflow-hidden">
+                    {FAKE_COMPANY_NAMES.map((company) => (
+                    <div 
+                        key={company} 
+                        className="w-8 h-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs font-medium overflow-hidden"
+                        title={company}
+                    >
                         <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/40" />
                     </div>
                     ))}
