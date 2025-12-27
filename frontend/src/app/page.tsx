@@ -644,7 +644,7 @@ export default function LandingPage() {
           <div className="text-center mb-16 max-w-2xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-semibold text-primary mb-4">Planos e Limites</h2>
             <p className="text-lg text-muted-foreground">
-              Planos com limites diários e rate limit para garantir estabilidade e proteger a base.
+              Para cada uso.
             </p>
           </div>
 
@@ -657,7 +657,7 @@ export default function LandingPage() {
                   <CardDescription className="text-base">Para pequenos projetos</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="text-3xl font-bold text-primary">Gratuito<span className="text-sm font-normal text-muted-foreground">/beta</span></div>
+                  <div className="text-3xl font-bold text-primary">R$ 99,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -672,9 +672,11 @@ export default function LandingPage() {
                       API Key única
                     </li>
                   </ul>
-                  <Button className="w-full rounded-full bg-primary/10 text-primary hover:bg-primary/20 shadow-none border-0">
-                    Começar Grátis
-                  </Button>
+                  <Link href="/register">
+                    <Button className="w-full rounded-full bg-primary/10 text-primary hover:bg-primary/20 shadow-none border-0">
+                      Assinar Starter
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </FadeIn>
@@ -690,11 +692,11 @@ export default function LandingPage() {
                   <CardDescription className="text-base">Para crescimento</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="text-3xl font-bold text-primary">R$ 199<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
+                  <div className="text-3xl font-bold text-primary">R$ 199,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-primary font-medium">
                       <CheckCircle2 className="w-4 h-4" />
-                      Até 1000 consultas/dia
+                      Até 400 consultas/dia
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -705,39 +707,43 @@ export default function LandingPage() {
                       Gestão de até 3 API Keys
                     </li>
                   </ul>
-                  <Button className="w-full rounded-full bg-primary hover:bg-primary/90 text-white">
-                    Assinar Pro
-                  </Button>
+                  <Link href="/register">
+                    <Button className="w-full rounded-full bg-primary hover:bg-primary/90 text-white">
+                      Assinar Pro
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </FadeIn>
 
-            {/* Enterprise */}
+            {/* Advanced */}
             <FadeIn delay={0.3}>
               <Card className="border-border/50 shadow-sm hover:shadow-md transition-all bg-slate-50 h-full">
                 <CardHeader>
-                  <CardTitle className="text-2xl font-semibold text-primary">Enterprise</CardTitle>
+                  <CardTitle className="text-2xl font-semibold text-primary">Advanced</CardTitle>
                   <CardDescription className="text-base">Para grandes volumes</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="text-3xl font-bold text-primary">Custom</div>
+                  <div className="text-3xl font-bold text-primary">R$ 399,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Volumes customizados
+                      Até 1000 consultas/dia
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      SLA Garantido
+                      SLA garantido
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
                       Allowlist de IP
                     </li>
                   </ul>
-                  <Button variant="outline" className="w-full rounded-full border-primary/20 text-primary hover:bg-primary/5">
-                    Falar com Vendas
-                  </Button>
+                  <Link href="/register">
+                    <Button variant="outline" className="w-full rounded-full border-primary/20 text-primary hover:bg-primary/5">
+                      Assinar Advanced
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </FadeIn>
