@@ -510,8 +510,8 @@ export default function LandingPage() {
               ))}
             </ul>
             <FadeIn delay={0.4}>
-              <Button className="mt-4 rounded-full px-8 bg-primary hover:bg-primary/90 text-white">
-                Explorar o Painel
+              <Button asChild className="mt-4 rounded-full px-8 bg-primary hover:bg-primary/90 text-white">
+                <Link href="/login">Explorar o Painel</Link>
               </Button>
             </FadeIn>
           </div>
@@ -589,12 +589,10 @@ export default function LandingPage() {
               Ideal para consulta unitária e batch.
             </p>
             <div className="pt-4 flex gap-4">
-              <Button className="bg-white text-primary hover:bg-white/90 rounded-full px-8 h-12">
-                Explorar Endpoints
+              <Button asChild className="bg-white text-primary hover:bg-white/90 rounded-full px-8 h-12">
+                <Link href="/docs">Explorar Endpoints</Link>
               </Button>
-              <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 rounded-full px-8 h-12">
-                Ver Exemplos
-              </Button>
+
             </div>
             
             <div className="pt-8 flex items-center gap-4 text-white/40 text-sm">
