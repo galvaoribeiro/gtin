@@ -21,7 +21,7 @@ class StripeService:
     PLAN_PRICE_MAP = {
         "starter": settings.STRIPE_PRICE_STARTER,
         "pro": settings.STRIPE_PRICE_PRO,
-        "enterprise": settings.STRIPE_PRICE_ENTERPRISE,
+        "advanced": settings.STRIPE_PRICE_ADVANCED,
     }
     
     # Plano basic é gratuito (sem Stripe)
@@ -78,7 +78,7 @@ class StripeService:
         
         Args:
             customer_id: ID do customer no Stripe
-            plan: Nome do plano (starter, pro, enterprise)
+            plan: Nome do plano (starter, pro, advanced)
             success_url: URL de redirecionamento após sucesso
             cancel_url: URL de redirecionamento após cancelamento
             organization_id: ID da organização
@@ -203,7 +203,7 @@ class StripeService:
         
         Args:
             subscription_id: ID da subscription
-            new_plan: Novo plano (starter, pro, enterprise)
+            new_plan: Novo plano (starter, pro, advanced)
             
         Returns:
             Subscription atualizada

@@ -150,7 +150,7 @@ export default function DashboardPage() {
       basic: "Basic",
       starter: "Starter",
       pro: "Pro",
-      enterprise: "Enterprise",
+      advanced: "Advanced",
     };
     return planNames[plan || "basic"] || plan || "Basic";
   };
@@ -161,7 +161,7 @@ export default function DashboardPage() {
       basic: "5 req/min",
       starter: "10 req/min",
       pro: "30 req/min",
-      enterprise: "100 req/min",
+      advanced: "100 req/min",
     };
     return rateLimits[plan || "basic"] || "5 req/min";
   };

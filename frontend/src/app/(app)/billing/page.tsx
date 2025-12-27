@@ -40,9 +40,9 @@ const PLANS = [
   {
     id: "starter",
     name: "Starter",
-    price: 249.90,
+    price: 99.9,
     features: [
-      "1.000 consultas/dia",
+      "200 consultas/dia",
       "API Key dedicada",
       "10 req/min",
       "Suporte por email",
@@ -51,20 +51,20 @@ const PLANS = [
   {
     id: "pro",
     name: "Pro",
-    price: 399.90,
+    price: 199.9,
     features: [
-      "5.000 consultas/dia",
+      "400 consultas/dia",
       "Batch até 100 GTINs",
       "30 req/min",
       "Suporte prioritário",
     ],
   },
   {
-    id: "enterprise",
-    name: "Enterprise",
-    price: 899.90,
+    id: "advanced",
+    name: "Advanced",
+    price: 399.9,
     features: [
-      "50.000 consultas/dia",
+      "1.000 consultas/dia",
       "Bulk assíncrono",
       "IP allowlist",
       "SLA garantido",
@@ -328,7 +328,7 @@ export default function BillingPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {paymentMethods.map((method) => (
+              {paymentMethods.map((method: any) => (
                 <div
                   key={method.id}
                   className="flex items-center justify-between rounded-lg border p-4"
@@ -378,7 +378,7 @@ export default function BillingPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {invoices.map((invoice) => (
+                {invoices.map((invoice: any) => (
                   <TableRow key={invoice.id}>
                     <TableCell>
                       {new Date(invoice.date).toLocaleDateString("pt-BR", {

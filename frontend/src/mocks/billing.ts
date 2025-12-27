@@ -88,9 +88,9 @@ export const plans = [
   {
     id: "pro",
     name: "Pro",
-    price: 149.90,
+    price: 199.9,
     features: [
-      "1000 consultas/dia",
+      "400 consultas/dia",
       "Batch até 100 GTINs",
       "30 req/min",
       "Suporte prioritário",
@@ -98,11 +98,11 @@ export const plans = [
     current: true,
   },
   {
-    id: "enterprise",
-    name: "Enterprise",
-    price: null,
+    id: "advanced",
+    name: "Advanced",
+    price: 399.9,
     features: [
-      "Consultas ilimitadas",
+      "1.000 consultas/dia",
       "Bulk assíncrono",
       "IP allowlist",
       "SLA garantido",

@@ -22,13 +22,13 @@ class Organization(Base):
     Modelo para organizações/clientes.
     
     Cada organização pode ter múltiplas API keys e um plano de uso.
-    Planos: basic (grátis), starter, pro, enterprise
+    Planos: basic (grátis), starter, pro, advanced
     """
     __tablename__ = "organizations"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False, comment="Nome da organização/cliente")
-    plan = Column(String(50), nullable=False, default="basic", comment="Plano: basic, starter, pro, enterprise")
+    plan = Column(String(50), nullable=False, default="basic", comment="Plano: basic, starter, pro, advanced")
     daily_limit = Column(Integer, nullable=False, default=15, comment="Limite de consultas por dia")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
@@ -51,9 +51,9 @@ class Organization(Base):
         """Retorna o limite diário baseado no plano."""
         limits = {
             "basic": 15,
-            "starter": 1000,
-            "pro": 5000,
-            "enterprise": 50000,
+            "starter": 200,
+            "pro": 400,
+            "advanced": 1000,
         }
         return limits.get(self.plan, 15)
 

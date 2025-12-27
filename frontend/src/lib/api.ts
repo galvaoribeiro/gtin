@@ -1124,7 +1124,7 @@ export interface CheckoutSessionResponse {
 /**
  * Cria uma sessão de checkout do Stripe
  * 
- * @param plan - Plano desejado (starter, pro, enterprise)
+ * @param plan - Plano desejado (starter, pro, advanced)
  * @returns URL do checkout e session ID
  */
 export async function createCheckoutSession(plan: string): Promise<CheckoutSessionResponse> {

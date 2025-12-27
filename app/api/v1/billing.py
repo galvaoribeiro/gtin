@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/v1/billing", tags=["Billing"])
 
 class CheckoutSessionRequest(BaseModel):
     """Request para criar sessão de checkout."""
-    plan: str = Field(..., description="Plano: starter, pro, enterprise")
+    plan: str = Field(..., description="Plano: starter, pro, advanced")
 
 
 class CheckoutSessionResponse(BaseModel):
@@ -76,7 +76,7 @@ class BillingDataResponse(BaseModel):
 
 class SwitchPlanRequest(BaseModel):
     """Request para trocar de plano."""
-    new_plan: str = Field(..., description="Novo plano: basic, starter, pro, enterprise")
+    new_plan: str = Field(..., description="Novo plano: basic, starter, pro, advanced")
 
 
 # =============================================================================
@@ -194,10 +194,10 @@ def create_checkout_session(
         raise HTTPException(status_code=404, detail="Organização não encontrada")
     
     # Verificar se o plano é válido
-    if request.plan not in ["starter", "pro", "enterprise"]:
+    if request.plan not in ["starter", "pro", "advanced"]:
         raise HTTPException(
             status_code=400,
-            detail="Plano inválido. Escolha entre: starter, pro, enterprise"
+            detail="Plano inválido. Escolha entre: starter, pro, advanced"
         )
     
     # Criar ou recuperar customer no Stripe
@@ -285,7 +285,7 @@ def switch_plan(
     new_plan = request.new_plan
     
     # Validar plano
-    if new_plan not in ["basic", "starter", "pro", "enterprise"]:
+    if new_plan not in ["basic", "starter", "pro", "advanced"]:
         raise HTTPException(status_code=400, detail="Plano inválido")
     
     # Downgrade para basic (grátis) - cancelar subscription

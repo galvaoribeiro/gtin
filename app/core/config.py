@@ -33,7 +33,11 @@ class Settings:
     # Stripe Price IDs por plano
     STRIPE_PRICE_STARTER: str = os.getenv("STRIPE_PRICE_STARTER", "")
     STRIPE_PRICE_PRO: str = os.getenv("STRIPE_PRICE_PRO", "")
-    STRIPE_PRICE_ENTERPRISE: str = os.getenv("STRIPE_PRICE_ENTERPRISE", "")
+    # Mantém fallback para variável antiga STRIPE_PRICE_ENTERPRISE
+    STRIPE_PRICE_ADVANCED: str = os.getenv(
+        "STRIPE_PRICE_ADVANCED",
+        os.getenv("STRIPE_PRICE_ENTERPRISE", ""),
+    )
 
 
 settings = Settings()
