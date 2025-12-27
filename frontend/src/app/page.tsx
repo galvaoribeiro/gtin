@@ -670,7 +670,7 @@ export default function LandingPage() {
                   <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Até 200 consultas/dia
+                      Até 200 consultas/dia*
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -705,7 +705,7 @@ export default function LandingPage() {
                   <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-primary font-medium">
                       <CheckCircle2 className="w-4 h-4" />
-                      Até 400 consultas/dia
+                      Até 400 consultas/dia*
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -737,7 +737,7 @@ export default function LandingPage() {
                   <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Até 1000 consultas/dia
+                      Até 1000 consultas/dia*
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -800,7 +800,7 @@ export default function LandingPage() {
                 <span className="text-xl font-semibold tracking-tight text-primary">GTINX</span>
               </div>
               <p className="text-muted-foreground max-w-sm mb-6">
-                Proteção por limites de uso, rate limiting e conformidade LGPD. 
+                Consulta GTIN em conformidade LGPD. 
                 A plataforma segura para dados fiscais.
               </p>
               <div className="flex gap-4">
