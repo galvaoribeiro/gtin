@@ -192,23 +192,7 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          {/* Credenciais de desenvolvimento */}
-          {process.env.NODE_ENV === "development" && (
-            <div className="mt-6 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
-              <p className="text-xs text-zinc-500 mb-2 font-medium">
-                Credenciais de desenvolvimento:
-              </p>
-              <div className="space-y-1 text-xs font-mono">
-                <p className="text-zinc-400">
-                  Email:{" "}
-                  <span className="text-emerald-400">admin@example.com</span>
-                </p>
-                <p className="text-zinc-400">
-                  Senha: <span className="text-emerald-400">admin123</span>
-                </p>
-              </div>
-            </div>
-          )}
+      
         </CardContent>
       </Card>
     </div>
