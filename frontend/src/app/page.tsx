@@ -232,15 +232,15 @@ export default function LandingPage() {
           <div className="w-full space-y-8 flex flex-col items-center">
             <FadeIn delay={0}>
                 <Badge variant="outline" className="rounded-full px-4 py-1.5 border-primary/20 bg-primary/5 text-primary text-sm font-medium">
-                GTIN→NCM Data Platform
+                Inteligência de Dados para Catálogos e ERPs
                 </Badge>
             </FadeIn>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight text-primary min-h-[3.6em] md:min-h-[2.4em]">
               <Typewriter text="A fonte confiável de dados fiscais e cadastrais por GTIN" delay={40} />
             </h1>
             <FadeIn delay={0.2}>
-                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-xl">
-                Consulte, valide e enriqueça cadastros com baixa latência, padronização e rastreabilidade. Base com mais de 30 milhões de produtos.
+                <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-xxl">
+                Automatize seu catálogo com dados precisos em milissegundos. Enriqueça seu ERP e valide NCM/CEST instantaneamente com a maior base de GTINs do mercado.
                 </p>
             </FadeIn>
             
@@ -393,7 +393,7 @@ export default function LandingPage() {
             Mais de 30 milhões de GTINs atualizados, dados que garantem decisões seguras e integração sem erros.
           </h2>
           <p className="text-lg text-white/60">
-            Ideal para quem precisa de informações atualizadas e seguras para tomar decisões
+          Uma API robusta, desenhada para manter sua base sempre atualizada, independentemente do tamanho do seu desafio
           </p>
         </div>
         
@@ -421,7 +421,7 @@ export default function LandingPage() {
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
             Cadastros inconsistentes geram retrabalho, erro fiscal e perda de margem. 
-            A GTIN→NCM centraliza dados cadastrais e fiscais em um único lugar para seu time 
+            A GTINX centraliza dados cadastrais e fiscais em um único lugar para seu time 
             (ou seu ERP) consultar com rapidez e confiança — sem planilhas e sem processos manuais.
           </p>
         </div>
