@@ -327,14 +327,22 @@ export default function DashboardPage() {
                       border: "1px solid var(--border)",
                       borderRadius: "8px",
                     }}
-                    formatter={(value: number, name: string) => {
+                    formatter={(value?: number, name?: string) => {
                       const labels: Record<string, string> = {
                         consultas: "Total",
                         sucesso: "Sucesso",
                         erro: "Erro",
                       };
-                      return [value.toLocaleString(), labels[name] || name];
+                    
+                      const formattedValue =
+                        typeof value === "number" ? value.toLocaleString() : "";
+                    
+                      const label = name ? labels[name] ?? name : "";
+                    
+                      return [formattedValue, label];
                     }}
+                    
+                    
                   />
                   <Line
                     type="monotone"
