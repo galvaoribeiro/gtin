@@ -461,16 +461,41 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     # Customer atualizado (ex.: mudança de payment method padrão)
     elif event_type == "customer.updated":
         customer_id = data_object["id"]
-        invoice_settings = data_object.get("invoice_settings", {})
+        invoice_settings = data_object.get("invoice_settings", {}) or {}
         default_payment_method = invoice_settings.get("default_payment_method")
-        
-        org = db.query(Organization).filter(Organization.stripe_customer_id == customer_id).first()
-        
+        organization_id = data_object.get("metadata", {}).get("organization_id")
+
+        print(
+            "[WEBHOOK][customer.updated] "
+            f"customer_id={customer_id} "
+            f"organization_id_meta={organization_id} "
+            f"default_payment_method={default_payment_method} "
+            f"invoice_settings={invoice_settings}"
+        )
+
+        # Buscar organização priorizando metadata; fallback para stripe_customer_id
+        org = None
+        if organization_id:
+            try:
+                org = db.query(Organization).filter(Organization.id == int(organization_id)).first()
+            except Exception as e:
+                print(f"[WEBHOOK][customer.updated] Erro ao converter organization_id: {e}")
+        if not org:
+            org = db.query(Organization).filter(Organization.stripe_customer_id == customer_id).first()
+            print(f"[WEBHOOK][customer.updated] lookup by customer_id -> {org.id if org else 'not-found'}")
+        else:
+            print(f"[WEBHOOK][customer.updated] lookup by metadata -> {org.id}")
+
         if org:
             # Atualizar o método de pagamento padrão
             org.default_payment_method = default_payment_method
             db.commit()
-            print(f"[WEBHOOK] Método de pagamento padrão atualizado para organização {org.id}: {default_payment_method}")
+            print(
+                "[WEBHOOK][customer.updated] "
+                f"Atualizado default_payment_method para org {org.id}: {default_payment_method}"
+            )
+        else:
+            print("[WEBHOOK][customer.updated] Organização não encontrada para este customer")
 
     return {"status": "success"}
 
