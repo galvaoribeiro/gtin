@@ -214,6 +214,12 @@ def create_checkout_session(
         db.commit()
     
     # URLs de retorno (ajustar conforme seu frontend)
+    import os
+
+    # logo após os imports
+    FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+
+    # dentro de create_checkout_session
     success_url = f"{FRONTEND_BASE_URL}/billing?success=true"
     cancel_url = f"{FRONTEND_BASE_URL}/billing?canceled=true"
     
