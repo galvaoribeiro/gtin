@@ -261,7 +261,7 @@ def create_customer_portal_session(
         )
     
     # URL de retorno
-    return_url = "http://localhost:3000/billing"
+    return_url = f"{FRONTEND_BASE_URL}/billing"
     
     try:
         session = StripeService.create_billing_portal_session(
