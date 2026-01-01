@@ -214,8 +214,8 @@ def create_checkout_session(
         db.commit()
     
     # URLs de retorno (ajustar conforme seu frontend)
-    success_url = "http://localhost:3000/billing?success=true"
-    cancel_url = "http://localhost:3000/billing?canceled=true"
+    success_url = f"{FRONTEND_BASE_URL}/billing?success=true"
+    cancel_url = f"{FRONTEND_BASE_URL}/billing?canceled=true"
     
     # Criar sessão de checkout
     try:
