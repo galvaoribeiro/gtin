@@ -272,6 +272,22 @@ class StripeService:
         return payment_methods.data
     
     @classmethod
+    def get_customer(cls, customer_id: str) -> Optional[stripe.Customer]:
+        """
+        Recupera um customer do Stripe.
+        
+        Args:
+            customer_id: ID do customer
+            
+        Returns:
+            Objeto Customer ou None se não encontrado
+        """
+        try:
+            return stripe.Customer.retrieve(customer_id)
+        except stripe.error.InvalidRequestError:
+            return None
+    
+    @classmethod
     def parse_webhook_event(
         cls,
         payload: bytes,

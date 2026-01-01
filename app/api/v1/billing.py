@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
+import os
 
 from app.api.deps import get_db, get_current_user
 from app.db.models import Organization, User
@@ -17,6 +18,9 @@ from pydantic import BaseModel, Field
 
 
 router = APIRouter(prefix="/api/v1/billing", tags=["Billing"])
+
+# URL base do frontend (configurável via variável de ambiente)
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
 
 
 # =============================================================================
@@ -213,13 +217,7 @@ def create_checkout_session(
         org.stripe_customer_id = customer.id
         db.commit()
     
-    # URLs de retorno (ajustar conforme seu frontend)
-    import os
-
-    # logo após os imports
-    FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
-
-    # dentro de create_checkout_session
+    # URLs de retorno
     success_url = f"{FRONTEND_BASE_URL}/billing?success=true"
     cancel_url = f"{FRONTEND_BASE_URL}/billing?canceled=true"
     
@@ -259,12 +257,6 @@ def create_customer_portal_session(
             status_code=400,
             detail="Você ainda não tem uma assinatura ativa"
         )
-
-        # URLs de retorno (ajustar conforme seu frontend)
-    import os
-
-    # logo após os imports
-    FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
     
     # URL de retorno
     return_url = f"{FRONTEND_BASE_URL}/billing"
@@ -465,6 +457,20 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                 print(f"org.default_payment_method: {org.default_payment_method}")
 
                 print(f"[WEBHOOK] (checkout.completed) Organização {org.id} atualizada para {org.plan}")
+    
+    # Customer atualizado (ex.: mudança de payment method padrão)
+    elif event_type == "customer.updated":
+        customer_id = data_object["id"]
+        invoice_settings = data_object.get("invoice_settings", {})
+        default_payment_method = invoice_settings.get("default_payment_method")
+        
+        org = db.query(Organization).filter(Organization.stripe_customer_id == customer_id).first()
+        
+        if org:
+            # Atualizar o método de pagamento padrão
+            org.default_payment_method = default_payment_method
+            db.commit()
+            print(f"[WEBHOOK] Método de pagamento padrão atualizado para organização {org.id}: {default_payment_method}")
 
     return {"status": "success"}
 
