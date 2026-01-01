@@ -259,6 +259,12 @@ def create_customer_portal_session(
             status_code=400,
             detail="Você ainda não tem uma assinatura ativa"
         )
+
+        # URLs de retorno (ajustar conforme seu frontend)
+    import os
+
+    # logo após os imports
+    FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
     
     # URL de retorno
     return_url = f"{FRONTEND_BASE_URL}/billing"
