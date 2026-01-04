@@ -133,6 +133,7 @@ export default function UsagePage() {
     if (!dailySeries || dailySeries.series.length === 0) {
       return {
         total: 0,
+        totalForLimits: 0, // Apenas sucessos para limites
         average: 0,
         peak: 0,
         peakDate: null as string | null,
@@ -140,21 +141,28 @@ export default function UsagePage() {
     }
 
     const series = dailySeries.series;
-    let total = 0;
+    let total = 0; // Total para exibição (sucessos + erros)
+    let totalForLimits = 0; // Total para limites (apenas sucessos)
     let peak = 0;
     let peakDate: string | null = null;
 
     for (const day of series) {
-      total += day.total_count;
-      if (day.total_count > peak) {
-        peak = day.total_count;
+      // Total para exibição: sucessos + erros
+      const dayTotal = day.success_count + day.error_count;
+      total += dayTotal;
+      
+      // Total para limites: apenas sucessos (usando total_count que vem do backend)
+      totalForLimits += day.total_count;
+      
+      if (dayTotal > peak) {
+        peak = dayTotal;
         peakDate = day.date;
       }
     }
 
     const average = series.length > 0 ? Math.round(total / series.length) : 0;
 
-    return { total, average, peak, peakDate };
+    return { total, totalForLimits, average, peak, peakDate };
   };
 
   // Formatar série para o gráfico (últimos 14 dias)
@@ -169,7 +177,7 @@ export default function UsagePage() {
         day: "2-digit",
         month: "2-digit",
       }),
-      consultas: item.total_count,
+      consultas: item.success_count + item.error_count, // Total para exibição
       sucesso: item.success_count,
       erro: item.error_count,
     }));
@@ -178,7 +186,8 @@ export default function UsagePage() {
   const monthStats = getMonthStats();
   const chartData = getChartData();
 
-  const monthlyUsage = monthStats.total;
+  // Para limites, usar apenas sucessos (totalForLimits)
+  const monthlyUsage = monthStats.totalForLimits;
   const monthlyPercent = monthlyLimit
     ? Math.min(100, Math.round((monthlyUsage / monthlyLimit) * 100))
     : 0;
@@ -321,8 +330,8 @@ export default function UsagePage() {
             <CardDescription>Taxa de Sucesso</CardDescription>
             <CardTitle className="text-2xl">
               <Badge variant="default" className="text-lg">
-                {summary && summary.total_calls > 0
-                  ? `${Math.round((summary.total_success / summary.total_calls) * 100)}%`
+                {summary && (summary.total_success + summary.total_error) > 0
+                  ? `${Math.round((summary.total_success / (summary.total_success + summary.total_error)) * 100)}%`
                   : "—"}
               </Badge>
             </CardTitle>
@@ -414,8 +423,11 @@ export default function UsagePage() {
           ) : (
             <div className="space-y-4">
               {summary.by_api_key.map((apiKey) => {
-                const percentage = summary.total_calls > 0
-                  ? Math.round((apiKey.total_calls / summary.total_calls) * 100)
+                // Total para exibição: sucessos + erros
+                const apiKeyTotal = apiKey.total_success + apiKey.total_error;
+                const summaryTotal = summary.total_success + summary.total_error;
+                const percentage = summaryTotal > 0
+                  ? Math.round((apiKeyTotal / summaryTotal) * 100)
                   : 0;
                 return (
                   <div key={apiKey.api_key_id} className="space-y-2">
@@ -424,7 +436,7 @@ export default function UsagePage() {
                         {apiKey.api_key_name || `API Key #${apiKey.api_key_id}`}
                       </span>
                       <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                        {apiKey.total_calls.toLocaleString()} ({percentage}%)
+                        {apiKeyTotal.toLocaleString()} ({percentage}%)
                       </span>
                     </div>
                     <div className="h-2 w-full rounded-full bg-zinc-200 dark:bg-zinc-700">
@@ -473,13 +485,13 @@ export default function UsagePage() {
               <TableBody>
                 {/* Mostrar em ordem decrescente (mais recente primeiro) */}
                 {[...dailySeries.series].reverse().map((day) => {
-                  const percentage = 0;
+                  const dayTotal = day.success_count + day.error_count; // Total para exibição
                   return (
                     <TableRow key={day.date}>
                       <TableCell>
                         {new Date(day.date + "T12:00:00").toLocaleDateString("pt-BR")}
                       </TableCell>
-                      <TableCell>{day.total_count.toLocaleString()}</TableCell>
+                      <TableCell>{dayTotal.toLocaleString()}</TableCell>
                       <TableCell className="text-green-600 dark:text-green-400">
                         {day.success_count.toLocaleString()}
                       </TableCell>
