@@ -42,9 +42,10 @@ const PLANS = [
     name: "Starter",
     price: 99.9,
     features: [
-      "200 consultas/dia",
-      "API Key dedicada",
+      "5.000 consultas/mês",
+      "Batch até 2 GTINs",
       "10 req/min",
+      "API Key dedicada",
       "Suporte por email",
     ],
   },
@@ -53,8 +54,8 @@ const PLANS = [
     name: "Pro",
     price: 199.9,
     features: [
-      "400 consultas/dia",
-      "Batch até 100 GTINs",
+      "10.000 consultas/mês",
+      "Batch até 5 GTINs",
       "30 req/min",
       "Suporte prioritário",
     ],
@@ -64,7 +65,8 @@ const PLANS = [
     name: "Advanced",
     price: 399.9,
     features: [
-      "1.000 consultas/dia",
+      "20.000 consultas/mês",
+      "Batch até 10 GTINs",
       "Bulk assíncrono",
       "IP allowlist",
       "SLA garantido",
@@ -218,9 +220,15 @@ export default function BillingPage() {
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-zinc-500">Limite Diário</p>
+              <p className="text-sm font-medium text-zinc-500">
+                {subscription?.plan === "basic" ? "Limite Diário" : "Limite Mensal"}
+              </p>
               <p className="text-2xl font-bold">
-                {subscription?.daily_limit?.toLocaleString("pt-BR") || "15"}
+                {subscription?.plan === "basic"
+                  ? (subscription?.daily_limit ?? 15).toLocaleString("pt-BR")
+                  : subscription?.monthly_limit != null
+                  ? subscription.monthly_limit.toLocaleString("pt-BR")
+                  : "—"}
               </p>
             </div>
             <div>

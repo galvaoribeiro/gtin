@@ -31,9 +31,11 @@ import {
 import {
   getUsageSummary,
   getUsageDaily,
+  getCurrentUser,
   ApiError,
   type UsageSummaryResponse,
   type DailySeriesResponse,
+  type UserData,
 } from "@/lib/api";
 
 export default function UsagePage() {
@@ -41,6 +43,7 @@ export default function UsagePage() {
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<UsageSummaryResponse | null>(null);
   const [dailySeries, setDailySeries] = useState<DailySeriesResponse | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
   const router = useRouter();
   
   // Refs para evitar chamadas duplicadas e cleanup
@@ -71,16 +74,18 @@ export default function UsagePage() {
       setLoading(true);
       setError(null);
 
-      // Carregar resumo (30 dias) e série diária em paralelo
-      const [summaryData, dailyData] = await Promise.all([
+      // Carregar resumo (30 dias), série diária e usuário em paralelo
+      const [summaryData, dailyData, userData] = await Promise.all([
         getUsageSummary(30),
         getUsageDaily(), // Últimos 30 dias por default
+        getCurrentUser(),
       ]);
 
       // Só atualizar estado se ainda estiver montado
       if (isMountedRef.current) {
         setSummary(summaryData);
         setDailySeries(dailyData);
+        setUser(userData);
       }
     } catch (err) {
       console.error("Erro ao carregar dados de uso:", err);
@@ -107,7 +112,23 @@ export default function UsagePage() {
     }
   };
 
-  // Calcular estatísticas do mês
+  const getPlanLimits = (plan: string | null | undefined) => {
+    const normalized = plan || "basic";
+    switch (normalized) {
+      case "starter":
+        return { isBasic: false, dailyLimit: null, monthlyLimit: 5000 };
+      case "pro":
+        return { isBasic: false, dailyLimit: null, monthlyLimit: 10000 };
+      case "advanced":
+        return { isBasic: false, dailyLimit: null, monthlyLimit: 20000 };
+      default:
+        return { isBasic: true, dailyLimit: user?.daily_limit ?? 15, monthlyLimit: null };
+    }
+  };
+
+  const { isBasic, dailyLimit, monthlyLimit } = getPlanLimits(user?.plan);
+
+  // Calcular estatísticas do mês (usando série diária carregada)
   const getMonthStats = () => {
     if (!dailySeries || dailySeries.series.length === 0) {
       return {
@@ -157,8 +178,10 @@ export default function UsagePage() {
   const monthStats = getMonthStats();
   const chartData = getChartData();
 
-  // Limite diário (TODO: integrar com plano da organização)
-  const dailyLimit = 1000;
+  const monthlyUsage = monthStats.total;
+  const monthlyPercent = monthlyLimit
+    ? Math.min(100, Math.round((monthlyUsage / monthlyLimit) * 100))
+    : 0;
 
   if (loading) {
     return (
@@ -215,7 +238,7 @@ export default function UsagePage() {
       </div>
 
       {/* Cards de Resumo */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Últimos 30 Dias</CardDescription>
@@ -232,7 +255,7 @@ export default function UsagePage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Média Diária</CardDescription>
+            <CardDescription>{isBasic ? "Média Diária" : "Média Diária (30d)"}</CardDescription>
             <CardTitle className="text-2xl">
               {monthStats.average.toLocaleString()}
             </CardTitle>
@@ -257,6 +280,39 @@ export default function UsagePage() {
                 ? `em ${new Date(monthStats.peakDate + "T12:00:00").toLocaleDateString("pt-BR")}`
                 : "—"}
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Limite do Plano</CardDescription>
+            <CardTitle className="text-2xl">
+              {isBasic
+                ? `${(dailyLimit ?? 0).toLocaleString()} / dia`
+                : monthlyLimit
+                ? `${monthlyLimit.toLocaleString()} / mês`
+                : "—"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              {isBasic
+                ? "Aplicado diariamente (plano Basic)."
+                : "Aplicado mensalmente por organização."}
+            </p>
+            {!isBasic && monthlyLimit ? (
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-2 w-24 rounded-full bg-zinc-200 dark:bg-zinc-700">
+                  <div
+                    className="h-2 rounded-full bg-zinc-900 dark:bg-white"
+                    style={{ width: `${monthlyPercent}%` }}
+                  />
+                </div>
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {monthlyPercent}% usado (30d)
+                </span>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -417,7 +473,9 @@ export default function UsagePage() {
               <TableBody>
                 {/* Mostrar em ordem decrescente (mais recente primeiro) */}
                 {[...dailySeries.series].reverse().map((day) => {
-                  const percentage = Math.round((day.total_count / dailyLimit) * 100);
+                  const percentage = isBasic && dailyLimit
+                    ? Math.round((day.total_count / dailyLimit) * 100)
+                    : 0;
                   return (
                     <TableRow key={day.date}>
                       <TableCell>
@@ -430,19 +488,27 @@ export default function UsagePage() {
                       <TableCell className="text-red-600 dark:text-red-400">
                         {day.error_count.toLocaleString()}
                       </TableCell>
-                      <TableCell>{dailyLimit.toLocaleString()}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-24 rounded-full bg-zinc-200 dark:bg-zinc-700">
-                            <div
-                              className="h-2 rounded-full bg-zinc-900 dark:bg-white"
-                              style={{ width: `${Math.min(percentage, 100)}%` }}
-                            />
+                        {isBasic && dailyLimit
+                          ? dailyLimit.toLocaleString()
+                          : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {isBasic && dailyLimit ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-24 rounded-full bg-zinc-200 dark:bg-zinc-700">
+                              <div
+                                className="h-2 rounded-full bg-zinc-900 dark:bg-white"
+                                style={{ width: `${Math.min(percentage, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                              {percentage}%
+                            </span>
                           </div>
-                          <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                            {percentage}%
-                          </span>
-                        </div>
+                        ) : (
+                          <span className="text-sm text-zinc-500">—</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

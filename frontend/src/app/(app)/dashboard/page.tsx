@@ -103,21 +103,46 @@ export default function DashboardPage() {
     }
   };
 
-  // Derivar uso de hoje do último dia da série
-  const getUsageToday = () => {
-    // Usar limite real do plano do usuário
-    const limite = user?.daily_limit || 15;
-    
-    if (!dailySeries || dailySeries.series.length === 0) {
-      return { consultas: 0, limite, percentual: 0 };
+  const getPlanLimits = () => {
+    const plan = user?.plan || "basic";
+    switch (plan) {
+      case "starter":
+        return { isBasic: false, dailyLimit: null, monthlyLimit: 5000 };
+      case "pro":
+        return { isBasic: false, dailyLimit: null, monthlyLimit: 10000 };
+      case "advanced":
+        return { isBasic: false, dailyLimit: null, monthlyLimit: 20000 };
+      default:
+        return { isBasic: true, dailyLimit: user?.daily_limit || 15, monthlyLimit: null };
     }
-    // Pegar o último dia (mais recente)
-    const today = dailySeries.series[dailySeries.series.length - 1];
-    const consultas = today.total_count;
+  };
+
+  // Derivar uso exibido (diário para basic; 7d para demais)
+  const getUsageToday = () => {
+    const { isBasic, dailyLimit, monthlyLimit } = getPlanLimits();
+    if (isBasic) {
+      const limite = dailyLimit || 15;
+      if (!dailySeries || dailySeries.series.length === 0) {
+        return { label: "Consultas Hoje", consultas: 0, limite, percentual: 0, isBasic };
+      }
+      const today = dailySeries.series[dailySeries.series.length - 1];
+      const consultas = today.total_count;
+      return {
+        label: "Consultas Hoje",
+        consultas,
+        limite,
+        percentual: limite > 0 ? Math.round((consultas / limite) * 100) : 0,
+        isBasic,
+      };
+    }
+    const consumo = summary?.total_calls ?? 0; // últimos 7 dias
+    const limite = monthlyLimit || 0;
     return {
-      consultas,
+      label: "Consumo (7 dias)",
+      consultas: consumo,
       limite,
-      percentual: limite > 0 ? Math.round((consultas / limite) * 100) : 0,
+      percentual: limite > 0 ? Math.min(100, Math.round((consumo / limite) * 100)) : 0,
+      isBasic,
     };
   };
 
@@ -231,7 +256,16 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-sm text-zinc-600 dark:text-zinc-400">
-              <p>Limite: {(user?.daily_limit || 15).toLocaleString()} consultas/dia</p>
+              {(() => {
+                const { isBasic, dailyLimit, monthlyLimit } = getPlanLimits();
+                return isBasic ? (
+                  <p>Limite: {(dailyLimit || 15).toLocaleString()} consultas/dia</p>
+                ) : (
+                  <p>
+                    Limite: {monthlyLimit ? monthlyLimit.toLocaleString() : "—"} consultas/mês
+                  </p>
+                );
+              })()}
               <p>Rate: {getRateLimit(user?.plan)}</p>
             </div>
           </CardContent>
@@ -240,7 +274,7 @@ export default function DashboardPage() {
         {/* Card Uso Hoje */}
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Consultas Hoje</CardDescription>
+            <CardDescription>{usageToday.label}</CardDescription>
             <CardTitle className="text-2xl">
               {usageToday.consultas.toLocaleString()}{" "}
               <span className="text-base font-normal text-zinc-500">
@@ -256,7 +290,7 @@ export default function DashboardPage() {
               />
             </div>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              {usageToday.percentual}% do limite diário
+              {usageToday.percentual}% do {usageToday.isBasic ? "limite diário" : "limite mensal (base 7d)"}
             </p>
           </CardContent>
         </Card>
