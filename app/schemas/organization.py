@@ -31,6 +31,7 @@ class OrganizationResponse(OrganizationBase):
     id: int = Field(..., description="ID da organização")
     created_at: datetime = Field(..., description="Data de criação")
     batch_limit: int = Field(..., description="Limite de GTINs por batch (derivado do plano)")
+    monthly_limit: int = Field(..., description="Limite mensal de consultas (0 para planos que não usam limite mensal)")
     
     class Config:
         from_attributes = True

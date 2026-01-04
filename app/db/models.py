@@ -72,6 +72,21 @@ class Organization(Base):
         """Propriedade de conveniência para uso em serialização/respostas."""
         return self.get_batch_limit_by_plan()
 
+    def get_monthly_limit_by_plan(self) -> int:
+        """Retorna o limite mensal de chamadas de API por organização, de acordo com o plano."""
+        limits = {
+            "basic": 0,        # basic permanece com limite diário
+            "starter": 5000,
+            "pro": 10000,
+            "advanced": 20000,
+        }
+        return limits.get(self.plan, 0)
+
+    @property
+    def monthly_limit(self) -> int:
+        """Limite mensal (0 se o plano não usa limite mensal)."""
+        return self.get_monthly_limit_by_plan()
+
 
 class User(Base):
     """
@@ -161,4 +176,25 @@ class ApiKeyUsageDaily(Base):
     
     def __repr__(self) -> str:
         return f"<ApiKeyUsageDaily(api_key_id={self.api_key_id}, date={self.usage_date}, success={self.success_count}, error={self.error_count})>"
+
+
+class OrganizationUsageMonthly(Base):
+    """
+    Modelo para registrar uso mensal por organização.
+    
+    Armazena contadores de sucesso/erro por mês (fuso America/Sao_Paulo).
+    """
+    __tablename__ = "organization_usage_monthly"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "usage_month", name="uq_org_usage_monthly"),
+    )
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    usage_month = Column(Date, nullable=False, index=True, comment="Primeiro dia do mês de referência (America/Sao_Paulo)")
+    success_count = Column(Integer, nullable=False, default=0, comment="Total de chamadas com sucesso (2xx) no mês")
+    error_count = Column(Integer, nullable=False, default=0, comment="Total de chamadas com erro (4xx/5xx) no mês")
+    
+    def __repr__(self) -> str:
+        return f"<OrganizationUsageMonthly(org_id={self.organization_id}, month={self.usage_month}, success={self.success_count}, error={self.error_count})>"
 

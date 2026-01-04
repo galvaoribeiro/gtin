@@ -12,7 +12,12 @@ from app.db.session import get_db
 from app.db.models import User, ApiKey
 from app.api.deps import get_current_user
 from app.schemas.product import ProductResponse
-from app.core.usage import record_api_usage, get_organization_daily_usage
+from app.core.usage import (
+    record_api_usage,
+    get_organization_daily_usage,
+    get_organization_monthly_usage,
+    record_org_usage_monthly,
+)
 
 
 router = APIRouter(prefix="/v1/dashboard", tags=["Dashboard"])
@@ -120,17 +125,32 @@ def get_product_by_gtin_dashboard(
             detail="Nenhuma API key ativa para esta organização. Crie ou reative uma API key para fazer a consulta.",
         )
     
-    # Enforce limite diário por organização (cada GTIN conta 1)
+    # Enforce limites: diário para basic, mensal para demais
     org = current_user.organization
-    used_today = get_organization_daily_usage(db, org.id)
-    if used_today + 1 > org.daily_limit:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
-        )
+    is_basic_plan = org.plan == "basic"
+
+    if is_basic_plan:
+        used_today = get_organization_daily_usage(db, org.id)
+        if used_today + 1 > org.daily_limit:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
+            )
+    else:
+        monthly_limit = org.monthly_limit
+        used_month = get_organization_monthly_usage(db, org.id)
+        if monthly_limit > 0 and used_month + 1 > monthly_limit:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Limite mensal excedido. Restam {max(monthly_limit - used_month, 0)} de {monthly_limit} chamadas para este mês.",
+            )
     
     if not normalized_gtin:
-        record_api_usage(db, api_key.id, 400)
+        if is_basic_plan:
+            record_api_usage(db, api_key.id, 400)
+        else:
+            record_org_usage_monthly(db, org.id, 400)
+            record_api_usage(db, api_key.id, 400)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="GTIN inválido: deve conter apenas números"
@@ -139,7 +159,11 @@ def get_product_by_gtin_dashboard(
     product = fetch_product_by_gtin(db, normalized_gtin)
     
     if product is None:
-        record_api_usage(db, api_key.id, 404)
+        if is_basic_plan:
+            record_api_usage(db, api_key.id, 404)
+        else:
+            record_org_usage_monthly(db, org.id, 404)
+            record_api_usage(db, api_key.id, 404)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Produto com GTIN '{normalized_gtin}' não encontrado"
@@ -147,7 +171,11 @@ def get_product_by_gtin_dashboard(
     
     # Registrar sucesso
     if api_key:
-        record_api_usage(db, api_key.id, 200)
+        if is_basic_plan:
+            record_api_usage(db, api_key.id, 200)
+        else:
+            record_org_usage_monthly(db, org.id, 200)
+            record_api_usage(db, api_key.id, 200)
     
     return product
 

@@ -27,6 +27,14 @@ def get_today_sao_paulo() -> date:
     return datetime.now(SAO_PAULO_TZ).date()
 
 
+def get_current_month_start_sao_paulo() -> date:
+    """
+    Retorna a data representando o primeiro dia do mês corrente no fuso horário de São Paulo.
+    """
+    now = datetime.now(SAO_PAULO_TZ)
+    return date(year=now.year, month=now.month, day=1)
+
+
 def record_api_usage(
     db: Session,
     api_key_id: int,
@@ -110,4 +118,57 @@ def get_organization_daily_usage(db: Session, organization_id: int) -> int:
           AND u.usage_date = :usage_date
     """)
     total = db.execute(query, {"org_id": organization_id, "usage_date": today}).scalar()
+    return int(total or 0)
+
+
+# =============================================================================
+# Uso mensal por organização
+# =============================================================================
+
+
+def record_org_usage_monthly(
+    db: Session,
+    organization_id: int,
+    status_code: int,
+) -> None:
+    """
+    Registra uma chamada de API na tabela de uso mensal por organização.
+    Faz upsert incremental: se já existe registro para org+mês, incrementa sucesso/erro.
+    """
+    usage_month = get_current_month_start_sao_paulo()
+    is_success = 200 <= status_code < 300
+
+    success_inc = 1 if is_success else 0
+    error_inc = 0 if is_success else 1
+
+    query = text("""
+        INSERT INTO organization_usage_monthly (organization_id, usage_month, success_count, error_count)
+        VALUES (:organization_id, :usage_month, :success_inc, :error_inc)
+        ON CONFLICT (organization_id, usage_month)
+        DO UPDATE SET
+            success_count = organization_usage_monthly.success_count + :success_inc,
+            error_count = organization_usage_monthly.error_count + :error_inc
+    """)
+
+    db.execute(query, {
+        "organization_id": organization_id,
+        "usage_month": usage_month,
+        "success_inc": success_inc,
+        "error_inc": error_inc,
+    })
+    db.commit()
+
+
+def get_organization_monthly_usage(db: Session, organization_id: int) -> int:
+    """
+    Retorna o total de chamadas (sucesso + erro) da organização no mês corrente (America/Sao_Paulo).
+    """
+    usage_month = get_current_month_start_sao_paulo()
+    query = text("""
+        SELECT COALESCE(success_count + error_count, 0) AS total
+        FROM organization_usage_monthly
+        WHERE organization_id = :org_id
+          AND usage_month = :usage_month
+    """)
+    total = db.execute(query, {"org_id": organization_id, "usage_month": usage_month}).scalar()
     return int(total or 0)
