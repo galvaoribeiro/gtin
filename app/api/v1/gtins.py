@@ -5,7 +5,7 @@ Implementa GET /v1/gtins/{gtin} e POST /v1/gtins:batch
 Protegidos por autenticação via API key.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -77,6 +77,227 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
     }
 
 
+def process_batch_gtins(
+    db: Session,
+    gtins: list[str],
+    auth: ApiKeyAuth,
+) -> BatchResponse:
+    """
+    Processa uma lista de GTINs e retorna a resposta em lote.
+    Função auxiliar compartilhada pelos endpoints POST e GET.
+    
+    Args:
+        db: Sessão do banco de dados
+        gtins: Lista de GTINs para consultar
+        auth: Informações de autenticação
+    
+    Returns:
+        BatchResponse com os resultados
+    """
+    results: list[BatchResponseItem] = []
+    total_found = 0
+    total_requested = len(gtins)
+
+    # Enforce limite diário por organização (cada GTIN conta 1) antes de qualquer acesso ao DB
+    org = auth.organization
+    used_today = get_organization_daily_usage(db, org.id)
+    if used_today + total_requested > org.daily_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
+        )
+
+    # Normalizar todos os GTINs e criar mapeamento
+    normalized_gtins_map = {}  # Mapeia GTIN original -> GTIN normalizado
+    valid_normalized_gtins = []  # Lista de GTINs normalizados válidos para query
+    
+    for original_gtin in gtins:
+        normalized = normalize_gtin(original_gtin)
+        normalized_gtins_map[original_gtin] = normalized
+        if normalized:  # Apenas adicionar à query se não estiver vazio
+            valid_normalized_gtins.append(normalized)
+    
+    # Buscar todos os produtos de uma vez (mais eficiente)
+    found_products = {}
+    if valid_normalized_gtins:
+        # Criar query com IN clause
+        placeholders = ", ".join([f":gtin_{i}" for i in range(len(valid_normalized_gtins))])
+        query = text(f"""
+            SELECT 
+                gtin,
+                gtin_type,
+                brand,
+                product_name,
+                owner_tax_id,
+                origin_country,
+                ncm,
+                cest,
+                gross_weight_value,
+                gross_weight_unit,
+                dsit_date,
+                updated_at,
+                image_url
+            FROM products
+            WHERE gtin IN ({placeholders})
+        """)
+        
+        # Criar parâmetros
+        params = {f"gtin_{i}": g for i, g in enumerate(valid_normalized_gtins)}
+        
+        # Executar query
+        rows = db.execute(query, params).fetchall()
+        
+        # Criar mapa de resultados encontrados
+        for row in rows:
+            found_products[row.gtin] = {
+                "gtin": row.gtin,
+                "gtin_type": row.gtin_type,
+                "brand": row.brand,
+                "product_name": row.product_name,
+                "owner_tax_id": row.owner_tax_id,
+                "origin_country": row.origin_country,
+                "ncm": row.ncm,
+                "cest": row.cest,
+                "gross_weight_value": row.gross_weight_value,
+                "gross_weight_unit": row.gross_weight_unit,
+                "dsit_date": row.dsit_date,
+                "updated_at": row.updated_at,
+                "image_url": row.image_url,
+            }
+    
+    # Montar resposta mantendo a ordem dos GTINs solicitados
+    for original_gtin in gtins:
+        normalized_gtin = normalized_gtins_map[original_gtin]
+        
+        if not normalized_gtin:
+            # GTIN inválido (vazio após normalização)
+            results.append(BatchResponseItem(
+                gtin=original_gtin,
+                found=False,
+                product=None
+            ))
+        elif normalized_gtin in found_products:
+            # Produto encontrado
+            results.append(BatchResponseItem(
+                gtin=original_gtin,
+                found=True,
+                product=ProductResponse(**found_products[normalized_gtin])
+            ))
+            total_found += 1
+        else:
+            # GTIN válido mas produto não encontrado
+            results.append(BatchResponseItem(
+                gtin=original_gtin,
+                found=False,
+                product=None
+            ))
+    
+    # Registrar uso proporcional ao total solicitado:
+    # - GTINs encontrados contam como sucesso
+    # - GTINs não encontrados contam como erro
+    if total_requested > 0:
+        record_api_usage_batch(
+            db,
+            auth.api_key.id,
+            success_count=total_found,
+            error_count=total_requested - total_found,
+        )
+    
+    return BatchResponse(
+        total_requested=total_requested,
+        total_found=total_found,
+        results=results
+    )
+
+
+@router.post(
+    "/batch",
+    response_model=BatchResponse,
+    summary="Consultar produtos em lote (POST)",
+    description="Consulta múltiplos produtos de uma vez. Máximo de 100 GTINs por requisição. Requer API key válida.",
+    responses={
+        200: {"description": "Resultados da consulta em lote"},
+        400: {"description": "Requisição inválida"},
+        401: {"description": "API key inválida ou não fornecida"},
+    }
+)
+def get_products_batch(
+    batch_request: BatchRequest,
+    request: Request,
+    auth: ApiKeyAuth = Depends(get_api_key_auth),
+    db: Session = Depends(get_db),
+):
+    """
+    Consulta múltiplos produtos por GTIN via POST.
+    
+    - **gtins**: Lista de códigos de barras (máximo 100)
+    
+    Retorna todos os GTINs solicitados, indicando quais foram encontrados.
+    """
+    return process_batch_gtins(db, batch_request.gtins, auth)
+
+
+@router.get(
+    "/batch",
+    response_model=BatchResponse,
+    summary="Consultar produtos em lote (GET)",
+    description="Consulta múltiplos produtos de uma vez via query parameters. Máximo de 10 GTINs por requisição. Ideal para cacheamento. Requer API key válida.",
+    responses={
+        200: {"description": "Resultados da consulta em lote"},
+        400: {"description": "Requisição inválida"},
+        401: {"description": "API key inválida ou não fornecida"},
+        429: {"description": "Limite diário excedido"},
+    }
+)
+def get_products_batch_query(
+    response: Response,
+    gtins: list[str] = Query(
+        ...,
+        description="Lista de GTINs para consultar (máximo 10)",
+        min_length=1,
+        max_length=10,
+        alias="gtin"
+    ),
+    request: Request = None,
+    auth: ApiKeyAuth = Depends(get_api_key_auth),
+    db: Session = Depends(get_db),
+):
+    """
+    Consulta múltiplos produtos por GTIN via GET.
+    
+    - **gtin**: Parâmetro repetido para cada GTIN (ex: ?gtin=123&gtin=456)
+    - Máximo de 10 GTINs por requisição
+    
+    Este endpoint é cacheável e ideal para consultas repetidas.
+    Use `Cache-Control` para configurar o cache conforme necessário.
+    
+    Retorna todos os GTINs solicitados, indicando quais foram encontrados.
+    """
+    # Validar quantidade de GTINs
+    if len(gtins) > 10:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Máximo de 10 GTINs permitidos por requisição GET. Use POST /v1/gtins/batch para lotes maiores."
+        )
+    
+    if len(gtins) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pelo menos um GTIN deve ser fornecido"
+        )
+    
+    # Processar batch
+    batch_response = process_batch_gtins(db, gtins, auth)
+    
+    # Adicionar headers de cache
+    # Cache por 1 hora (3600 segundos) - ajuste conforme necessário
+    # Varia por X-API-Key para separar cache por organização
+    response.headers["Cache-Control"] = "private, max-age=3600"
+    response.headers["Vary"] = "X-API-Key"
+    
+    return batch_response
+
+
 @router.get(
     "/{gtin}",
     response_model=ProductResponse,
@@ -132,126 +353,4 @@ def get_product_by_gtin(
     # Registrar sucesso
     record_api_usage(db, auth.api_key.id, 200)
     return product
-
-
-@router.post(
-    ":batch",
-    response_model=BatchResponse,
-    summary="Consultar produtos em lote",
-    description="Consulta múltiplos produtos de uma vez. Máximo de 100 GTINs por requisição. Requer API key válida.",
-    responses={
-        200: {"description": "Resultados da consulta em lote"},
-        400: {"description": "Requisição inválida"},
-        401: {"description": "API key inválida ou não fornecida"},
-    }
-)
-def get_products_batch(
-    batch_request: BatchRequest,
-    request: Request,
-    auth: ApiKeyAuth = Depends(get_api_key_auth),
-    db: Session = Depends(get_db),
-):
-    """
-    Consulta múltiplos produtos por GTIN.
-    
-    - **gtins**: Lista de códigos de barras (máximo 100)
-    
-    Retorna todos os GTINs solicitados, indicando quais foram encontrados.
-    """
-    results: list[BatchResponseItem] = []
-    total_found = 0
-    total_requested = len(batch_request.gtins)
-
-    # Enforce limite diário por organização (cada GTIN conta 1) antes de qualquer acesso ao DB
-    org = auth.organization
-    used_today = get_organization_daily_usage(db, org.id)
-    if used_today + total_requested > org.daily_limit:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
-        )
-
-    # Normalizar todos os GTINs
-    normalized_gtins = [normalize_gtin(g) for g in batch_request.gtins]
-    
-    # Buscar todos os produtos de uma vez (mais eficiente)
-    if normalized_gtins:
-        # Criar query com IN clause
-        placeholders = ", ".join([f":gtin_{i}" for i in range(len(normalized_gtins))])
-        query = text(f"""
-            SELECT 
-                gtin,
-                gtin_type,
-                brand,
-                product_name,
-                owner_tax_id,
-                origin_country,
-                ncm,
-                cest,
-                gross_weight_value,
-                gross_weight_unit,
-                dsit_date,
-                updated_at,
-                image_url
-            FROM products
-            WHERE gtin IN ({placeholders})
-        """)
-        
-        # Criar parâmetros
-        params = {f"gtin_{i}": g for i, g in enumerate(normalized_gtins)}
-        
-        # Executar query
-        rows = db.execute(query, params).fetchall()
-        
-        # Criar mapa de resultados encontrados
-        found_products = {}
-        for row in rows:
-            found_products[row.gtin] = {
-                "gtin": row.gtin,
-                "gtin_type": row.gtin_type,
-                "brand": row.brand,
-                "product_name": row.product_name,
-                "owner_tax_id": row.owner_tax_id,
-                "origin_country": row.origin_country,
-                "ncm": row.ncm,
-                "cest": row.cest,
-                "gross_weight_value": row.gross_weight_value,
-                "gross_weight_unit": row.gross_weight_unit,
-                "dsit_date": row.dsit_date,
-                "updated_at": row.updated_at,
-                "image_url": row.image_url,
-            }
-        
-        # Montar resposta mantendo a ordem dos GTINs solicitados
-        for original_gtin, normalized_gtin in zip(batch_request.gtins, normalized_gtins):
-            if normalized_gtin in found_products:
-                results.append(BatchResponseItem(
-                    gtin=original_gtin,
-                    found=True,
-                    product=ProductResponse(**found_products[normalized_gtin])
-                ))
-                total_found += 1
-            else:
-                results.append(BatchResponseItem(
-                    gtin=original_gtin,
-                    found=False,
-                    product=None
-                ))
-    
-    # Registrar uso proporcional ao total solicitado:
-    # - GTINs encontrados contam como sucesso
-    # - GTINs não encontrados contam como erro
-    if total_requested > 0:
-        record_api_usage_batch(
-            db,
-            auth.api_key.id,
-            success_count=total_found,
-            error_count=total_requested - total_found,
-        )
-    
-    return BatchResponse(
-        total_requested=total_requested,
-        total_found=total_found,
-        results=results
-    )
 
