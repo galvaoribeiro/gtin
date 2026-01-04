@@ -98,8 +98,28 @@ def process_batch_gtins(
     total_found = 0
     total_requested = len(gtins)
 
-    # Enforce limite diário por organização (cada requisição batch conta como 1 consulta)
+    # Limite "hard" defensivo para abuso
+    if total_requested > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Máximo de 100 GTINs por requisição."
+        )
+
+    # Limite por plano (cada requisição batch conta como 1)
     org = auth.organization
+    batch_limit = org.batch_limit
+    if batch_limit <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seu plano não permite consultas em batch. Atualize seu plano para habilitar."
+        )
+    if total_requested > batch_limit:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Limite do plano excedido: máximo de {batch_limit} GTINs por batch."
+        )
+
+    # Enforce limite diário por organização (cada requisição batch conta como 1 consulta)
     used_today = get_organization_daily_usage(db, org.id)
     if used_today + 1 > org.daily_limit:
         raise HTTPException(
@@ -207,11 +227,13 @@ def process_batch_gtins(
     "/batch",
     response_model=BatchResponse,
     summary="Consultar produtos em lote (POST)",
-    description="Consulta múltiplos produtos de uma vez. Máximo de 100 GTINs por requisição. Requer API key válida.",
+    description="Consulta múltiplos produtos de uma vez. Limites por plano: starter=2, pro=5, advanced=10 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Requer API key válida.",
     responses={
         200: {"description": "Resultados da consulta em lote"},
         400: {"description": "Requisição inválida"},
         401: {"description": "API key inválida ou não fornecida"},
+        403: {"description": "Plano não permite batch"},
+        429: {"description": "Limite diário excedido"},
     }
 )
 def get_products_batch(
@@ -234,11 +256,12 @@ def get_products_batch(
     "/batch",
     response_model=BatchResponse,
     summary="Consultar produtos em lote (GET)",
-    description="Consulta múltiplos produtos de uma vez via query parameters. Máximo de 10 GTINs por requisição. Ideal para cacheamento. Requer API key válida.",
+    description="Consulta múltiplos produtos de uma vez via query parameters. Limites por plano: starter=2, pro=5, advanced=10 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Ideal para cacheamento. Requer API key válida.",
     responses={
         200: {"description": "Resultados da consulta em lote"},
         400: {"description": "Requisição inválida"},
         401: {"description": "API key inválida ou não fornecida"},
+        403: {"description": "Plano não permite batch"},
         429: {"description": "Limite diário excedido"},
     }
 )
@@ -246,9 +269,8 @@ def get_products_batch_query(
     response: Response,
     gtins: list[str] = Query(
         ...,
-        description="Lista de GTINs para consultar (máximo 10)",
+        description="Lista de GTINs para consultar (limite depende do plano; hard limit 100)",
         min_length=1,
-        max_length=10,
         alias="gtin"
     ),
     request: Request = None,

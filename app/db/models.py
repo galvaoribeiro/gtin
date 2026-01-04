@@ -57,6 +57,21 @@ class Organization(Base):
         }
         return limits.get(self.plan, 15)
 
+    def get_batch_limit_by_plan(self) -> int:
+        """Retorna o limite de GTINs por batch de acordo com o plano."""
+        limits = {
+            "basic": 0,       # batch desabilitado
+            "starter": 2,
+            "pro": 5,
+            "advanced": 10,
+        }
+        return limits.get(self.plan, 0)
+
+    @property
+    def batch_limit(self) -> int:
+        """Propriedade de conveniência para uso em serialização/respostas."""
+        return self.get_batch_limit_by_plan()
+
 
 class User(Base):
     """

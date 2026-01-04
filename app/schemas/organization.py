@@ -30,6 +30,7 @@ class OrganizationResponse(OrganizationBase):
     """Schema de resposta para Organization."""
     id: int = Field(..., description="ID da organização")
     created_at: datetime = Field(..., description="Data de criação")
+    batch_limit: int = Field(..., description="Limite de GTINs por batch (derivado do plano)")
     
     class Config:
         from_attributes = True
