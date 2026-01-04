@@ -107,11 +107,12 @@ def record_api_usage_batch(
 
 def get_organization_daily_usage(db: Session, organization_id: int) -> int:
     """
-    Retorna o total de chamadas (sucesso + erro) da organização no dia atual.
+    Retorna o total de chamadas de sucesso da organização no dia atual.
+    Apenas sucessos são contados para limites de uso.
     """
     today = get_today_sao_paulo()
     query = text("""
-        SELECT COALESCE(SUM(u.success_count + u.error_count), 0) AS total
+        SELECT COALESCE(SUM(u.success_count), 0) AS total
         FROM api_key_usage_daily u
         JOIN api_keys ak ON ak.id = u.api_key_id
         WHERE ak.organization_id = :org_id
@@ -161,11 +162,12 @@ def record_org_usage_monthly(
 
 def get_organization_monthly_usage(db: Session, organization_id: int) -> int:
     """
-    Retorna o total de chamadas (sucesso + erro) da organização no mês corrente (America/Sao_Paulo).
+    Retorna o total de chamadas de sucesso da organização no mês corrente (America/Sao_Paulo).
+    Apenas sucessos são contados para limites de uso.
     """
     usage_month = get_current_month_start_sao_paulo()
     query = text("""
-        SELECT COALESCE(success_count + error_count, 0) AS total
+        SELECT COALESCE(success_count, 0) AS total
         FROM organization_usage_monthly
         WHERE organization_id = :org_id
           AND usage_month = :usage_month

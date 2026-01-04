@@ -87,7 +87,7 @@ def get_usage_summary(
             api_key_name=row.api_key_name,
             total_success=success,
             total_error=error,
-            total_calls=success + error,
+            total_calls=success,  # Apenas sucessos são contados para uso
         ))
     
     return UsageSummaryResponse(
@@ -96,7 +96,7 @@ def get_usage_summary(
         end_date=today,
         total_success=total_success,
         total_error=total_error,
-        total_calls=total_success + total_error,
+        total_calls=total_success,  # Apenas sucessos são contados para uso
         by_api_key=by_api_key,
     )
 
@@ -169,7 +169,7 @@ def get_daily_series(
             date=current,
             success_count=success,
             error_count=error,
-            total_count=success + error,
+            total_count=success,  # Apenas sucessos são contados para uso
         ))
         current += timedelta(days=1)
     
@@ -271,7 +271,7 @@ def get_api_key_daily_series(
             date=current,
             success_count=success,
             error_count=error,
-            total_count=success + error,
+            total_count=success,  # Apenas sucessos são contados para uso
         ))
         current += timedelta(days=1)
     
