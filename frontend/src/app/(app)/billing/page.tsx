@@ -32,8 +32,8 @@ const PLANS = [
     name: "Basic",
     price: 0,
     features: [
-      "15 consultas/dia",
-      "Acesso público limitado",
+      "Sem API keys (apenas cadastro/login)",
+      "Acesso ao dashboard",
       "Suporte via documentação",
     ],
   },
@@ -220,13 +220,9 @@ export default function BillingPage() {
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-zinc-500">
-                {subscription?.plan === "basic" ? "Limite Diário" : "Limite Mensal"}
-              </p>
+              <p className="text-sm font-medium text-zinc-500">Limite Mensal</p>
               <p className="text-2xl font-bold">
-                {subscription?.plan === "basic"
-                  ? (subscription?.daily_limit ?? 15).toLocaleString("pt-BR")
-                  : subscription?.monthly_limit != null
+                {subscription?.monthly_limit != null
                   ? subscription.monthly_limit.toLocaleString("pt-BR")
                   : "—"}
               </p>

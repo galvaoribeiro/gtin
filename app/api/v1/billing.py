@@ -49,7 +49,7 @@ class SubscriptionResponse(BaseModel):
     status: Optional[str]
     current_period_end: Optional[datetime]
     cancel_at_period_end: bool = False
-    daily_limit: int
+    monthly_limit: int
 
 
 class InvoiceItem(BaseModel):
@@ -111,7 +111,7 @@ def get_subscription(
         status=org.subscription_status,
         current_period_end=org.current_period_end,
         cancel_at_period_end=cancel_at_period_end,
-        daily_limit=org.get_daily_limit_by_plan()
+        monthly_limit=org.monthly_limit
     )
 
 
@@ -139,7 +139,7 @@ def get_billing_data(
         status=org.subscription_status,
         current_period_end=org.current_period_end,
         cancel_at_period_end=cancel_at_period_end,
-        daily_limit=org.get_daily_limit_by_plan()
+        monthly_limit=org.monthly_limit
     )
     
     # Invoices e Payment Methods (só se tiver customer no Stripe)
@@ -299,14 +299,12 @@ def switch_plan(
                 StripeService.cancel_subscription(org.stripe_subscription_id)
                 org.plan = "basic"
                 org.subscription_status = "canceled"
-                org.daily_limit = 15
                 db.commit()
                 return {"message": "Plano alterado para Basic. Subscription cancelada."}
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Erro ao cancelar subscription: {str(e)}")
         else:
             org.plan = "basic"
-            org.daily_limit = 15
             db.commit()
             return {"message": "Plano alterado para Basic"}
     
@@ -315,7 +313,6 @@ def switch_plan(
         try:
             StripeService.update_subscription_plan(org.stripe_subscription_id, new_plan)
             org.plan = new_plan
-            org.daily_limit = org.get_daily_limit_by_plan()
             db.commit()
             return {"message": f"Plano alterado para {new_plan}"}
         except Exception as e:
@@ -373,14 +370,12 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             org.subscription_status = subscription_data["subscription_status"]
             org.current_period_end = subscription_data["current_period_end"]
             org.plan = subscription_data["plan"]
-            org.daily_limit = org.get_daily_limit_by_plan()
             org.default_payment_method = subscription_data["default_payment_method"]
 
             print(f"org.stripe_subscription_id: {org.stripe_subscription_id}")
             print(f"org.subscription_status: {org.subscription_status}")
             print(f"org.current_period_end: {org.current_period_end}")
             print(f"org.plan: {org.plan}")
-            print(f"org.daily_limit: {org.daily_limit}")
             print(f"org.default_payment_method: {org.default_payment_method}")
 
             db.commit()
@@ -397,7 +392,6 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         if org:
             org.plan = "basic"
             org.subscription_status = "canceled"
-            org.daily_limit = 15
             org.stripe_subscription_id = None
             db.commit()
             print(f"[WEBHOOK] Organização {org.id} voltou para plano Basic")
@@ -444,7 +438,6 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                 org.subscription_status = subscription_data["subscription_status"]
                 org.current_period_end = subscription_data["current_period_end"]
                 org.plan = subscription_data["plan"]
-                org.daily_limit = org.get_daily_limit_by_plan()
                 org.default_payment_method = subscription_data["default_payment_method"]
                 db.commit()
                 
@@ -453,7 +446,6 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                 print(f"org.subscription_status: {org.subscription_status}")
                 print(f"org.current_period_end: {org.current_period_end}")
                 print(f"org.plan: {org.plan}")
-                print(f"org.daily_limit: {org.daily_limit}")
                 print(f"org.default_payment_method: {org.default_payment_method}")
 
                 print(f"[WEBHOOK] (checkout.completed) Organização {org.id} atualizada para {org.plan}")

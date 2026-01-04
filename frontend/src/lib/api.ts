@@ -109,7 +109,6 @@ export interface UserData {
   organization_id: number;
   organization_name: string | null;
   plan: string | null;
-  daily_limit: number | null;
   monthly_limit?: number | null;
   is_active: boolean;
   created_at: string;
@@ -1032,7 +1031,7 @@ export interface SubscriptionData {
   status: string | null;
   current_period_end: string | null;
   cancel_at_period_end: boolean;
-  daily_limit: number;
+  monthly_limit: number;
 }
 
 /**

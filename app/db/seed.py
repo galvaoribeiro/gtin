@@ -37,8 +37,7 @@ def seed_initial_data(db: Session) -> tuple[Organization, ApiKey, User]:
         # Criar organização
         existing_org = Organization(
             name="Dev Organization",
-            plan="basic",
-            daily_limit=15,  # Limite do plano basic
+            plan="starter",
         )
         db.add(existing_org)
         db.commit()
@@ -97,7 +96,6 @@ def run_seed():
         print("="*50)
         print(f"Organização: {org.name}")
         print(f"Plano: {org.plan}")
-        print(f"Limite diário: {org.daily_limit}")
         print(f"API Key: {key.key}")
         print("="*50)
         print("\nCredenciais de Login (Dashboard):")

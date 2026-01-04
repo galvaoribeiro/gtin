@@ -107,31 +107,25 @@ export default function DashboardPage() {
     const plan = user?.plan || "basic";
     switch (plan) {
       case "starter":
-        return { isBasic: false, dailyLimit: null, monthlyLimit: 5000 };
+        return { isBasic: false, monthlyLimit: 5000 };
       case "pro":
-        return { isBasic: false, dailyLimit: null, monthlyLimit: 10000 };
+        return { isBasic: false, monthlyLimit: 10000 };
       case "advanced":
-        return { isBasic: false, dailyLimit: null, monthlyLimit: 20000 };
+        return { isBasic: false, monthlyLimit: 20000 };
       default:
-        return { isBasic: true, dailyLimit: user?.daily_limit || 15, monthlyLimit: null };
+        return { isBasic: true, monthlyLimit: 0 };
     }
   };
 
-  // Derivar uso exibido (diário para basic; 7d para demais)
+  // Derivar uso exibido (sem API para basic; 7d para demais)
   const getUsageToday = () => {
-    const { isBasic, dailyLimit, monthlyLimit } = getPlanLimits();
+    const { isBasic, monthlyLimit } = getPlanLimits();
     if (isBasic) {
-      const limite = dailyLimit || 15;
-      if (!dailySeries || dailySeries.series.length === 0) {
-        return { label: "Consultas Hoje", consultas: 0, limite, percentual: 0, isBasic };
-      }
-      const today = dailySeries.series[dailySeries.series.length - 1];
-      const consultas = today.total_count;
       return {
-        label: "Consultas Hoje",
-        consultas,
-        limite,
-        percentual: limite > 0 ? Math.round((consultas / limite) * 100) : 0,
+        label: "Sem acesso à API",
+        consultas: 0,
+        limite: 0,
+        percentual: 0,
         isBasic,
       };
     }
@@ -257,9 +251,9 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-sm text-zinc-600 dark:text-zinc-400">
               {(() => {
-                const { isBasic, dailyLimit, monthlyLimit } = getPlanLimits();
+                const { isBasic, monthlyLimit } = getPlanLimits();
                 return isBasic ? (
-                  <p>Limite: {(dailyLimit || 15).toLocaleString()} consultas/dia</p>
+                  <p>Limite: sem acesso à API (plano Basic)</p>
                 ) : (
                   <p>
                     Limite: {monthlyLimit ? monthlyLimit.toLocaleString() : "—"} consultas/mês
@@ -278,7 +272,7 @@ export default function DashboardPage() {
             <CardTitle className="text-2xl">
               {usageToday.consultas.toLocaleString()}{" "}
               <span className="text-base font-normal text-zinc-500">
-                / {usageToday.limite.toLocaleString()}
+                / {usageToday.limite ? usageToday.limite.toLocaleString() : "—"}
               </span>
             </CardTitle>
           </CardHeader>
@@ -290,7 +284,9 @@ export default function DashboardPage() {
               />
             </div>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              {usageToday.percentual}% do {usageToday.isBasic ? "limite diário" : "limite mensal (base 7d)"}
+              {usageToday.isBasic
+                ? "Plano Basic não inclui API."
+                : `${usageToday.percentual}% do limite mensal (base 7d)`}
             </p>
           </CardContent>
         </Card>

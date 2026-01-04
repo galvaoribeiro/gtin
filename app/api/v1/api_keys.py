@@ -94,6 +94,12 @@ def list_api_keys(
     Returns:
         Lista de API keys com informacoes basicas (key mascarada).
     """
+    if org.plan == "basic":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seu plano não permite gerenciar API keys. Faça upgrade para Starter ou superior."
+        )
+    
     api_keys = (
         db.query(ApiKey)
         .filter(ApiKey.organization_id == org.id)
@@ -127,6 +133,12 @@ def create_api_key(
     Returns:
         API key criada com a key completa.
     """
+    if org.plan == "basic":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seu plano não permite criar API keys. Faça upgrade para Starter ou superior."
+        )
+    
     # Gerar nova key
     new_key_value = ApiKey.generate_key()
     

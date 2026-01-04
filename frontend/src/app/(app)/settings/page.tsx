@@ -17,7 +17,7 @@ type ProfileForm = {
   organization_name: string;
   email: string;
   plan: string | null;
-  daily_limit: number | null;
+  monthly_limit: number | null | undefined;
 };
 
 export default function SettingsPage() {
@@ -34,7 +34,7 @@ export default function SettingsPage() {
           organization_name: data.organization_name || "",
           email: data.email,
           plan: data.plan,
-          daily_limit: data.daily_limit,
+          monthly_limit: data.monthly_limit,
         });
       } catch (err) {
         console.error(err);
@@ -64,7 +64,7 @@ export default function SettingsPage() {
         organization_name: updated.organization_name || "",
         email: updated.email,
         plan: updated.plan,
-        daily_limit: updated.daily_limit,
+        monthly_limit: updated.monthly_limit,
       });
       alert("Configurações salvas com sucesso!");
     } catch (err) {
@@ -126,9 +126,13 @@ export default function SettingsPage() {
                   <Badge variant="outline">{profile?.plan || "basic"}</Badge>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span>Limite diário:</span>
+                  <span>Limite do plano:</span>
                   <Badge variant="outline">
-                    {profile?.daily_limit ?? 0} consultas/dia
+                    {profile?.plan === "basic"
+                      ? "Sem acesso à API"
+                      : profile?.monthly_limit != null
+                      ? `${profile.monthly_limit.toLocaleString()} / mês`
+                      : "—"}
                   </Badge>
                 </div>
               </div>

@@ -116,17 +116,17 @@ export default function UsagePage() {
     const normalized = plan || "basic";
     switch (normalized) {
       case "starter":
-        return { isBasic: false, dailyLimit: null, monthlyLimit: 5000 };
+        return { isBasic: false, monthlyLimit: 5000 };
       case "pro":
-        return { isBasic: false, dailyLimit: null, monthlyLimit: 10000 };
+        return { isBasic: false, monthlyLimit: 10000 };
       case "advanced":
-        return { isBasic: false, dailyLimit: null, monthlyLimit: 20000 };
+        return { isBasic: false, monthlyLimit: 20000 };
       default:
-        return { isBasic: true, dailyLimit: user?.daily_limit ?? 15, monthlyLimit: null };
+        return { isBasic: true, monthlyLimit: 0 };
     }
   };
 
-  const { isBasic, dailyLimit, monthlyLimit } = getPlanLimits(user?.plan);
+  const { isBasic, monthlyLimit } = getPlanLimits(user?.plan);
 
   // Calcular estatísticas do mês (usando série diária carregada)
   const getMonthStats = () => {
@@ -288,7 +288,7 @@ export default function UsagePage() {
             <CardDescription>Limite do Plano</CardDescription>
             <CardTitle className="text-2xl">
               {isBasic
-                ? `${(dailyLimit ?? 0).toLocaleString()} / dia`
+                ? "Sem acesso à API"
                 : monthlyLimit
                 ? `${monthlyLimit.toLocaleString()} / mês`
                 : "—"}
@@ -297,7 +297,7 @@ export default function UsagePage() {
           <CardContent>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               {isBasic
-                ? "Aplicado diariamente (plano Basic)."
+                ? "Plano Basic não inclui API keys."
                 : "Aplicado mensalmente por organização."}
             </p>
             {!isBasic && monthlyLimit ? (
@@ -473,9 +473,7 @@ export default function UsagePage() {
               <TableBody>
                 {/* Mostrar em ordem decrescente (mais recente primeiro) */}
                 {[...dailySeries.series].reverse().map((day) => {
-                  const percentage = isBasic && dailyLimit
-                    ? Math.round((day.total_count / dailyLimit) * 100)
-                    : 0;
+                  const percentage = 0;
                   return (
                     <TableRow key={day.date}>
                       <TableCell>
@@ -488,27 +486,9 @@ export default function UsagePage() {
                       <TableCell className="text-red-600 dark:text-red-400">
                         {day.error_count.toLocaleString()}
                       </TableCell>
+                      <TableCell>—</TableCell>
                       <TableCell>
-                        {isBasic && dailyLimit
-                          ? dailyLimit.toLocaleString()
-                          : "—"}
-                      </TableCell>
-                      <TableCell>
-                        {isBasic && dailyLimit ? (
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-24 rounded-full bg-zinc-200 dark:bg-zinc-700">
-                              <div
-                                className="h-2 rounded-full bg-zinc-900 dark:bg-white"
-                                style={{ width: `${Math.min(percentage, 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                              {percentage}%
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-zinc-500">—</span>
-                        )}
+                        <span className="text-sm text-zinc-500">—</span>
                       </TableCell>
                     </TableRow>
                   );

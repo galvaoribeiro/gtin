@@ -22,14 +22,13 @@ class Organization(Base):
     Modelo para organizações/clientes.
     
     Cada organização pode ter múltiplas API keys e um plano de uso.
-    Planos: basic (grátis), starter, pro, advanced
+    Planos: basic (cadastro/login, sem API keys), starter, pro, advanced
     """
     __tablename__ = "organizations"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False, comment="Nome da organização/cliente")
     plan = Column(String(50), nullable=False, default="basic", comment="Plano: basic, starter, pro, advanced")
-    daily_limit = Column(Integer, nullable=False, default=15, comment="Limite de consultas por dia")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
     # Campos Stripe
@@ -47,16 +46,6 @@ class Organization(Base):
     def __repr__(self) -> str:
         return f"<Organization(id={self.id}, name='{self.name}', plan='{self.plan}')>"
     
-    def get_daily_limit_by_plan(self) -> int:
-        """Retorna o limite diário baseado no plano."""
-        limits = {
-            "basic": 15,
-            "starter": 200,
-            "pro": 400,
-            "advanced": 1000,
-        }
-        return limits.get(self.plan, 15)
-
     def get_batch_limit_by_plan(self) -> int:
         """Retorna o limite de GTINs por batch de acordo com o plano."""
         limits = {
@@ -75,7 +64,7 @@ class Organization(Base):
     def get_monthly_limit_by_plan(self) -> int:
         """Retorna o limite mensal de chamadas de API por organização, de acordo com o plano."""
         limits = {
-            "basic": 0,        # basic permanece com limite diário
+            "basic": 0,        # basic não possui acesso a API
             "starter": 5000,
             "pro": 10000,
             "advanced": 20000,

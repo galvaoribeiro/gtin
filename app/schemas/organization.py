@@ -18,7 +18,6 @@ class OrganizationBase(BaseModel):
     """Schema base para Organization."""
     name: str = Field(..., description="Nome da organização/cliente")
     plan: str = Field(default="basic", description="Plano: basic (grátis), starter, pro, advanced")
-    daily_limit: int = Field(default=15, description="Limite de consultas por dia")
 
 
 class OrganizationCreate(OrganizationBase):

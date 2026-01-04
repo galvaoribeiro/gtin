@@ -120,10 +120,6 @@ def get_api_key_auth(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Atualizar last_used_at
-    api_key_record.last_used_at = datetime.utcnow()
-    db.commit()
-    
     # Carregar a organização
     organization = (
         db.query(Organization)
@@ -132,12 +128,22 @@ def get_api_key_auth(
     )
     
     if not organization:
-        # Não deveria acontecer se FK está correta, mas por segurança
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # Bloquear uso por plano basic
+    if organization.plan == "basic":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seu plano não permite uso de API key. Faça upgrade para Starter ou superior."
+        )
+    
+    # Atualizar last_used_at
+    api_key_record.last_used_at = datetime.utcnow()
+    db.commit()
     
     # Armazenar api_key_id no request.state para uso no logging
     request.state.api_key_id = api_key_record.id

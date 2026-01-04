@@ -14,7 +14,6 @@ from app.db.models import Organization
 from app.api.deps import get_api_key_auth, ApiKeyAuth
 from app.core.usage import (
     record_api_usage,
-    get_organization_daily_usage,
     get_organization_monthly_usage,
     record_org_usage_monthly,
 )
@@ -111,7 +110,11 @@ def process_batch_gtins(
         )
 
     org = auth.organization
-    is_basic_plan = org.plan == "basic"
+    if org.plan == "basic":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seu plano não permite consultas de API. Faça upgrade para Starter ou superior."
+        )
 
     # Limite por plano (cada requisição batch conta como 1)
     batch_limit = org.batch_limit
@@ -127,21 +130,13 @@ def process_batch_gtins(
         )
 
     # Enforce limites: diário para basic, mensal para demais
-    if is_basic_plan:
-        used_today = get_organization_daily_usage(db, org.id)
-        if used_today + 1 > org.daily_limit:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
-            )
-    else:
-        monthly_limit = org.monthly_limit
-        used_month = get_organization_monthly_usage(db, org.id)
-        if monthly_limit > 0 and used_month + 1 > monthly_limit:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Limite mensal excedido. Restam {max(monthly_limit - used_month, 0)} de {monthly_limit} chamadas para este mês.",
-            )
+    monthly_limit = org.monthly_limit
+    used_month = get_organization_monthly_usage(db, org.id)
+    if monthly_limit > 0 and used_month + 1 > monthly_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Limite mensal excedido. Restam {max(monthly_limit - used_month, 0)} de {monthly_limit} chamadas para este mês.",
+        )
 
     # Normalizar todos os GTINs e criar mapeamento
     normalized_gtins_map = {}  # Mapeia GTIN original -> GTIN normalizado
@@ -230,12 +225,9 @@ def process_batch_gtins(
     
     # Registrar uso: cada requisição batch conta como 1 consulta (independente do número de GTINs)
     if total_requested > 0:
-        if is_basic_plan:
-            record_api_usage(db, auth.api_key.id, 200)
-        else:
-            record_org_usage_monthly(db, org.id, 200)
-            # Mantemos também o registro por API key para métricas
-            record_api_usage(db, auth.api_key.id, 200)
+        record_org_usage_monthly(db, org.id, 200)
+        # Mantemos também o registro por API key para métricas
+        record_api_usage(db, auth.api_key.id, 200)
     
     return BatchResponse(
         total_requested=total_requested,
@@ -360,32 +352,24 @@ def get_product_by_gtin(
     normalized_gtin = normalize_gtin(gtin)
     
     org = auth.organization
-    is_basic_plan = org.plan == "basic"
+    if org.plan == "basic":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seu plano não permite consultas de API. Faça upgrade para Starter ou superior."
+        )
 
-    # Enforce limites: diário para basic, mensal para demais
-    if is_basic_plan:
-        used_today = get_organization_daily_usage(db, org.id)
-        if used_today + 1 > org.daily_limit:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
-            )
-    else:
-        monthly_limit = org.monthly_limit
-        used_month = get_organization_monthly_usage(db, org.id)
-        if monthly_limit > 0 and used_month + 1 > monthly_limit:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Limite mensal excedido. Restam {max(monthly_limit - used_month, 0)} de {monthly_limit} chamadas para este mês.",
-            )
+    monthly_limit = org.monthly_limit
+    used_month = get_organization_monthly_usage(db, org.id)
+    if monthly_limit > 0 and used_month + 1 > monthly_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Limite mensal excedido. Restam {max(monthly_limit - used_month, 0)} de {monthly_limit} chamadas para este mês.",
+        )
     
     if not normalized_gtin:
         # Registrar erro e lançar exceção
-        if is_basic_plan:
-            record_api_usage(db, auth.api_key.id, 400)
-        else:
-            record_org_usage_monthly(db, org.id, 400)
-            record_api_usage(db, auth.api_key.id, 400)
+        record_org_usage_monthly(db, org.id, 400)
+        record_api_usage(db, auth.api_key.id, 400)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="GTIN inválido: deve conter apenas números"
@@ -395,21 +379,15 @@ def get_product_by_gtin(
     
     if product is None:
         # Registrar erro 404
-        if is_basic_plan:
-            record_api_usage(db, auth.api_key.id, 404)
-        else:
-            record_org_usage_monthly(db, org.id, 404)
-            record_api_usage(db, auth.api_key.id, 404)
+        record_org_usage_monthly(db, org.id, 404)
+        record_api_usage(db, auth.api_key.id, 404)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Produto com GTIN '{normalized_gtin}' não encontrado"
         )
     
     # Registrar sucesso
-    if is_basic_plan:
-        record_api_usage(db, auth.api_key.id, 200)
-    else:
-        record_org_usage_monthly(db, org.id, 200)
-        record_api_usage(db, auth.api_key.id, 200)
+    record_org_usage_monthly(db, org.id, 200)
+    record_api_usage(db, auth.api_key.id, 200)
     return product
 
