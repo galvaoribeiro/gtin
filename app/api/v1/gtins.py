@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.models import Organization
 from app.api.deps import get_api_key_auth, ApiKeyAuth
-from app.core.usage import record_api_usage, record_api_usage_batch, get_organization_daily_usage
+from app.core.usage import record_api_usage, get_organization_daily_usage
 from app.schemas.product import (
     ProductResponse,
     BatchRequest,
@@ -98,10 +98,10 @@ def process_batch_gtins(
     total_found = 0
     total_requested = len(gtins)
 
-    # Enforce limite diário por organização (cada GTIN conta 1) antes de qualquer acesso ao DB
+    # Enforce limite diário por organização (cada requisição batch conta como 1 consulta)
     org = auth.organization
     used_today = get_organization_daily_usage(db, org.id)
-    if used_today + total_requested > org.daily_limit:
+    if used_today + 1 > org.daily_limit:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Limite diário excedido. Restam {max(org.daily_limit - used_today, 0)} de {org.daily_limit} chamadas para hoje.",
@@ -192,16 +192,9 @@ def process_batch_gtins(
                 product=None
             ))
     
-    # Registrar uso proporcional ao total solicitado:
-    # - GTINs encontrados contam como sucesso
-    # - GTINs não encontrados contam como erro
+    # Registrar uso: cada requisição batch conta como 1 consulta (independente do número de GTINs)
     if total_requested > 0:
-        record_api_usage_batch(
-            db,
-            auth.api_key.id,
-            success_count=total_found,
-            error_count=total_requested - total_found,
-        )
+        record_api_usage(db, auth.api_key.id, 200)
     
     return BatchResponse(
         total_requested=total_requested,
