@@ -22,9 +22,11 @@ from app.schemas.product import (
     BatchRequest,
     BatchResponse,
     BatchResponseItem,
+    SearchResponse,
 )
 
 router = APIRouter(prefix="/v1/gtins", tags=["GTINs"])
+SEARCH_LIMIT = 10
 
 
 def normalize_gtin(gtin: str) -> str:
@@ -324,6 +326,144 @@ def get_products_batch_query(
     response.headers["Vary"] = "X-API-Key"
     
     return batch_response
+
+
+@router.get(
+    "/search",
+    response_model=SearchResponse,
+    summary="Buscar produtos por filtros",
+    description=(
+        "Busca produtos por brand, product_name e/ou ncm. "
+        "Retorna paginação por offset com limite fixo de 10 itens."
+    ),
+    responses={
+        200: {"description": "Resultados paginados"},
+        400: {"description": "Requisição inválida"},
+        401: {"description": "API key inválida ou não fornecida"},
+        403: {"description": "Plano não permite consultas de API"},
+        429: {"description": "Limite mensal excedido"},
+    }
+)
+def search_products(
+    request: Request,
+    brand: str | None = Query(None, description="Marca (contém, case-insensitive)"),
+    product_name: str | None = Query(None, description="Nome do produto (contém, case-insensitive)"),
+    ncm: str | None = Query(None, description="Código NCM (match exato)"),
+    offset: int = Query(0, ge=0, description="Offset para paginação (múltiplos de 10)"),
+    auth: ApiKeyAuth = Depends(get_api_key_auth),
+    db: Session = Depends(get_db),
+):
+    """
+    Busca produtos aplicando filtros opcionais e retorna resultados paginados.
+    Limite fixo de 10 itens por página, ordenação por gtin ASC.
+    """
+    org = auth.organization
+    if org.plan == "basic":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seu plano não permite consultas de API. Faça upgrade para Starter ou superior."
+        )
+
+    monthly_limit = org.monthly_limit
+    used_month = get_organization_monthly_usage(db, org.id)
+    if monthly_limit > 0 and used_month + 1 > monthly_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Limite mensal excedido. Restam {max(monthly_limit - used_month, 0)} de {monthly_limit} chamadas para este mês.",
+        )
+
+    # Normalizar filtros: remover espaços extras e ignorar strings vazias
+    brand_filter = brand.strip() if brand else None
+    product_name_filter = product_name.strip() if product_name else None
+    ncm_filter = ncm.strip() if ncm else None
+
+    if not any([brand_filter, product_name_filter, ncm_filter]):
+        record_org_usage_monthly(db, org.id, 400)
+        record_api_usage(db, auth.api_key.id, 400)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Informe pelo menos um filtro: brand, product_name ou ncm."
+        )
+
+    where_clauses = []
+    params: dict[str, str | int] = {}
+
+    if brand_filter:
+        where_clauses.append("brand ILIKE :brand")
+        params["brand"] = f"%{brand_filter}%"
+
+    if product_name_filter:
+        where_clauses.append("product_name ILIKE :product_name")
+        params["product_name"] = f"%{product_name_filter}%"
+
+    if ncm_filter:
+        where_clauses.append("ncm = :ncm")
+        params["ncm"] = ncm_filter
+
+    where_sql = " AND ".join(where_clauses)
+    base_select = """
+        SELECT 
+            gtin,
+            gtin_type,
+            brand,
+            product_name,
+            owner_tax_id,
+            origin_country,
+            ncm,
+            cest,
+            gross_weight_value,
+            gross_weight_unit,
+            dsit_date,
+            updated_at,
+            image_url
+        FROM products
+    """
+
+    # Consulta de total
+    count_query = text(f"SELECT COUNT(*) FROM products WHERE {where_sql}")
+    total = db.execute(count_query, params).scalar() or 0
+
+    # Consulta paginada
+    select_query = text(
+        base_select
+        + " WHERE "
+        + where_sql
+        + " ORDER BY gtin ASC LIMIT :limit OFFSET :offset"
+    )
+    params_with_pagination = {**params, "limit": SEARCH_LIMIT, "offset": offset}
+    rows = db.execute(select_query, params_with_pagination).fetchall()
+
+    items = []
+    for row in rows:
+        items.append(ProductResponse(
+            gtin=row.gtin,
+            gtin_type=row.gtin_type,
+            brand=row.brand,
+            product_name=row.product_name,
+            owner_tax_id=row.owner_tax_id,
+            origin_country=row.origin_country,
+            ncm=row.ncm,
+            cest=row.cest,
+            gross_weight_value=row.gross_weight_value,
+            gross_weight_unit=row.gross_weight_unit,
+            dsit_date=row.dsit_date,
+            updated_at=row.updated_at,
+            image_url=row.image_url,
+        ))
+
+    returned = len(items)
+
+    # Registrar sucesso
+    record_org_usage_monthly(db, org.id, 200)
+    record_api_usage(db, auth.api_key.id, 200)
+
+    return SearchResponse(
+        total=total,
+        offset=offset,
+        limit=SEARCH_LIMIT,
+        returned=returned,
+        items=items,
+    )
 
 
 @router.get(
