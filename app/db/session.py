@@ -42,12 +42,23 @@ def get_database_url() -> str:
 DATABASE_URL = get_database_url()
 
 # Criar engine SQLAlchemy
+'''
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,  # Verifica conexão antes de usar
     pool_size=5,         # Tamanho do pool de conexões
     max_overflow=10,     # Conexões extras permitidas
 )
+'''
+# para testes somente
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=30,
+    max_overflow=70,
+    pool_timeout=30,
+    pool_pre_ping=True,
+)
+
 
 # Criar factory de sessões
 SessionLocal = sessionmaker(
