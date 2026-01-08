@@ -5,7 +5,7 @@ Inclui autenticação por API key, JWT e outras dependências.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, Security, status
@@ -141,9 +141,14 @@ def get_api_key_auth(
             detail="Seu plano não permite uso de API key. Faça upgrade para Starter ou superior."
         )
     
-    # Atualizar last_used_at
-    api_key_record.last_used_at = datetime.utcnow()
-    db.commit()
+    # Atualizar last_used_at no máx. 1x por dia
+    now = datetime.utcnow()
+    should_update_last_used = (
+        api_key_record.last_used_at is None
+        or (now - api_key_record.last_used_at) >= timedelta(days=1)
+    )
+    if should_update_last_used:
+        api_key_record.last_used_at = now
     
     # Armazenar api_key_id no request.state para uso no logging
     request.state.api_key_id = api_key_record.id

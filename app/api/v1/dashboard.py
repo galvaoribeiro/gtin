@@ -143,6 +143,7 @@ def get_product_by_gtin_dashboard(
     if not normalized_gtin:
         record_org_usage_monthly(db, org.id, 400)
         record_api_usage(db, api_key.id, 400)
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="GTIN inválido: deve conter apenas números"
@@ -153,6 +154,7 @@ def get_product_by_gtin_dashboard(
     if product is None:
         record_org_usage_monthly(db, org.id, 404)
         record_api_usage(db, api_key.id, 404)
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Produto com GTIN '{normalized_gtin}' não encontrado"
@@ -162,6 +164,7 @@ def get_product_by_gtin_dashboard(
     if api_key:
         record_org_usage_monthly(db, org.id, 200)
         record_api_usage(db, api_key.id, 200)
+        db.commit()
     
     return product
 

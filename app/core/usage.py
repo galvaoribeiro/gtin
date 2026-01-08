@@ -71,7 +71,6 @@ def record_api_usage(
         """)
     
     db.execute(query, {"api_key_id": api_key_id, "usage_date": today})
-    db.commit()
 
 
 def record_api_usage_batch(
@@ -102,7 +101,6 @@ def record_api_usage_batch(
         "success_count": success_count,
         "error_count": error_count,
     })
-    db.commit()
 
 
 def get_organization_daily_usage(db: Session, organization_id: int) -> int:
@@ -157,7 +155,6 @@ def record_org_usage_monthly(
         "success_inc": success_inc,
         "error_inc": error_inc,
     })
-    db.commit()
 
 
 def get_organization_monthly_usage(db: Session, organization_id: int) -> int:

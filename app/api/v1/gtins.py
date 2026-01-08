@@ -230,6 +230,7 @@ def process_batch_gtins(
         record_org_usage_monthly(db, org.id, 200)
         # Mantemos também o registro por API key para métricas
         record_api_usage(db, auth.api_key.id, 200)
+        db.commit()
     
     return BatchResponse(
         total_requested=total_requested,
@@ -380,6 +381,7 @@ def search_products(
     if not any([brand_filter, product_name_filter, ncm_filter]):
         record_org_usage_monthly(db, org.id, 400)
         record_api_usage(db, auth.api_key.id, 400)
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Informe pelo menos um filtro: brand, product_name ou ncm."
@@ -456,6 +458,7 @@ def search_products(
     # Registrar sucesso
     record_org_usage_monthly(db, org.id, 200)
     record_api_usage(db, auth.api_key.id, 200)
+    db.commit()
 
     return SearchResponse(
         total=total,
@@ -510,6 +513,7 @@ def get_product_by_gtin(
         # Registrar erro e lançar exceção
         record_org_usage_monthly(db, org.id, 400)
         record_api_usage(db, auth.api_key.id, 400)
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="GTIN inválido: deve conter apenas números"
@@ -521,6 +525,7 @@ def get_product_by_gtin(
         # Registrar erro 404
         record_org_usage_monthly(db, org.id, 404)
         record_api_usage(db, auth.api_key.id, 404)
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Produto com GTIN '{normalized_gtin}' não encontrado"
@@ -529,5 +534,6 @@ def get_product_by_gtin(
     # Registrar sucesso
     record_org_usage_monthly(db, org.id, 200)
     record_api_usage(db, auth.api_key.id, 200)
+    db.commit()
     return product
 
