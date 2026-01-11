@@ -200,9 +200,57 @@ O painel inicialmente seria implementado com **HTMX/Jinja2**, porém foi decidid
 - **FastAPI** como backend/API principal.
 - **Next.js/React** como frontend separado (painel + landing page).
 - **PostgreSQL** (dados do GTIN + planos + keys + usage).
-- **Redis** para rate limit e cache.
+- **Redis** para rate limit.
 
 Sem workers RQ no MVP. Bulk assíncrono somente para Enterprise.
+
+## 7.1 Rate Limits (Redis)
+
+A API implementa rate limits por plano usando Redis:
+
+### Endpoints Autenticados (por organização)
+
+| Endpoint | Plano | Limite |
+|----------|-------|--------|
+| `/{gtin}`, `/batch` | starter | 60 req/min |
+| `/{gtin}`, `/batch` | pro | 90 req/min |
+| `/{gtin}`, `/batch` | advanced | 120 req/min |
+| `/search` | starter | 1 req/6s |
+| `/search` | pro | 1 req/4s |
+| `/search` | advanced | 1 req/2s |
+
+### Endpoint Público (por IP)
+
+| Endpoint | Limite |
+|----------|--------|
+| `/v1/public/gtins/{gtin}` | 30 req/min |
+
+**Documentação completa:** [docs/RATE_LIMITS.md](docs/RATE_LIMITS.md)
+
+## 7.2 Desenvolvimento Local (Docker)
+
+Para rodar Redis localmente:
+
+```bash
+# Subir Redis
+docker-compose up -d redis
+
+# Verificar se está rodando
+docker-compose ps
+```
+
+Configure no `.env`:
+
+```bash
+REDIS_URL=redis://localhost:6379/0
+REDIS_ENABLED=true
+```
+
+## 7.3 Deploy no Railway
+
+1. Adicione um serviço **Redis** no projeto Railway
+2. Railway injeta automaticamente `REDIS_URL`
+3. Conecte o Redis ao seu backend nas variáveis de ambiente
 
 ---
 

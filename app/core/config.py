@@ -38,6 +38,10 @@ class Settings:
         "STRIPE_PRICE_ADVANCED",
         os.getenv("STRIPE_PRICE_ENTERPRISE", ""),
     )
+    
+    # Redis Settings (para rate limiting)
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_ENABLED: bool = os.getenv("REDIS_ENABLED", "true").lower() in ("true", "1", "yes")
 
 
 settings = Settings()
