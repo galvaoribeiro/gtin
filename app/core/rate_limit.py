@@ -5,11 +5,13 @@ Implementa rate limits por organização (autenticados) e por IP (público).
 
 - Lookup (/{gtin}, /batch): req/min por plano
 - Search (/search): cooldown em segundos por plano
-- Público: 30 req/min por IP
+- Público: 15 req/dia por IP + cooldown entre requisições
 """
 
 import time
 import logging
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Optional, Tuple
 
 import redis
@@ -40,8 +42,9 @@ SEARCH_COOLDOWNS = {
     "advanced": 2,    # 1 req a cada 2s
 }
 
-# Público: limite por IP (requests por minuto)
-PUBLIC_RATE_LIMIT = 30
+# Público: limites por IP
+PUBLIC_DAILY_LIMIT = 20  # até o final do dia (America/Sao_Paulo)
+PUBLIC_COOLDOWN_SECONDS = 5  # delay entre chamadas para desincentivar scraping
 
 
 # =============================================================================
@@ -77,6 +80,26 @@ def get_redis_client() -> Optional[redis.Redis]:
             _redis_client = None
     
     return _redis_client
+
+
+# =============================================================================
+# Funções de fuso horário (reset diário em America/Sao_Paulo)
+# =============================================================================
+
+
+def _get_sao_paulo_tz() -> timezone:
+    try:
+        return ZoneInfo("America/Sao_Paulo")
+    except ZoneInfoNotFoundError:
+        return timezone(timedelta(hours=-3))
+
+
+def _seconds_until_midnight_sao_paulo() -> int:
+    tz = _get_sao_paulo_tz()
+    now_local = datetime.now(tz)
+    tomorrow = (now_local + timedelta(days=1)).date()
+    midnight = datetime.combine(tomorrow, datetime.min.time(), tzinfo=tz)
+    return max(int((midnight - now_local).total_seconds()), 1)
 
 
 # =============================================================================
@@ -211,6 +234,41 @@ class RedisRateLimiter:
             logger.warning("Redis error em cooldown: %s", e)
             return True, 0
 
+    def check_daily_limit_until_midnight(
+        self,
+        key: str,
+        daily_limit: int,
+    ) -> Tuple[bool, int, int]:
+        """
+        Limite diário com reset na meia-noite de São Paulo.
+
+        Returns:
+            (allowed, remaining, retry_after_seconds)
+        """
+        client = get_redis_client()
+        if client is None:
+            return True, daily_limit, 0
+
+        try:
+            count = client.incr(key)
+            if count == 1:
+                client.expire(key, _seconds_until_midnight_sao_paulo())
+
+            if count <= daily_limit:
+                remaining = max(daily_limit - int(count), 0)
+                return True, remaining, 0
+
+            ttl = client.ttl(key)
+            retry_after = (
+                max(int(ttl), 1)
+                if ttl and ttl > 0
+                else _seconds_until_midnight_sao_paulo()
+            )
+            return False, 0, retry_after
+        except redis.RedisError as e:
+            logger.warning("Redis error em daily_limit: %s", e)
+            return True, daily_limit, 0
+
 
 # Singleton do rate limiter
 redis_rate_limiter = RedisRateLimiter()
@@ -256,7 +314,7 @@ def _raise_rate_limit_exceeded(
 def check_public_rate_limit(request: Request) -> str:
     """
     Dependency para rate limit de endpoints públicos.
-    Limite: 30 req/min por IP.
+    Limite: 15 req/dia por IP + cooldown entre requisições.
     
     Returns:
         IP do cliente (para logging/métricas)
@@ -265,22 +323,36 @@ def check_public_rate_limit(request: Request) -> str:
         HTTPException 429 se limite excedido
     """
     ip = get_client_ip(request)
-    key = f"rl:ip:{ip}:public"
-    
-    allowed, remaining, retry_after = redis_rate_limiter.check_sliding_window(
-        key=key,
-        limit=PUBLIC_RATE_LIMIT,
-        window_seconds=60,
+
+    # 1) Cooldown (delay) por IP
+    cooldown_key = f"rl:ip:{ip}:public:cooldown"
+    allowed, retry_after = redis_rate_limiter.check_cooldown(
+        key=cooldown_key,
+        cooldown_seconds=PUBLIC_COOLDOWN_SECONDS,
     )
-    
     if not allowed:
         _raise_rate_limit_exceeded(
-            limit=PUBLIC_RATE_LIMIT,
+            limit=1,
+            remaining=0,
+            retry_after=retry_after,
+            message="Acesso público é limitado. Aguarde um pouco ou crie uma conta para acesso completo.",
+        )
+
+    # 2) Limite diário até a meia-noite (America/Sao_Paulo)
+    daily_key = f"rl:ip:{ip}:public:daily"
+    allowed, remaining, retry_after = redis_rate_limiter.check_daily_limit_until_midnight(
+        key=daily_key,
+        daily_limit=PUBLIC_DAILY_LIMIT,
+    )
+
+    if not allowed:
+        _raise_rate_limit_exceeded(
+            limit=PUBLIC_DAILY_LIMIT,
             remaining=remaining,
             retry_after=retry_after,
-            message="Limite de requisições excedido. Aguarde antes de tentar novamente.",
+            message="Você atingiu o limite diário do endpoint público. Assine um plano para acesso completo à API.",
         )
-    
+
     return ip
 
 

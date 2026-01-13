@@ -77,7 +77,7 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
     summary="Consultar produto por GTIN (Público)",
     description="Retorna os dados de um produto a partir do seu código GTIN (código de barras). "
                 "Endpoint público sem necessidade de autenticação. "
-                "Rate limit: 30 requisições por minuto por IP.",
+                "Rate limit: 20 requisições por dia por IP + cooldown entre chamadas.",
     responses={
         200: {"description": "Produto encontrado"},
         400: {"description": "GTIN inválido"},
@@ -100,7 +100,8 @@ def get_product_by_gtin_public(
     - **gtin**: Código de barras do produto (8, 12, 13 ou 14 dígitos)
     
     Limitações:
-    - 30 requisições por minuto por endereço IP
+    - 20 requisições por dia por IP (reset 00:00 America/Sao_Paulo)
+    - Cooldown: 1 requisição a cada 5 segundos por IP
     - Não registra métricas de uso
     """
     # Normalizar GTIN (remover caracteres não numéricos)

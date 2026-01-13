@@ -223,7 +223,7 @@ A API implementa rate limits por plano usando Redis:
 
 | Endpoint | Limite |
 |----------|--------|
-| `/v1/public/gtins/{gtin}` | 30 req/min |
+| `/v1/public/gtins/{gtin}` | 20 req/dia (reset 00:00 BRT) + 1 req/5s |
 
 **Documentação completa:** [docs/RATE_LIMITS.md](docs/RATE_LIMITS.md)
 
