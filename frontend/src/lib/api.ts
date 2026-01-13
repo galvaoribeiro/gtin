@@ -531,7 +531,18 @@ export async function fetchGtinPublic(gtin: string): Promise<Product> {
         throw new ApiError("GTIN inválido", 400);
       }
       if (response.status === 429) {
-        throw new ApiError("Limite de requisições excedido. Tente novamente em alguns instantes.", 429);
+        let detail: string | undefined;
+        try {
+          const errorBody = await response.json();
+          detail = errorBody.detail;
+        } catch {
+          // ignora erro ao parsear
+        }
+        throw new ApiError(
+          detail || "Limite de requisições excedido. Tente novamente em alguns instantes.",
+          429,
+          detail
+        );
       }
       
       // Tenta extrair detalhes do erro

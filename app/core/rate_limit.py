@@ -335,7 +335,7 @@ def check_public_rate_limit(request: Request) -> str:
             limit=1,
             remaining=0,
             retry_after=retry_after,
-            message="Acesso público é limitado. Aguarde um pouco ou crie uma conta para acesso completo.",
+            message="Acesso público é limitado. Aguarde alguns segundos ou crie uma conta para acesso completo.",
         )
 
     # 2) Limite diário até a meia-noite (America/Sao_Paulo)
