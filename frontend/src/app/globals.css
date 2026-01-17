@@ -1,11 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* --- CORREÇÃO AQUI --- */
-/* Diz ao Tailwind para olhar 2 níveis acima (ou 1, dependendo da pasta) 
-   e escanear tudo dentro de src */
-/* Tenta forçar a busca na pasta src explicitamente */
-@source "../../../src";
+/* Tailwind v4: mapeia os arquivos fonte explicitamente para gerar utilitários */
+@source "./**/*.{js,ts,jsx,tsx,mdx}";
+@source "../**/*.{js,ts,jsx,tsx,mdx}";
 
 /*@plugin "tailwindcss-animate";*/
 
@@ -132,5 +130,38 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Fallback explícito para variantes lg caso a geração automática falhe */
+@layer utilities {
+  @media (min-width: 1024px) {
+    .lg\:inline {
+      display: inline !important;
+    }
+    .lg\:hidden {
+      display: none !important;
+    }
+    .lg\:block {
+      display: block !important;
+    }
+    .lg\:grid {
+      display: grid !important;
+    }
+    .lg\:grid-cols-\[280px_1fr\] {
+      grid-template-columns: 280px 1fr !important;
+    }
+    .lg\:gap-10 {
+      gap: 2.5rem !important;
+    }
+    .lg\:col-start-1 {
+      grid-column-start: 1 !important;
+    }
+    .lg\:col-start-2 {
+      grid-column-start: 2 !important;
+    }
+    .lg\:row-start-1 {
+      grid-row-start: 1 !important;
+    }
   }
 }

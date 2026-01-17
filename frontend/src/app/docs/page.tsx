@@ -48,6 +48,21 @@ export default function DocsPage() {
   <span className="hidden lg:inline">TELA GRANDE (SIDEBAR VISÍVEL)</span>
 </div>
 
+{/* --- DEBUGGER DE RESOLUÇÃO --- */}
+<div className="fixed top-0 left-0 w-full z-50 bg-black text-white text-center p-4 font-mono text-lg font-bold border-b-4 border-yellow-400">
+  <span className="block lg:hidden text-red-400">
+    🔴 MODO MOBILE (Menor que 1024px)
+  </span>
+  <span className="hidden lg:block text-green-400">
+    🟢 MODO DESKTOP (Maior que 1024px)
+  </span>
+  
+  {/* Esta parte usa CSS puro para mostrar a largura, caso o React falhe */}
+  <div className="mt-2 text-sm text-gray-400">
+    Se este texto estiver branco e sem fundo preto, o CSS não carregou.
+  </div>
+</div>
+
       <header className="border-b border-border bg-gradient-to-b from-muted/40 to-background">
         <div className="container mx-auto px-4 py-10 max-w-6xl">
           <div className="flex flex-col gap-6">
@@ -80,8 +95,8 @@ export default function DocsPage() {
       </header>
 
       <main className="container mx-auto px-4 py-10 max-w-6xl">
-        <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
-          <div className="min-w-0 space-y-12">
+        <div className="lg:grid lg:grid-cols-[280px_1fr] lg:gap-10">
+          <div className="min-w-0 space-y-12 lg:col-start-2">
             <div className="flex items-center justify-between gap-3 lg:hidden">
               <div className="text-sm text-muted-foreground">Índice</div>
               <Sheet open={tocOpen} onOpenChange={setTocOpen}>
@@ -455,7 +470,7 @@ export default function DocsPage() {
             </section>
                 </div>
 
-          <aside className="hidden lg:block">
+          <aside className="hidden lg:block lg:col-start-1 lg:row-start-1">
             <div className="sticky top-24 space-y-4">
               <Card className="p-5">
                 <Toc items={tocItems} />
