@@ -22,9 +22,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import { CodeBlock } from "./_components/CodeBlock"
-import { EndpointCard } from "./_components/EndpointCard"
-import { Toc, type TocItem } from "./_components/Toc"
+import { CodeBlock } from "@/app/docs/_components/CodeBlock"
+import { EndpointCard } from "@/app/docs/_components/EndpointCard"
+import { Toc, type TocItem } from "@/app/docs/_components/Toc"
 
 export default function DocsPage() {
   const tocItems: TocItem[] = [
