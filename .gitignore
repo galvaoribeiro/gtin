@@ -1,6 +1,6 @@
 .cursor/
 .env
 pyenv/
-
+docs/
 /app/loop.py
 /docker-compose.yml
