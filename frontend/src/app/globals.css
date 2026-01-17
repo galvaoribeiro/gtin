@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* --- CORREÇÃO AQUI --- */
+/* Diz ao Tailwind para olhar 2 níveis acima (ou 1, dependendo da pasta) 
+   e escanear tudo dentro de src */
+/* Tenta forçar a busca na pasta src explicitamente */
+@source "../../../src";
+
+/*@plugin "tailwindcss-animate";*/
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -74,7 +82,7 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
-@theme inline {
+@theme {
   --font-sans: "Geist", "Geist Fallback";
   --font-mono: "Geist Mono", "Geist Mono Fallback";
   --color-background: var(--background);

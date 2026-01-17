@@ -38,7 +38,7 @@ export default function DocsPage() {
   ]
 
   const baseUrl = "https://api.example.com"
-  const [tocOpen, setTocOpen] = React.useState(false)
+  const [tocOpen, setTocOpen] = React.useState(false) 
 
   return (
     <div className="min-h-screen bg-background">
