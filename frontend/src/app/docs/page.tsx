@@ -38,10 +38,16 @@ export default function DocsPage() {
   ]
 
   const baseUrl = "https://api.example.com"
-  const [tocOpen, setTocOpen] = React.useState(false) 
+  const [tocOpen, setTocOpen] = React.useState(false)
 
   return (
     <div className="min-h-screen bg-background">
+      {/* DEBUGGING DIV - APAGUE DEPOIS */}
+<div className="fixed top-0 left-0 w-full z-50 text-center font-bold p-2 bg-red-600 text-white lg:bg-green-600">
+  <span className="lg:hidden">TELA PEQUENA (SIDEBAR OCULTA)</span>
+  <span className="hidden lg:inline">TELA GRANDE (SIDEBAR VISÍVEL)</span>
+</div>
+
       <header className="border-b border-border bg-gradient-to-b from-muted/40 to-background">
         <div className="container mx-auto px-4 py-10 max-w-6xl">
           <div className="flex flex-col gap-6">
