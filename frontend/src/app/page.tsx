@@ -414,8 +414,8 @@ export default function LandingPage() {
             <p className="text-white/60 text-sm uppercase tracking-wider font-medium">Milhões de Produtos</p>
           </FadeIn>
           <FadeIn delay={0.2} className="space-y-2">
-            <div className="text-5xl md:text-6xl font-bold text-emerald-400 font-mono tracking-tight">+5M</div>
-            <p className="text-white/60 text-sm uppercase tracking-wider font-medium">Consultas por dia</p>
+            <div className="text-5xl md:text-6xl font-bold text-emerald-400 font-mono tracking-tight">+5MIL</div>
+            <p className="text-white/60 text-sm uppercase tracking-wider font-medium">Consultas por mês</p>
           </FadeIn>
           <FadeIn delay={0.3} className="space-y-2">
             <div className="text-5xl md:text-6xl font-bold text-emerald-400 font-mono tracking-tight">99.9%</div>
@@ -505,7 +505,8 @@ export default function LandingPage() {
               {[
                 "Consulta individual de GTIN no painel",
                 "Consulta individual via API",
-                "Consulta em lote via API (até 100 GTINs por chamada)",
+                "Consulta em lote (batch) via API (até 10 GTINs por chamada)",
+                "Pesquisa (search) via API, com paginação",
                 "Gestão de API Keys (criar/renovar/revogar)",
                 "Dashboard de uso (chamadas, limites, status do plano)",
                 "Exibição completa dos metadados do produto"
@@ -666,11 +667,11 @@ export default function LandingPage() {
                   <CardDescription className="text-base">Para pequenos projetos</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="text-3xl font-bold text-primary">R$ 99,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
+                  <div className="text-3xl font-bold text-primary">R$ 199,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Até 200 consultas/dia*
+                      Até 5.000 consultas/mês
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -701,11 +702,11 @@ export default function LandingPage() {
                   <CardDescription className="text-base">Para crescimento</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="text-3xl font-bold text-primary">R$ 199,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
+                  <div className="text-3xl font-bold text-primary">R$ 399,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-primary font-medium">
                       <CheckCircle2 className="w-4 h-4" />
-                      Até 400 consultas/dia*
+                      Até 10.000 consultas/mês
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -713,7 +714,7 @@ export default function LandingPage() {
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Gestão de até 3 API Keys
+                      Gestão de até 10 API Keys
                     </li>
                   </ul>
                   <Link href="/register">
@@ -733,19 +734,19 @@ export default function LandingPage() {
                   <CardDescription className="text-base">Para grandes volumes</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="text-3xl font-bold text-primary">R$ 399,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
+                  <div className="text-3xl font-bold text-primary">R$ 799,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
                   <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Até 1000 consultas/dia*
+                      Até 20.000 consultas/mês
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      SLA garantido
+                      Formato disponível JSON
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Allowlist de IP
+                      Gestão de até 50 API Keys
                     </li>
                   </ul>
                   <Link href="/register">
@@ -758,9 +759,7 @@ export default function LandingPage() {
             </FadeIn>
           </div>
           
-          <p className="text-center text-sm text-muted-foreground mt-8">
-            *Em batch, cada GTIN conta como 1 consulta.
-          </p>
+          
         </div>
       </section>
 
