@@ -6,7 +6,6 @@ export interface Product {
   gtin_type: string;
   brand: string;
   product_name: string;
-  owner_tax_id: string;
   origin_country: string;
   ncm: string;
   ncm_formatted: string;
@@ -25,7 +24,6 @@ export const mockProducts: Record<string, Product> = {
     gtin_type: "13",
     brand: "ZEHN BIER",
     product_name: "CHOPP PORTER 1 LITRO",
-    owner_tax_id: "22705048000138",
     origin_country: "BR",
     ncm: "22030000",
     ncm_formatted: "2203.00.00",
@@ -39,7 +37,6 @@ export const mockProducts: Record<string, Product> = {
     gtin_type: "13",
     brand: "NESCAFÉ",
     product_name: "CAFÉ SOLÚVEL TRADIÇÃO 200G",
-    owner_tax_id: "33033028000180",
     origin_country: "BR",
     ncm: "21011110",
     ncm_formatted: "2101.11.10",
@@ -53,7 +50,6 @@ export const mockProducts: Record<string, Product> = {
     gtin_type: "13",
     brand: "COCA-COLA",
     product_name: "REFRIGERANTE COCA-COLA 2L",
-    owner_tax_id: "45985371000108",
     origin_country: "BR",
     ncm: "22021000",
     ncm_formatted: "2202.10.00",

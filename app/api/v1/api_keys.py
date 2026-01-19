@@ -8,7 +8,7 @@ Protegido por autenticação JWT.
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -56,6 +56,19 @@ class CreateApiKeyRequest(BaseModel):
     name: Optional[str] = Field(default="Nova chave", description="Nome/descricao da chave")
 
 
+class ApiKeyListResponse(BaseModel):
+    """Schema de resposta paginada para API Keys."""
+    items: list[ApiKeyResponse]
+    page: int
+    per_page: int
+    total: int
+    active_count: int
+    active_limit: int
+
+    class Config:
+        from_attributes = True
+
+
 # =============================================================================
 # Helper Functions
 # =============================================================================
@@ -78,36 +91,67 @@ def api_key_to_response(api_key: ApiKey) -> ApiKeyResponse:
 
 @router.get(
     "",
-    response_model=list[ApiKeyResponse],
+    response_model=ApiKeyListResponse,
     summary="Listar API Keys",
-    description="Retorna todas as API keys da organização do usuário autenticado.",
+    description="Retorna todas as API keys da organização do usuário autenticado (paginado).",
 )
 def list_api_keys(
     org: Organization = Depends(get_current_organization_from_user),
     db: Session = Depends(get_db),
+    page: int = Query(1, ge=1, description="Página (1-based)"),
+    per_page: int = Query(10, ge=1, description="Itens por página (máx 10)"),
 ):
     """
-    Lista todas as API keys da organização.
+    Lista todas as API keys da organização (paginado).
     
     Requer autenticação JWT.
     
     Returns:
-        Lista de API keys com informacoes basicas (key mascarada).
+        Objeto paginado de API keys com informações básicas (key mascarada).
     """
     if org.plan == "basic":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Seu plano não permite gerenciar API keys. Faça upgrade para Starter ou superior."
         )
-    
+
+    # Garantir limite máximo de 10 itens por página
+    per_page = min(per_page, 10)
+
+    base_query = db.query(ApiKey).filter(ApiKey.organization_id == org.id)
+
+    total = base_query.count()
+    total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 1
+
+    # Ajusta página caso exceda o total
+    if page > total_pages:
+        page = total_pages
+
+    offset = (page - 1) * per_page
+
     api_keys = (
-        db.query(ApiKey)
-        .filter(ApiKey.organization_id == org.id)
+        base_query
         .order_by(ApiKey.created_at.desc())
+        .offset(offset)
+        .limit(per_page)
         .all()
     )
+
+    active_count = (
+        db.query(ApiKey)
+        .filter(ApiKey.organization_id == org.id, ApiKey.is_active.is_(True))
+        .count()
+    )
+    active_limit = org.get_api_key_active_limit_by_plan()
     
-    return [api_key_to_response(key) for key in api_keys]
+    return ApiKeyListResponse(
+        items=[api_key_to_response(key) for key in api_keys],
+        page=page,
+        per_page=per_page,
+        total=total,
+        active_count=active_count,
+        active_limit=active_limit,
+    )
 
 
 @router.post(
@@ -137,6 +181,19 @@ def create_api_key(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Seu plano não permite criar API keys. Faça upgrade para Starter ou superior."
+        )
+
+    active_limit = org.get_api_key_active_limit_by_plan()
+    active_count = (
+        db.query(ApiKey)
+        .filter(ApiKey.organization_id == org.id, ApiKey.is_active.is_(True))
+        .count()
+    )
+
+    if active_count >= active_limit:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Limite de {active_limit} API keys ativas atingido para o seu plano ({org.plan})."
         )
     
     # Gerar nova key

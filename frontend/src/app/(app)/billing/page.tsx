@@ -40,37 +40,37 @@ const PLANS = [
   {
     id: "starter",
     name: "Starter",
-    price: 99.9,
+    price: 199.9,
     features: [
       "5.000 consultas/mês",
       "Batch até 2 GTINs",
-      "10 req/min",
-      "API Key dedicada",
-      "Suporte por email",
+      "60 req/min",
+      "Gestão de 1 API Key"
+     
     ],
   },
   {
     id: "pro",
     name: "Pro",
-    price: 199.9,
+    price: 399.9,
     features: [
       "10.000 consultas/mês",
       "Batch até 5 GTINs",
-      "30 req/min",
-      "Suporte prioritário",
+      "90 req/min",
+      "Gestão de até 10 API Keys",
+      
     ],
   },
   {
     id: "advanced",
     name: "Advanced",
-    price: 399.9,
+    price: 799.9,
     features: [
       "20.000 consultas/mês",
       "Batch até 10 GTINs",
-      "Bulk assíncrono",
-      "IP allowlist",
-      "SLA garantido",
-      "Gerente dedicado",
+      "120 req/min",
+      "Gestão de até 50 API Keys",
+      
     ],
   },
 ];

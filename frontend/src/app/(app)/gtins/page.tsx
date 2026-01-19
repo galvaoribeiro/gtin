@@ -250,12 +250,6 @@ export default function GtinsPage() {
               <div className="space-y-3">
                 <div>
                   <p className="text-sm font-medium text-zinc-500">
-                    CNPJ Detentor
-                  </p>
-                  <p className="font-mono">{result.owner_tax_id || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-zinc-500">
                     País de Origem
                   </p>
                   <p>{result.origin_country || "—"}</p>

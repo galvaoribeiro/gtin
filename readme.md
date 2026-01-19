@@ -6,7 +6,7 @@
 
 # 1) Visão Geral
 
-- **Escopo**: serviço de consulta confiável de dados ligados ao GTIN: NCM, CEST, descrição, marca, CNPJ do detentor, peso, origem, data de atualização, etc.&#x20;
+- **Escopo**: serviço de consulta confiável de dados ligados ao GTIN: NCM, CEST, descrição, marca, peso, origem, data de atualização, etc.&#x20;
 - **Proposta de valor**: substituir processos manuais de catalogação, reduzir inconsistência de cadastros, acelerar integração de SKU, criar base única de referência.
 - **Canais**:
   - **Painel Web** (consulta unitária e gerenciamento de API keys)
@@ -45,7 +45,6 @@ Armazena os dados confiáveis carregados da sua base.
 - `gtin_type`
 - `brand`
 - `product_name`
-- `owner_tax_id` (CNPJ/CPF)
 - `image_url`
 - `origin_country` (ex.: BR)
 - `ncm` (8 dígitos)
@@ -96,7 +95,6 @@ Erros: `401` (ausência), `403` (chave inativa), `429` (limite atingido).
   "gtin_type": "13",
   "brand": "ZEHN BIER",
   "product_name": "CHOPP PORTER 1 LITRO",
-  "owner_tax_id": "22705048000138",
   "image_url": "https://...jpeg",
   "origin_country": "BR",
   "ncm": "22030000",

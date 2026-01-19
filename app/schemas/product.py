@@ -18,7 +18,6 @@ class ProductResponse(BaseModel):
     gtin_type: Optional[int] = Field(None, description="Tipo do GTIN (8, 12, 13 ou 14 dígitos)")
     brand: Optional[str] = Field(None, description="Marca do produto")
     product_name: Optional[str] = Field(None, description="Nome/descrição do produto")
-    owner_tax_id: Optional[str] = Field(None, description="CNPJ/CPF do proprietário")
     origin_country: Optional[str] = Field(None, description="País de origem")
     ncm: Optional[str] = Field(None, description="Código NCM (8 dígitos)")
     cest: Optional[list[str]] = Field(None, description="Lista de códigos CEST")
