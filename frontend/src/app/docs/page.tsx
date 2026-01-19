@@ -25,6 +25,7 @@ import {
 import { CodeBlock } from "@/app/docs/_components/CodeBlock"
 import { EndpointCard } from "@/app/docs/_components/EndpointCard"
 import { Toc, type TocItem } from "@/app/docs/_components/Toc"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function DocsPage() {
   const tocItems: TocItem[] = [
@@ -42,6 +43,27 @@ export default function DocsPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* DEBUGGING DIV - APAGUE DEPOIS */}
+<div className="fixed top-0 left-0 w-full z-50 text-center font-bold p-2 bg-red-600 text-white lg:bg-green-600">
+  <span className="lg:hidden">TELA PEQUENA (SIDEBAR OCULTA)</span>
+  <span className="hidden lg:inline">TELA GRANDE (SIDEBAR VISÍVEL)</span>
+</div>
+
+{/* --- DEBUGGER DE RESOLUÇÃO --- */}
+<div className="fixed top-0 left-0 w-full z-50 bg-black text-white text-center p-4 font-mono text-lg font-bold border-b-4 border-yellow-400">
+  <span className="block lg:hidden text-red-400">
+    🔴 MODO MOBILE (Menor que 1024px)
+  </span>
+  <span className="hidden lg:block text-green-400">
+    🟢 MODO DESKTOP (Maior que 1024px)
+  </span>
+  
+  {/* Esta parte usa CSS puro para mostrar a largura, caso o React falhe */}
+  <div className="mt-2 text-sm text-gray-400">
+    Se este texto estiver branco e sem fundo preto, o CSS não carregou.
+  </div>
+</div>
+
       <header className="border-b border-border bg-gradient-to-b from-muted/40 to-background">
         <div className="container mx-auto px-4 py-10 max-w-6xl">
           <div className="flex flex-col gap-6">
@@ -74,8 +96,8 @@ export default function DocsPage() {
       </header>
 
       <main className="container mx-auto px-4 py-10 max-w-6xl">
-        <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-10">
-          <div className="min-w-0 space-y-12">
+        <div className="lg:grid lg:grid-cols-[280px_1fr] lg:gap-10">
+          <div className="min-w-0 space-y-12 lg:col-start-2">
             <div className="flex items-center justify-between gap-3 lg:hidden">
               <div className="text-sm text-muted-foreground">Índice</div>
               <Sheet open={tocOpen} onOpenChange={setTocOpen}>
@@ -429,27 +451,72 @@ export default function DocsPage() {
                 Snippets prontos para copiar e colar.
               </p>
 
-              <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <Card className="p-6">
-                  <div className="text-sm font-semibold text-foreground">JavaScript (fetch)</div>
-                  <CodeBlock
-                    className="mt-4"
-                    code={`const res = await fetch("${baseUrl}/v1/gtins/7891234567890", {\n  headers: {\n    "X-API-Key": "SUA_CHAVE_API",\n  },\n});\n\nif (!res.ok) throw new Error(await res.text());\nconst data = await res.json();\nconsole.log(data);`}
-                  />
-                </Card>
+              <Card className="mt-6 p-0 overflow-hidden border-border/70">
+                <div className="bg-gradient-to-r from-muted/60 via-background to-muted/40 border-b border-border/60 px-4 py-3">
+                  <div className="text-sm font-semibold text-foreground">Escolha a linguagem</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Exemplos minimalistas para consultar um GTIN.
+                  </div>
+                </div>
+                <div className="p-4 lg:p-6">
+                  <Tabs defaultValue="javascript" className="w-full">
+                    <TabsList className="w-full justify-start overflow-x-auto">
+                      <TabsTrigger value="javascript">JavaScript</TabsTrigger>
+                      <TabsTrigger value="python">Python</TabsTrigger>
+                      <TabsTrigger value="java">Java</TabsTrigger>
+                      <TabsTrigger value="ruby">Ruby</TabsTrigger>
+                      <TabsTrigger value="php">PHP</TabsTrigger>
+                      <TabsTrigger value="csharp">C#</TabsTrigger>
+                    </TabsList>
 
-                <Card className="p-6">
-                  <div className="text-sm font-semibold text-foreground">Python (requests)</div>
-                  <CodeBlock
-                    className="mt-4"
-                    code={`import requests\n\nres = requests.get(\n  "${baseUrl}/v1/gtins/7891234567890",\n  headers={\"X-API-Key\": \"SUA_CHAVE_API\"},\n)\nres.raise_for_status()\nprint(res.json())`}
-                  />
-                </Card>
-              </div>
+                    <TabsContent value="javascript" className="mt-4">
+                      <CodeBlock
+                        className="mt-2"
+                        code={`const res = await fetch("${baseUrl}/v1/gtins/7891234567890", {\n  headers: {\n    "X-API-Key": "SUA_CHAVE_API",\n  },\n});\n\nif (!res.ok) throw new Error(await res.text());\nconst data = await res.json();\nconsole.log(data);`}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="python" className="mt-4">
+                      <CodeBlock
+                        className="mt-2"
+                        code={`import requests\n\nres = requests.get(\n  "${baseUrl}/v1/gtins/7891234567890",\n  headers={\"X-API-Key\": \"SUA_CHAVE_API\"},\n)\nres.raise_for_status()\nprint(res.json())`}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="java" className="mt-4">
+                      <CodeBlock
+                        className="mt-2"
+                        code={`var client = java.net.http.HttpClient.newHttpClient();\nvar request = java.net.http.HttpRequest.newBuilder()\n    .uri(java.net.URI.create("${baseUrl}/v1/gtins/7891234567890"))\n    .header("X-API-Key", "SUA_CHAVE_API")\n    .GET()\n    .build();\nvar response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());\nSystem.out.println(response.body());`}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="ruby" className="mt-4">
+                      <CodeBlock
+                        className="mt-2"
+                        code={`require "net/http"\nrequire "json"\n\nuri = URI("${baseUrl}/v1/gtins/7891234567890")\nreq = Net::HTTP::Get.new(uri)\nreq["X-API-Key"] = "SUA_CHAVE_API"\n\nres = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|\n  http.request(req)\nend\nputs JSON.parse(res.body)`}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="php" className="mt-4">
+                      <CodeBlock
+                        className="mt-2"
+                        code={`<?php\n$apiKey = 'SUA_CHAVE_API';\n$url = '${baseUrl}/v1/gtins/7891234567890';\n\n$ch = curl_init($url);\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);\ncurl_setopt($ch, CURLOPT_HTTPHEADER, [\"X-API-Key: $apiKey\"]);\n$response = curl_exec($ch);\ncurl_close($ch);\n\necho $response;`}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="csharp" className="mt-4">
+                      <CodeBlock
+                        className="mt-2"
+                        code={`using var http = new HttpClient();\nhttp.DefaultRequestHeaders.Add("X-API-Key", "SUA_CHAVE_API");\nvar res = await http.GetStringAsync("${baseUrl}/v1/gtins/7891234567890");\nConsole.WriteLine(res);`}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              </Card>
             </section>
                 </div>
 
-          <aside className="hidden lg:block">
+          <aside className="hidden lg:block lg:col-start-1 lg:row-start-1">
             <div className="sticky top-24 space-y-4">
               <Card className="p-5">
                 <Toc items={tocItems} />
