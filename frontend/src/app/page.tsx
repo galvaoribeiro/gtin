@@ -239,11 +239,11 @@ export default function LandingPage() {
           <div className="w-full space-y-8 flex flex-col items-center">
             <FadeIn delay={0}>
                 <Badge variant="outline" className="rounded-full px-4 py-1.5 border-primary/20 bg-primary/5 text-primary text-sm font-medium">
-                Inteligência de Dados para Catálogos e ERPs
+                Validação de GTIN para Reforma Tributária
                 </Badge>
             </FadeIn>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight text-primary min-h-[3.6em] md:min-h-[2.4em]">
-              <Typewriter text="A fonte confiável de dados fiscais e cadastrais por GTIN" delay={40} />
+              <Typewriter text="A fonte essencial de dados fiscais e cadastrais por GTIN" delay={40} />
             </h1>
             <FadeIn delay={0.2}>
                 <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-xxl">
