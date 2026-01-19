@@ -76,6 +76,21 @@ class Organization(Base):
         """Limite mensal (0 se o plano não usa limite mensal)."""
         return self.get_monthly_limit_by_plan()
 
+    def get_api_key_active_limit_by_plan(self) -> int:
+        """Limite de API keys ativas permitido por plano."""
+        limits = {
+            "basic": 0,
+            "starter": 1,
+            "pro": 10,
+            "advanced": 50,
+        }
+        return limits.get(self.plan, 0)
+
+    @property
+    def api_key_active_limit(self) -> int:
+        """Propriedade de conveniência para limite de API keys ativas."""
+        return self.get_api_key_active_limit_by_plan()
+
 
 class User(Base):
     """

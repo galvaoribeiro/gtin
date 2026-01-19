@@ -46,6 +46,11 @@ export default function ApiKeysPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [keyName, setKeyName] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [activeCount, setActiveCount] = useState(0);
+  const [activeLimit, setActiveLimit] = useState(0);
+  const PER_PAGE = 10;
   const router = useRouter();
 
   // Carregar API keys ao montar o componente
@@ -53,12 +58,19 @@ export default function ApiKeysPage() {
     loadApiKeys();
   }, []);
 
-  const loadApiKeys = async () => {
+  const loadApiKeys = async (pageToLoad = page) => {
     try {
       setLoading(true);
       setError(null);
-      const keys = await getDashboardApiKeys();
-      setApiKeys(keys);
+      const response = await getDashboardApiKeys({
+        page: pageToLoad,
+        per_page: PER_PAGE,
+      });
+      setApiKeys(response.items);
+      setPage(response.page);
+      setTotal(response.total);
+      setActiveCount(response.active_count);
+      setActiveLimit(response.active_limit);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -82,22 +94,15 @@ export default function ApiKeysPage() {
       
       const newKey = await createDashboardApiKey(name || undefined);
       
-      // Adiciona a nova chave no início da lista
-      setApiKeys((prev) => [{
-        id: newKey.id,
-        name: newKey.name,
-        masked_key: newKey.masked_key,
-        status: newKey.status,
-        created_at: newKey.created_at,
-        last_used_at: newKey.last_used_at,
-      }, ...prev]);
-      
       // Mostra a key completa
       setNewKeyVisible(newKey.key);
 
       // Fecha o dialog e limpa o campo
       setDialogOpen(false);
       setKeyName("");
+
+      // Recarrega primeira página para exibir a nova chave e atualizar contadores
+      await loadApiKeys(1);
 
       // Esconde a chave completa após 60 segundos
       setTimeout(() => {
@@ -123,14 +128,10 @@ export default function ApiKeysPage() {
       setActionLoading(true);
       setError(null);
       
-      const updatedKey = await revokeDashboardApiKey(keyId);
+      await revokeDashboardApiKey(keyId);
       
-      // Atualiza a chave na lista
-      setApiKeys((prev) =>
-        prev.map((key) =>
-          key.id === keyId ? { ...key, status: updatedKey.status, last_used_at: updatedKey.last_used_at } : key
-        )
-      );
+      // Recarrega a página atual para refletir mudanças
+      await loadApiKeys(page);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -157,7 +158,8 @@ export default function ApiKeysPage() {
     });
   };
 
-  const activeKeys = apiKeys.filter((k) => k.status === "active").length;
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const disableCreate = activeLimit > 0 && activeCount >= activeLimit;
 
   return (
     <div className="space-y-6">
@@ -170,9 +172,16 @@ export default function ApiKeysPage() {
             Gerencie suas chaves de acesso à API
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} disabled={actionLoading}>
+        <div className="flex flex-col items-end gap-2">
+          <Button onClick={() => setDialogOpen(true)} disabled={actionLoading || disableCreate}>
           Gerar Nova Chave
-        </Button>
+          </Button>
+          {disableCreate && (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Limite de chaves ativas atingido ({activeCount}/{activeLimit}).
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Mensagem de erro */}
@@ -267,13 +276,13 @@ export default function ApiKeysPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Chaves Ativas</CardDescription>
-            <CardTitle className="text-2xl">{loading ? "—" : activeKeys}</CardTitle>
+            <CardTitle className="text-2xl">{loading ? "—" : activeCount}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total de Chaves</CardDescription>
-            <CardTitle className="text-2xl">{loading ? "—" : apiKeys.length}</CardTitle>
+            <CardTitle className="text-2xl">{loading ? "—" : total}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -291,62 +300,88 @@ export default function ApiKeysPage() {
             <div className="flex items-center justify-center py-8">
               <p className="text-zinc-500">Carregando...</p>
             </div>
-          ) : apiKeys.length === 0 ? (
+          ) : total === 0 ? (
             <div className="flex items-center justify-center py-8">
               <p className="text-zinc-500">Nenhuma API key encontrada. Clique em &quot;Gerar Nova Chave&quot; para criar uma.</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Chave</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Criada em</TableHead>
-                  <TableHead>Último uso</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {apiKeys.map((key) => (
-                  <TableRow key={key.id}>
-                    <TableCell className="font-medium">{key.name || "Sem nome"}</TableCell>
-                    <TableCell>
-                      <code className="rounded bg-zinc-100 px-2 py-1 font-mono text-sm dark:bg-zinc-800">
-                        {key.masked_key}
-                      </code>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          key.status === "active" ? "default" : "destructive"
-                        }
-                      >
-                        {key.status === "active" ? "Ativa" : "Revogada"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-zinc-600 dark:text-zinc-400">
-                      {formatDate(key.created_at)}
-                    </TableCell>
-                    <TableCell className="text-sm text-zinc-600 dark:text-zinc-400">
-                      {formatDate(key.last_used_at)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {key.status === "active" && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleRevokeKey(key.id)}
-                          disabled={actionLoading}
-                        >
-                          Revogar
-                        </Button>
-                      )}
-                    </TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Chave</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Criada em</TableHead>
+                    <TableHead>Último uso</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {apiKeys.map((key) => (
+                    <TableRow key={key.id}>
+                      <TableCell className="font-medium">{key.name || "Sem nome"}</TableCell>
+                      <TableCell>
+                        <code className="rounded bg-zinc-100 px-2 py-1 font-mono text-sm dark:bg-zinc-800">
+                          {key.masked_key}
+                        </code>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            key.status === "active" ? "default" : "destructive"
+                          }
+                        >
+                          {key.status === "active" ? "Ativa" : "Revogada"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-zinc-600 dark:text-zinc-400">
+                        {formatDate(key.created_at)}
+                      </TableCell>
+                      <TableCell className="text-sm text-zinc-600 dark:text-zinc-400">
+                        {formatDate(key.last_used_at)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {key.status === "active" && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleRevokeKey(key.id)}
+                            disabled={actionLoading}
+                          >
+                            Revogar
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              <div className="mt-4 flex items-center justify-between text-sm text-zinc-600 dark:text-zinc-300">
+                <span>
+                  Página {page} de {totalPages} — {total} chaves no total
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadApiKeys(page - 1)}
+                    disabled={page <= 1 || loading}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadApiKeys(page + 1)}
+                    disabled={page >= totalPages || loading}
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

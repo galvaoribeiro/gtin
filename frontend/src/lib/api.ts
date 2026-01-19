@@ -638,13 +638,30 @@ export interface DashboardApiKeyCreated extends DashboardApiKey {
   key: string; // Key completa - mostrada apenas uma vez!
 }
 
+export interface DashboardApiKeysPage {
+  items: DashboardApiKey[];
+  page: number;
+  per_page: number;
+  total: number;
+  active_count: number;
+  active_limit: number;
+}
+
 /**
  * Lista todas as API keys do dashboard
  * 
  * @returns Lista de API keys
  */
-export async function getDashboardApiKeys(): Promise<DashboardApiKey[]> {
-  const url = `${API_BASE_URL}/v1/dashboard/api-keys`;
+export async function getDashboardApiKeys(params?: {
+  page?: number;
+  per_page?: number;
+}): Promise<DashboardApiKeysPage> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.per_page) searchParams.set("per_page", String(params.per_page));
+
+  const query = searchParams.toString();
+  const url = `${API_BASE_URL}/v1/dashboard/api-keys${query ? `?${query}` : ""}`;
 
   try {
     const response = await fetch(url, {
