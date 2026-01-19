@@ -178,9 +178,9 @@ export default function DashboardPage() {
   const getRateLimit = (plan: string | null | undefined): string => {
     const rateLimits: Record<string, string> = {
       basic: "5 req/min",
-      starter: "10 req/min",
-      pro: "30 req/min",
-      advanced: "100 req/min",
+      starter: "60 req/min",
+      pro: "90 req/min",
+      advanced: "120 req/min",
     };
     return rateLimits[plan || "basic"] || "5 req/min";
   };
