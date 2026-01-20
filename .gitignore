@@ -4,3 +4,9 @@ pyenv/
 docs/
 /app/loop.py
 /docker-compose.yml
+
+# python cache
+# Python cache
+__pycache__/
+**/__pycache__/
+/app/api/v1/__pycache__/
