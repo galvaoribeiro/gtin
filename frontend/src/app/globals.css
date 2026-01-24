@@ -1,11 +1,8 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
-/* Tailwind v4: mapeia os arquivos fonte explicitamente para gerar utilitários */
-@source "./**/*.{js,ts,jsx,tsx,mdx}";
-@source "../**/*.{js,ts,jsx,tsx,mdx}";
+@plugin "tailwindcss-animate";
 
-/*@plugin "tailwindcss-animate";*/
+@source "../src";
 
 @custom-variant dark (&:is(.dark *));
 

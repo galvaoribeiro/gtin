@@ -121,7 +121,7 @@ export default function LandingPage() {
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <Database className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-semibold tracking-tight text-primary">GTINX</span>
+            <span className="text-xl font-semibold tracking-tight text-primary">PESQUISA GTIN</span>
           </div>
 
           {/* Desktop Nav */}
@@ -428,11 +428,11 @@ export default function LandingPage() {
       <section className="py-24 bg-accent/30">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-3xl md:text-4xl font-semibold text-primary mb-6">
-            Por que usar a GTINX?
+            Por que usar a PESQUISA GTIN?
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
             Cadastros inconsistentes geram retrabalho, erro fiscal e perda de margem. 
-            A GTINX centraliza dados cadastrais e fiscais em um único lugar para seu time 
+            A PESQUISA GTIN centraliza dados cadastrais e fiscais em um único lugar para seu time 
             (ou seu ERP) consultar com rapidez e confiança — sem planilhas e sem processos manuais.
           </p>
         </div>
@@ -796,7 +796,7 @@ export default function LandingPage() {
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                   <Database className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-semibold tracking-tight text-primary">GTINX</span>
+                <span className="text-xl font-semibold tracking-tight text-primary">PESQUISA GTIN</span>
               </div>
               <p className="text-muted-foreground max-w-sm mb-6">
                 Consulta GTIN em conformidade LGPD. 
@@ -835,7 +835,7 @@ export default function LandingPage() {
           </div>
           
           <div className="border-t border-border/50 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-            <p>© 2025 GTINX Data Platform. Todos os direitos reservados.</p>
+            <p>© 2025 PESQUISA GTIN Data Platform. Todos os direitos reservados.</p>
             <p>Feito com Next.js e ❤️ no Brasil.</p>
           </div>
         </div>
