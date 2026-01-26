@@ -14,8 +14,6 @@ import {
   ShieldCheck, 
   Code2, 
   Terminal,
-  Menu,
-  X,
   Loader2,
   AlertCircle,
   AlertTriangle
@@ -24,6 +22,7 @@ import {
 // Importando os componentes que criamos no Passo 2
 import { Typewriter } from "@/components/landing-page/components/ui/typewriter";
 import { FadeIn } from "@/components/landing-page/components/ui/fade-in";
+import { LandingNavbar } from "@/components/landing-page/LandingNavbar";
 
 // Importar funções de API
 import { fetchGtinPublic, type Product, ApiError } from "@/lib/api";
@@ -36,7 +35,6 @@ const FAKE_COMPANY_NAMES = [
 ];
 
 export default function LandingPage() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isResultOpen, setIsResultOpen] = useState(false);
   const [isRateLimitError, setIsRateLimitError] = useState(false);
   
@@ -102,117 +100,10 @@ export default function LandingPage() {
     handleSearch(gtin);
   };
 
-  // Função para scroll suave até uma seção
-  const handleScrollTo = (sectionId: string) => {
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    setIsMenuOpen(false); // Fechar menu mobile se estiver aberto
-  };
-
   return (
     <div className="min-h-screen bg-background font-sans text-foreground selection:bg-accent selection:text-primary">
       
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link
-              href="https://www.pesquisagtin.com.br/"
-              className="inline-flex items-center"
-            >
-              <img 
-                src="/landing/logo.png" 
-                alt="PESQUISA GTIN" 
-                className="h-42 w-auto"
-              />
-            </Link>
-          </div>
-
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-8">
-            <button 
-              onClick={() => handleScrollTo("benefits")} 
-              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-            >
-              Benefícios
-            </button>
-            <button 
-              onClick={() => handleScrollTo("features")} 
-              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-            >
-              Funcionalidades
-            </button>
-            <button 
-              onClick={() => handleScrollTo("api")} 
-              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-            >
-              API
-            </button>
-            <button 
-              onClick={() => handleScrollTo("pricing")} 
-              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-            >
-              Planos
-            </button>
-            <div className="flex items-center gap-4 ml-4">
-              <Link href="/login">
-                <Button variant="ghost" className="font-medium text-muted-foreground hover:text-primary">
-                  Login
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button className="rounded-full px-6 bg-primary hover:bg-primary/90 text-white font-medium">
-                  Começar agora
-                </Button>
-              </Link>
-            </div>
-          </div>
-
-          {/* Mobile Menu Toggle */}
-          <button className="md:hidden p-2" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-
-        {/* Mobile Nav */}
-        {isMenuOpen && (
-          <div className="md:hidden absolute top-16 left-0 right-0 bg-background border-b border-border p-6 flex flex-col gap-4 shadow-lg animate-in slide-in-from-top-5">
-            <button 
-              onClick={() => handleScrollTo("benefits")} 
-              className="text-base font-medium text-left cursor-pointer"
-            >
-              Benefícios
-            </button>
-            <button 
-              onClick={() => handleScrollTo("features")} 
-              className="text-base font-medium text-left cursor-pointer"
-            >
-              Funcionalidades
-            </button>
-            <button 
-              onClick={() => handleScrollTo("api")} 
-              className="text-base font-medium text-left cursor-pointer"
-            >
-              API
-            </button>
-            <button 
-              onClick={() => handleScrollTo("pricing")} 
-              className="text-base font-medium text-left cursor-pointer"
-            >
-              Planos
-            </button>
-            <div className="h-px bg-border my-2" />
-            <Link href="/login" className="w-full">
-              <Button variant="ghost" className="justify-start w-full">Login</Button>
-            </Link>
-            <Link href="/register" className="w-full">
-              <Button className="w-full bg-primary text-white">Começar agora</Button>
-            </Link>
-          </div>
-        )}
-      </nav>
+      <LandingNavbar />
 
       {/* Alerta flutuante de erro */}
       {searchError && (
