@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 
@@ -17,6 +18,8 @@ interface LandingNavbarProps {
 
 export function LandingNavbar({ variant = "landing" }: LandingNavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const isBulkPage = pathname === "/bulk";
 
   const anchorItems: NavItem[] = [
     { label: "Benefícios", anchor: "benefits", type: "anchor" },
@@ -27,14 +30,16 @@ export function LandingNavbar({ variant = "landing" }: LandingNavbarProps) {
 
   const simpleItems: NavItem[] = [
     { label: "Home", href: "/", type: "link" },
-    { label: "Docs", href: "/docs", type: "link" },
-    { label: "Preços", href: "/pricing", type: "link" },
+    { label: "API", href: "/docs", type: "link" },
+    // Se estiver na página bulk, "Preços" vira anchor, senão é link
+    isBulkPage
+      ? { label: "Preços", anchor: "pricing", type: "anchor" }
+      : { label: "Preços", href: "/pricing", type: "link" },
   ];
 
   const bulkLink: NavItem = { label: "Bulk", href: "/bulk", type: "link" };
 
   const handleScrollTo = (sectionId: string) => {
-    if (variant !== "landing") return;
     const element = document.getElementById(sectionId);
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" });

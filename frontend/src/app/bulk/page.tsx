@@ -209,12 +209,7 @@ export default function BulkPage() {
                   Baixar CSV de exemplo
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="rounded-full px-6 text-white border-white/40 hover:bg-white/10">
-                <Link href="/">
-                  <ArrowRight className="w-4 h-4 mr-2" />
-                  Voltar para a landing
-                </Link>
-              </Button>
+              
             </div>
           </div>
         </section>
@@ -233,10 +228,14 @@ export default function BulkPage() {
                 </a>
               </Button>
               <Button asChild variant="outline" className="rounded-full px-6">
+                
+            {/* WhatsApp temporariamente desativado 
                 <a href={whatsappHref} target="_blank" rel="noreferrer">
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Falar no WhatsApp
                 </a>
+            */}
+
               </Button>
             </div>
             <div className="text-xs text-muted-foreground">
