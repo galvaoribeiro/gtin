@@ -51,7 +51,7 @@ export function LandingNavbar({ variant = "landing" }: LandingNavbarProps) {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Link href="/" className="inline-flex items-center">
-            <img src="/landing/logo.png" alt="PESQUISA GTIN" className="h-10 w-auto" />
+            <img src="/landing/logo.png" alt="PESQUISA GTIN" className="h-44 w-auto" />
           </Link>
         </div>
 

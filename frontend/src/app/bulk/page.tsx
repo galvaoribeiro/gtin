@@ -35,8 +35,10 @@ const productFields = [
 
 const steps = [
   { title: "Envie sua lista", desc: "Envie, por e-mail, sua planilha CSV com a coluna gtin.", icon: UploadCloud },
-  { title: "Validamos e normalizamos", desc: "GTINs higienizados antes de processar.", icon: ShieldCheck },
+  { title: "Orçamento", desc: "Enviamos o orçamento e link para pagamento com base nos GTINS encontrados.", icon: ShieldCheck },
+  
   { title: "Enriquecemos os dados", desc: "NCM, CEST, marca, peso, datas, URL da imagem.", icon: Database },
+  
   { title: "Entrega combinada", desc: "Você recebe o CSV formatado, após a confirmação do pagamento.", icon: FileSpreadsheet },
 ];
 
@@ -57,21 +59,23 @@ export default function BulkPage() {
 
       <main className="pt-24 md:pt-28">
         <section className="px-6 py-14 md:py-20 bg-primary/5 border-b border-border/50">
-          <div className="max-w-5xl mx-auto text-center space-y-6">
+          <div className="max-w-5xl mx-auto space-y-6">
            
             <FadeIn delay={0.1}>
-              <h1 className="text-4xl md:text-5xl font-semibold text-primary">
+              <h1 className="text-3xl md:text-4xl font-semibold text-primary text-left">
                 Consulta GTIN em Lote, com dados prontos para o seu ERP
               </h1>
             </FadeIn>
             <FadeIn delay={0.2}>
-              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto">
+              <p className="text-lg md:text-xl text-yellow-700 font-semibold leading-relaxed max-w-5xl text-left ">
                 Envie sua lista de GTINs e receba NCM, CEST, marca, descrição, peso, origem e datas padronizadas.
-                
+              </p>
+              <p className="text-base md:text-lg text-muted-foreground leading-relaxed max-w-5xl text-left mt-8">
+              Precisa consultar um grande número de produtos de uma só vez, sem precisar digitar cada código de barras individualmente em nosso mecanismo de busca? Utilize nosso serviço de Busca em Massa para enviar uma lista de códigos GTIN. Nós os encontraremos em nosso banco de dados e forneceremos informações detalhadas sobre os produtos, tudo apresentado em um formato CSV limpo, claro e fácil de ler, em até 24 a 48 horas.
               </p>
             </FadeIn>
             <FadeIn delay={0.3}>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <div className="flex flex-col sm:flex-row gap-3 justify-start">
                 <Button asChild className="rounded-full px-6">
                   <a href="#contato">
                     Solicitar Bulk
@@ -84,12 +88,7 @@ export default function BulkPage() {
                 </Button>
               </div>
             </FadeIn>
-            <FadeIn delay={0.4}>
-              <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
-                <BadgeCheck className="w-4 h-4 text-primary" />
-                <span>Padronização: GTIN, NCM, CEST, marca, peso, datas</span>
-              </div>
-            </FadeIn>
+           
           </div>
         </section>
 
@@ -125,7 +124,7 @@ export default function BulkPage() {
           <div className="max-w-5xl mx-auto text-center space-y-4 mb-12">
             <h2 className="text-3xl font-semibold text-primary">Como funciona</h2>
             <p className="text-muted-foreground">
-              Processo enxuto em quatro passos. Nesta fase, o envio e a entrega são combinados por contato direto.
+              Processo enxuto em quatro passos. O envio e a entrega são combinados por contato direto.
             </p>
           </div>
 
@@ -160,9 +159,9 @@ export default function BulkPage() {
 
         <section id="pricing" className="px-6 py-16 md:py-20">
           <div className="max-w-5xl mx-auto text-center space-y-3 mb-10">
-            <h2 className="text-3xl font-semibold text-primary">Preços por faixa de GTIN</h2>
+            <h2 className="text-3xl font-semibold text-primary">Começe sua consulta em lote, hoje!</h2>
             <p className="text-muted-foreground">
-              Cobramos por GTIN processado dentro da faixa. Prazo e forma de entrega combinados no contato.
+              Cobramos por GTIN processado dentro de cada faixa. Prazo e forma de entrega combinados no contato.
             </p>
           </div>
 
@@ -224,7 +223,7 @@ export default function BulkPage() {
           <div className="max-w-4xl mx-auto text-center space-y-4">
             <h2 className="text-3xl font-semibold text-primary">Fale com a gente</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Combine o envio da planilha e o prazo de retorno. Nesta fase, a entrega é manual (por e-mail ou canal direto).
+              Combine o envio da planilha e o prazo de retorno. A entrega é manual (por e-mail ou canal direto).
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
               <Button asChild className="rounded-full px-6">
