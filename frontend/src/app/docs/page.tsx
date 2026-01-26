@@ -43,11 +43,12 @@ export default function DocsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* DEBUGGING DIV - APAGUE DEPOIS */}
+      {/* DEBUGGING DIV - APAGUE DEPOIS 
 <div className="fixed top-0 left-0 w-full z-50 text-center font-bold p-2 bg-red-600 text-white lg:bg-green-600">
   <span className="lg:hidden">TELA PEQUENA (SIDEBAR OCULTA)</span>
   <span className="hidden lg:inline">TELA GRANDE (SIDEBAR VISÍVEL)</span>
 </div>
+*/}
 
 {/* --- DEBUGGER DE RESOLUÇÃO 
 <div className="fixed top-0 left-0 w-full z-50 bg-black text-white text-center p-4 font-mono text-lg font-bold border-b-4 border-yellow-400">
