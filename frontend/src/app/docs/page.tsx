@@ -49,7 +49,7 @@ export default function DocsPage() {
   <span className="hidden lg:inline">TELA GRANDE (SIDEBAR VISÍVEL)</span>
 </div>
 
-{/* --- DEBUGGER DE RESOLUÇÃO --- */}
+{/* --- DEBUGGER DE RESOLUÇÃO 
 <div className="fixed top-0 left-0 w-full z-50 bg-black text-white text-center p-4 font-mono text-lg font-bold border-b-4 border-yellow-400">
   <span className="block lg:hidden text-red-400">
     🔴 MODO MOBILE (Menor que 1024px)
@@ -58,11 +58,13 @@ export default function DocsPage() {
     🟢 MODO DESKTOP (Maior que 1024px)
   </span>
   
-  {/* Esta parte usa CSS puro para mostrar a largura, caso o React falhe */}
+  Esta parte usa CSS puro para mostrar a largura, caso o React falhe 
   <div className="mt-2 text-sm text-gray-400">
     Se este texto estiver branco e sem fundo preto, o CSS não carregou.
   </div>
 </div>
+
+--- */}
 
       <header className="border-b border-border bg-gradient-to-b from-muted/40 to-background">
         <div className="container mx-auto px-4 py-10 max-w-6xl">
