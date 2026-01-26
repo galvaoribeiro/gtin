@@ -37,7 +37,7 @@ export function LandingNavbar({ variant = "landing" }: LandingNavbarProps) {
       : { label: "Preços", href: "/pricing", type: "link" },
   ];
 
-  const bulkLink: NavItem = { label: "Bulk", href: "/bulk", type: "link" };
+  const bulkLink: NavItem = { label: "Bulk (Lote)", href: "/bulk", type: "link" };
 
   const handleScrollTo = (sectionId: string) => {
     const element = document.getElementById(sectionId);
