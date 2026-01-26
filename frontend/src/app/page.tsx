@@ -535,8 +535,7 @@ export default function LandingPage() {
   "ncm": "2202.10.00",
   "cest": "03.007.00",
   "origin": 0,
-  "gross_weight": 0.365,
-  "updated_at": "2024-12-15T10:30:00Z"
+  "gross_weight": 0.365
 }`} 
                 />
               </pre>

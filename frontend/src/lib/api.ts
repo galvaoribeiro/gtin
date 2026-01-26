@@ -343,8 +343,6 @@ export interface ApiProduct {
   cest: string[] | null;
   gross_weight_value: number | null;
   gross_weight_unit: string | null;
-  dsit_date: string | null;
-  updated_at: string | null;
   image_url: string | null;
 }
 
@@ -365,8 +363,6 @@ export interface Product {
     value: number;
     unit: string;
   };
-  dsit_timestamp: string;
-  updated_at: string;
   image_url: string | null;
 }
 
@@ -424,8 +420,6 @@ function transformProduct(apiProduct: ApiProduct): Product {
       value: apiProduct.gross_weight_value || 0,
       unit: apiProduct.gross_weight_unit || "GRM",
     },
-    dsit_timestamp: apiProduct.dsit_date || "",
-    updated_at: apiProduct.updated_at || "",
     image_url: apiProduct.image_url,
   };
 }

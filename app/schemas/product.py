@@ -23,8 +23,6 @@ class ProductResponse(BaseModel):
     cest: Optional[list[str]] = Field(None, description="Lista de códigos CEST")
     gross_weight_value: Optional[Decimal] = Field(None, description="Peso bruto")
     gross_weight_unit: Optional[str] = Field(None, description="Unidade do peso bruto")
-    dsit_date: Optional[date] = Field(None, description="Data da situação")
-    updated_at: Optional[datetime] = Field(None, description="Data da última atualização")
     image_url: Optional[str] = Field(None, description="URL da imagem do produto")
 
     class Config:

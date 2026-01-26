@@ -262,16 +262,6 @@ export default function GtinsPage() {
                       : "—"}
                   </p>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-zinc-500">
-                    Atualizado em
-                  </p>
-                  <p>
-                    {result.updated_at
-                      ? new Date(result.updated_at).toLocaleDateString("pt-BR")
-                      : "—"}
-                  </p>
-                </div>
               </div>
             </div>
 

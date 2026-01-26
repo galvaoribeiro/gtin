@@ -40,8 +40,6 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
             cest,
             gross_weight_value,
             gross_weight_unit,
-            dsit_date,
-            updated_at,
             image_url
         FROM products
         WHERE gtin = :gtin
@@ -63,8 +61,6 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
         "cest": result.cest,
         "gross_weight_value": result.gross_weight_value,
         "gross_weight_unit": result.gross_weight_unit,
-        "dsit_date": result.dsit_date,
-        "updated_at": result.updated_at,
         "image_url": result.image_url,
     }
 

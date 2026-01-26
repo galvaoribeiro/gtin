@@ -53,8 +53,6 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
             cest,
             gross_weight_value,
             gross_weight_unit,
-            dsit_date,
-            updated_at,
             image_url
         FROM products
         WHERE gtin = :gtin
@@ -76,8 +74,6 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
         "cest": result.cest,
         "gross_weight_value": result.gross_weight_value,
         "gross_weight_unit": result.gross_weight_unit,
-        "dsit_date": result.dsit_date,
-        "updated_at": result.updated_at,
         "image_url": result.image_url,
     }
 
@@ -165,8 +161,6 @@ def process_batch_gtins(
                 cest,
                 gross_weight_value,
                 gross_weight_unit,
-                dsit_date,
-                updated_at,
                 image_url
             FROM products
             WHERE gtin IN ({placeholders})
@@ -190,8 +184,6 @@ def process_batch_gtins(
                 "cest": row.cest,
                 "gross_weight_value": row.gross_weight_value,
                 "gross_weight_unit": row.gross_weight_unit,
-                "dsit_date": row.dsit_date,
-                "updated_at": row.updated_at,
                 "image_url": row.image_url,
             }
     
@@ -416,8 +408,6 @@ async def search_products(
             cest,
             gross_weight_value,
             gross_weight_unit,
-            dsit_date,
-            updated_at,
             image_url
         FROM products
     """
@@ -448,8 +438,6 @@ async def search_products(
             cest=row.cest,
             gross_weight_value=row.gross_weight_value,
             gross_weight_unit=row.gross_weight_unit,
-            dsit_date=row.dsit_date,
-            updated_at=row.updated_at,
             image_url=row.image_url,
         ))
 

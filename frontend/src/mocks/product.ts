@@ -14,8 +14,6 @@ export interface Product {
     value: number;
     unit: string;
   };
-  dsit_timestamp: string;
-  updated_at: string;
 }
 
 export const mockProducts: Record<string, Product> = {
@@ -29,8 +27,6 @@ export const mockProducts: Record<string, Product> = {
     ncm_formatted: "2203.00.00",
     cest: ["0302300"],
     gross_weight: { value: 1130.0, unit: "GRM" },
-    dsit_timestamp: "2024-08-19T00:00:00Z",
-    updated_at: "2025-11-11T00:00:00Z",
   },
   "7891000100103": {
     gtin: "7891000100103",
@@ -42,8 +38,6 @@ export const mockProducts: Record<string, Product> = {
     ncm_formatted: "2101.11.10",
     cest: ["1700600"],
     gross_weight: { value: 220.0, unit: "GRM" },
-    dsit_timestamp: "2024-07-10T00:00:00Z",
-    updated_at: "2025-10-05T00:00:00Z",
   },
   "7891910000197": {
     gtin: "7891910000197",
@@ -55,8 +49,6 @@ export const mockProducts: Record<string, Product> = {
     ncm_formatted: "2202.10.00",
     cest: ["0300700"],
     gross_weight: { value: 2100.0, unit: "GRM" },
-    dsit_timestamp: "2024-09-01T00:00:00Z",
-    updated_at: "2025-11-01T00:00:00Z",
   },
 };
 
