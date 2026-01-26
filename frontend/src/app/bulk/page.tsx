@@ -80,7 +80,7 @@ export default function BulkPage() {
                   </a>
                 </Button>
                 <Button asChild variant="outline" className="rounded-full px-6">
-                  <Link href="/bulk-exemplo.csv">
+                  <Link href="/sample.csv">
                     Ver exemplo de arquivo
                   </Link>
                 </Button>
