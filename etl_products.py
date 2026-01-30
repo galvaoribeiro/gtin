@@ -1,6 +1,5 @@
 import csv
 import os
-from datetime import datetime
 from dotenv import load_dotenv
 import psycopg2
 from io import StringIO
@@ -48,29 +47,6 @@ def parse_weight(value: str) -> float | None:
     except ValueError:
         return None
 
-def parse_dsit(raw: str):
-    if not raw:
-        return None
-
-    raw = raw.strip()
-
-    # extrai só a parte antes do espaço (a data)
-    date_part = raw.split(" ")[0]
-
-    # tenta dd/mm/yy
-    try:
-        return datetime.strptime(date_part, "%d/%m/%y").date()
-    except ValueError:
-        pass
-
-    # tenta dd/mm/yyyy (caso venha algum registro assim)
-    try:
-        return datetime.strptime(date_part, "%d/%m/%Y").date()
-    except ValueError:
-        pass
-
-    return None
-
 def normalize_gtin(raw: str) -> str | None:
     if not raw:
         return None
@@ -104,7 +80,6 @@ def main():
         "cest",
         "gross_weight_value",
         "gross_weight_unit",
-        "dsit_date",
     ]
 
     with open(CSV_PATH, "r", encoding="latin-1") as f:
@@ -139,8 +114,6 @@ def main():
             gross_weight_value = parse_weight(row.get("PESOB"))
             gross_weight_unit = (row.get("UNIDPESOB") or "").strip() or None
 
-            dsit_date = parse_dsit(row.get("DSIT"))
-
             writer.writerow([
                 gtin,
                 gtin_type,
@@ -153,7 +126,6 @@ def main():
                 cest_pg,
                 gross_weight_value,
                 gross_weight_unit,
-            dsit_date.isoformat() if dsit_date else None,
             ])
 
 

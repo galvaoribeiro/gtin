@@ -228,6 +228,32 @@ def run_migrations():
                 print("[MIGRATION] Coluna 'image_url' removida.")
             else:
                 print("[MIGRATION] Coluna 'image_url' ja removida ou inexistente.")
+            
+            # Migração 6: Remover colunas dsit_date e updated_at de todas as tabelas (ambiente dev)
+            print("[MIGRATION] Removendo colunas 'dsit_date' e 'updated_at' (todas as tabelas)...")
+            conn.execute(text("""
+                DO $$
+                DECLARE
+                    rec RECORD;
+                BEGIN
+                    FOR rec IN
+                        SELECT table_schema, table_name, column_name
+                        FROM information_schema.columns
+                        WHERE column_name IN ('dsit_date', 'updated_at')
+                          AND table_schema NOT IN ('pg_catalog', 'information_schema')
+                    LOOP
+                        EXECUTE format(
+                            'ALTER TABLE %I.%I DROP COLUMN IF EXISTS %I',
+                            rec.table_schema,
+                            rec.table_name,
+                            rec.column_name
+                        );
+                    END LOOP;
+                END;
+                $$;
+            """))
+            conn.commit()
+            print("[MIGRATION] Colunas 'dsit_date' e 'updated_at' removidas (se existiam).")
                 
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")
