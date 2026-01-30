@@ -67,7 +67,7 @@ export default function DocsPage() {
 
 --- */}
 
-      <header className="border-b border-border bg-gradient-to-b from-muted/40 to-background">
+      <header className="border-b border-border bg-linear-to-b from-muted/40 to-background">
         <div className="container mx-auto px-4 py-10 max-w-6xl">
           <div className="flex flex-col gap-6">
             <div className="space-y-3">
@@ -455,7 +455,7 @@ export default function DocsPage() {
               </p>
 
               <Card className="mt-6 p-0 overflow-hidden border-border/70">
-                <div className="bg-gradient-to-r from-muted/60 via-background to-muted/40 border-b border-border/60 px-4 py-3">
+                <div className="bg-linear-to-r from-muted/60 via-background to-muted/40 border-b border-border/60 px-4 py-3">
                   <div className="text-sm font-semibold text-foreground">Escolha a linguagem</div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Exemplos minimalistas para consultar um GTIN.
