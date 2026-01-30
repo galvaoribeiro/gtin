@@ -9,9 +9,12 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "GTIN API Documentation",
-  description: "API documentation for GTIN product data lookups",
-  generator: "v0.app",
+  title: {
+    default: "Pesquisa GTIN",
+    template: "%s | Pesquisa GTIN",
+  },
+  description: "Plataforma de consulta GTIN e dados fiscais de produtos",
+  metadataBase: new URL("https://pesquisagtin.com.br"),
   icons: {
     icon: [
       {
@@ -37,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <body className={`font-sans antialiased`}>
         <Providers>{children}</Providers>
       {/*   <Analytics />  */}
