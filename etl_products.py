@@ -73,7 +73,6 @@ def main():
         "gtin_type",
         "brand",
         "product_name",
-        "owner_tax_id",
         "origin_country",
         "ncm",
         #"ncm_formatted",
@@ -99,10 +98,6 @@ def main():
             brand = (row.get("MARCA") or "").strip() or None
             product_name = (row.get("XPROD") or "").strip() or None
 
-            owner_tax_id = (
-                row.get("CNPJ_CPF") or ""
-            ).strip().replace(".", "").replace("/", "").replace("-", "") or None
-
             origin_country = (row.get("XORIGEM") or "").strip() or None
 
             #ncm, ncm_formatted = format_ncm(row.get("NCM"))
@@ -119,7 +114,6 @@ def main():
                 gtin_type,
                 brand,
                 product_name,
-                owner_tax_id,
                 origin_country,
                 ncm,
                 #ncm_formatted,
