@@ -214,6 +214,20 @@ def run_migrations():
                 print("[MIGRATION] Campos Stripe adicionados com sucesso!")
             else:
                 print("[MIGRATION] Campos Stripe ja existem.")
+            
+            # Migração 5: Remover coluna image_url de products (ambiente dev)
+            result = conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'products' AND column_name = 'image_url'
+            """))
+            if result.fetchone():
+                print("[MIGRATION] Removendo coluna 'image_url' da tabela products...")
+                conn.execute(text("ALTER TABLE products DROP COLUMN IF EXISTS image_url"))
+                conn.commit()
+                print("[MIGRATION] Coluna 'image_url' removida.")
+            else:
+                print("[MIGRATION] Coluna 'image_url' ja removida ou inexistente.")
                 
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")

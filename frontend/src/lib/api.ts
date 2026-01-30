@@ -343,7 +343,6 @@ export interface ApiProduct {
   cest: string[] | null;
   gross_weight_value: number | null;
   gross_weight_unit: string | null;
-  image_url: string | null;
 }
 
 /**
@@ -363,7 +362,6 @@ export interface Product {
     value: number;
     unit: string;
   };
-  image_url: string | null;
 }
 
 /**
@@ -420,7 +418,6 @@ function transformProduct(apiProduct: ApiProduct): Product {
       value: apiProduct.gross_weight_value || 0,
       unit: apiProduct.gross_weight_unit || "GRM",
     },
-    image_url: apiProduct.image_url,
   };
 }
 

@@ -105,7 +105,6 @@ def main():
         "gross_weight_value",
         "gross_weight_unit",
         "dsit_date",
-        "image_url",
     ]
 
     with open(CSV_PATH, "r", encoding="latin-1") as f:
@@ -142,8 +141,6 @@ def main():
 
             dsit_date = parse_dsit(row.get("DSIT"))
 
-            image_url = (row.get("IMGURL") or "").strip() or None
-
             writer.writerow([
                 gtin,
                 gtin_type,
@@ -156,8 +153,7 @@ def main():
                 cest_pg,
                 gross_weight_value,
                 gross_weight_unit,
-                dsit_date.isoformat() if dsit_date else None,
-                image_url,
+            dsit_date.isoformat() if dsit_date else None,
             ])
 
 

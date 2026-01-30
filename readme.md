@@ -45,7 +45,6 @@ Armazena os dados confiáveis carregados da sua base.
 - `gtin_type`
 - `brand`
 - `product_name`
-- `image_url`
 - `origin_country` (ex.: BR)
 - `ncm` (8 dígitos)
 - `cest` (jsonb: lista com 0–3 CESTs)
@@ -54,7 +53,7 @@ Armazena os dados confiáveis carregados da sua base.
 - `dsit_timestamp` (timestamp)
 - `updated_at`
 
-**Observações:** removemos `image_url` e `destination_country` conforme sua decisão inicial.
+**Observações:** removemos `destination_country` conforme sua decisão inicial e não persistimos/retornamos `image_url`.
 
 ## 3.2 Outras tabelas
 
@@ -95,7 +94,6 @@ Erros: `401` (ausência), `403` (chave inativa), `429` (limite atingido).
   "gtin_type": "13",
   "brand": "ZEHN BIER",
   "product_name": "CHOPP PORTER 1 LITRO",
-  "image_url": "https://...jpeg",
   "origin_country": "BR",
   "ncm": "22030000",
   "ncm_formatted": "2203.00.00",

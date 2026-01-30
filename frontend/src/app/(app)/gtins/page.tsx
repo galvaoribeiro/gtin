@@ -209,19 +209,6 @@ export default function GtinsPage() {
             <div className="grid gap-6 md:grid-cols-2">
               {/* Coluna esquerda - Imagem (se existir) e dados */}
               <div className="space-y-4">
-                {result.image_url && (
-                  <div className="flex justify-center rounded-lg border bg-white p-4 dark:bg-zinc-900">
-                    <img
-                      src={result.image_url}
-                      alt={result.product_name}
-                      className="max-h-48 object-contain"
-                      onError={(e) => {
-                        // Esconde a imagem se falhar ao carregar
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
                 <div className="space-y-3">
                   <div>
                     <p className="text-sm font-medium text-zinc-500">GTIN</p>

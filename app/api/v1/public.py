@@ -39,8 +39,7 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
             ncm,
             cest,
             gross_weight_value,
-            gross_weight_unit,
-            image_url
+            gross_weight_unit
         FROM products
         WHERE gtin = :gtin
     """)
@@ -61,7 +60,6 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
         "cest": result.cest,
         "gross_weight_value": result.gross_weight_value,
         "gross_weight_unit": result.gross_weight_unit,
-        "image_url": result.image_url,
     }
 
 

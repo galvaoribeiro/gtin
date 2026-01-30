@@ -23,7 +23,6 @@ class ProductResponse(BaseModel):
     cest: Optional[list[str]] = Field(None, description="Lista de códigos CEST")
     gross_weight_value: Optional[Decimal] = Field(None, description="Peso bruto")
     gross_weight_unit: Optional[str] = Field(None, description="Unidade do peso bruto")
-    image_url: Optional[str] = Field(None, description="URL da imagem do produto")
 
     class Config:
         from_attributes = True  # Permite criar a partir de objetos ORM/Row

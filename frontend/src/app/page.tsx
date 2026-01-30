@@ -234,21 +234,6 @@ export default function LandingPage() {
 
           {searchResult && (
             <div className="space-y-4">
-              {/* Imagem do produto */}
-              {searchResult.image_url && (
-                <div className="flex justify-center">
-                  <img 
-                    src={searchResult.image_url} 
-                    alt={searchResult.product_name || "Produto"} 
-                    className="max-w-full max-h-64 rounded-lg object-contain border border-border/50"
-                    onError={(e) => {
-                      // Se a imagem falhar ao carregar, oculta o elemento
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </div>
-              )}
-              
               <div className="space-y-3 text-sm">
                 <div>
                   <span className="font-medium text-muted-foreground">GTIN:</span>

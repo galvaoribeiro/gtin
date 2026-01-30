@@ -52,8 +52,7 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
             ncm,
             cest,
             gross_weight_value,
-            gross_weight_unit,
-            image_url
+            gross_weight_unit
         FROM products
         WHERE gtin = :gtin
     """)
@@ -74,7 +73,6 @@ def fetch_product_by_gtin(db: Session, gtin: str) -> dict | None:
         "cest": result.cest,
         "gross_weight_value": result.gross_weight_value,
         "gross_weight_unit": result.gross_weight_unit,
-        "image_url": result.image_url,
     }
 
 
@@ -160,8 +158,7 @@ def process_batch_gtins(
                 ncm,
                 cest,
                 gross_weight_value,
-                gross_weight_unit,
-                image_url
+                gross_weight_unit
             FROM products
             WHERE gtin IN ({placeholders})
         """)
@@ -184,7 +181,6 @@ def process_batch_gtins(
                 "cest": row.cest,
                 "gross_weight_value": row.gross_weight_value,
                 "gross_weight_unit": row.gross_weight_unit,
-                "image_url": row.image_url,
             }
     
     # Montar resposta mantendo a ordem dos GTINs solicitados
@@ -407,8 +403,7 @@ async def search_products(
             ncm,
             cest,
             gross_weight_value,
-            gross_weight_unit,
-            image_url
+            gross_weight_unit
         FROM products
     """
 
@@ -438,7 +433,6 @@ async def search_products(
             cest=row.cest,
             gross_weight_value=row.gross_weight_value,
             gross_weight_unit=row.gross_weight_unit,
-            image_url=row.image_url,
         ))
 
     returned = len(items)

@@ -28,7 +28,6 @@ const productFields = [
   { label: "NCM", desc: "ncm + ncm_formatted" },
   { label: "CEST", desc: "cest (array)" },
   { label: "Peso bruto", desc: "gross_weight_value + unit" },
-  { label: "Imagem", desc: "image_url" },
 ];
 
 const steps = [
