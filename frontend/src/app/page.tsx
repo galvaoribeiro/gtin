@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import LandingPageClient from "./LandingPageClient";
 
 export const metadata: Metadata = {
-  title: "Pesquisa GTIN – Consulta rápida de código de barras e dados fiscais",
+  title: "Pesquisa GTIN – Consulta de código de barras e dados fiscais",
   description:
     "Consulte GTIN, EAN, código de barras e informações fiscais (NCM, CEST) de produtos. API de alta performance com +30 milhões de produtos. Ideal para ERPs, e-commerces e contabilidades.",
   keywords: [
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     url: "https://pesquisagtin.com.br",
     siteName: "Pesquisa GTIN",
-    title: "Pesquisa GTIN – Consulta rápida de código de barras e dados fiscais",
+    title: "Pesquisa GTIN – Consulta de código de barras e dados fiscais",
     description:
       "Consulte GTIN, EAN e informações fiscais (NCM, CEST) de +30 milhões de produtos. API de alta performance para ERPs, e-commerces e contabilidades.",
     images: [
