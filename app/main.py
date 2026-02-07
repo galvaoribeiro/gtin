@@ -327,7 +327,7 @@ app = FastAPI(
 # Configurar CORS para permitir acesso do frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Em produção, especificar domínios permitidos
+    allow_origins=["https://www.pesquisagtin.com.br", "https://pesquisagtin.com.br"],  # Em produção, especificar domínios permitidos
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
