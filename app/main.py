@@ -19,6 +19,7 @@ from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.metrics import router as metrics_router
 from app.api.v1.public import router as public_router
 from app.api.v1.billing import router as billing_router
+from app.core.config import settings
 
 
 def run_migrations():
@@ -325,9 +326,22 @@ app = FastAPI(
 )
 
 # Configurar CORS para permitir acesso do frontend
+# Em desenvolvimento: permite localhost; em produção: apenas domínios reais
+cors_origins = [
+    "https://www.pesquisagtin.com.br",
+    "https://pesquisagtin.com.br",
+]
+
+# Adicionar localhost apenas em desenvolvimento
+if settings.ENVIRONMENT == "development":
+    cors_origins.extend([
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://www.pesquisagtin.com.br", "https://pesquisagtin.com.br", "http://localhost:3000"],  # Em produção, especificar domínios permitidos
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
