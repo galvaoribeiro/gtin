@@ -38,7 +38,7 @@ export default function DocsPage() {
     { id: "exemplos", label: "Exemplos" },
   ]
 
-  const baseUrl = "https://api.example.com"
+  const baseUrl = "https://api.pesquisagtin.com.br"
   const [tocOpen, setTocOpen] = React.useState(false)
 
   return (
