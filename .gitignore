@@ -2,6 +2,7 @@
 .env
 pyenv/
 docs/
+Microsoft/
 /app/loop.py
 /docker-compose.yml
 

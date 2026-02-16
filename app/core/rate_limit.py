@@ -5,7 +5,7 @@ Implementa rate limits por organização (autenticados) e por IP (público).
 
 - Lookup (/{gtin}, /batch): req/min por plano
 - Search (/search): cooldown em segundos por plano
-- Público: 15 req/dia por IP + cooldown entre requisições
+- Público: 20 req/dia por IP + cooldown entre requisições
 """
 
 import time
@@ -314,7 +314,7 @@ def _raise_rate_limit_exceeded(
 def check_public_rate_limit(request: Request) -> str:
     """
     Dependency para rate limit de endpoints públicos.
-    Limite: 15 req/dia por IP + cooldown entre requisições.
+    Limite: 20 req/dia por IP + cooldown entre requisições.
     
     Returns:
         IP do cliente (para logging/métricas)
