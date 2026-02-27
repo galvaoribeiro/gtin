@@ -71,11 +71,6 @@ export default function DocsPage() {
         <div className="container mx-auto px-4 py-10 max-w-6xl">
           <div className="flex flex-col gap-6">
             <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">API Key</Badge>
-                <Badge variant="outline">JSON</Badge>
-                <Badge variant="outline">Rate limited</Badge>
-              </div>
               <h1 className="text-4xl font-bold tracking-tight text-foreground">GTIN API</h1>
               <p className="text-muted-foreground max-w-3xl">
                 Consulte dados de produtos por GTIN (EAN/UPC/ISBN). Inclui lookup unitário, consultas em batch e busca

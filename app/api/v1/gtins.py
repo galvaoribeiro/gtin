@@ -416,7 +416,7 @@ async def search_products(
         base_select
         + " WHERE "
         + where_sql
-        + " ORDER BY gtin ASC LIMIT :limit OFFSET :offset"
+        + " LIMIT :limit OFFSET :offset"
     )
     params_with_pagination = {**params, "limit": SEARCH_LIMIT, "offset": offset}
     rows = db.execute(select_query, params_with_pagination).fetchall()
