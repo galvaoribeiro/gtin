@@ -346,7 +346,7 @@ async def search_products(
 ):
     """
     Busca produtos aplicando filtros opcionais e retorna resultados paginados.
-    Limite fixo de 10 itens por página, ordenação por gtin ASC.
+    Limite fixo de 10 itens por página.
     """
     org = auth.organization
     if org.plan == "basic":
@@ -367,6 +367,24 @@ async def search_products(
     brand_filter = brand.strip() if brand else None
     product_name_filter = product_name.strip() if product_name else None
     ncm_filter = ncm.strip() if ncm else None
+
+    if brand_filter and len(brand_filter) < 3:
+        record_org_usage_monthly(db, org.id, 400)
+        record_api_usage(db, auth.api_key.id, 400)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filtro brand deve ter pelo menos 3 caracteres.",
+        )
+
+    if product_name_filter and len(product_name_filter) < 3:
+        record_org_usage_monthly(db, org.id, 400)
+        record_api_usage(db, auth.api_key.id, 400)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filtro product_name deve ter pelo menos 3 caracteres.",
+        )
 
     if not any([brand_filter, product_name_filter, ncm_filter]):
         record_org_usage_monthly(db, org.id, 400)
@@ -407,19 +425,17 @@ async def search_products(
         FROM products
     """
 
-    # Consulta de total
-    count_query = text(f"SELECT COUNT(*) FROM products WHERE {where_sql}")
-    total = db.execute(count_query, params).scalar() or 0
-
-    # Consulta paginada
+    # Consulta paginada com +1 item para informar se há próxima página sem COUNT(*)
     select_query = text(
         base_select
         + " WHERE "
         + where_sql
         + " LIMIT :limit OFFSET :offset"
     )
-    params_with_pagination = {**params, "limit": SEARCH_LIMIT, "offset": offset}
+    params_with_pagination = {**params, "limit": SEARCH_LIMIT + 1, "offset": offset}
     rows = db.execute(select_query, params_with_pagination).fetchall()
+    has_more = len(rows) > SEARCH_LIMIT
+    rows = rows[:SEARCH_LIMIT]
 
     items = []
     for row in rows:
@@ -443,10 +459,11 @@ async def search_products(
     db.commit()
 
     return SearchResponse(
-        total=total,
+        total=None,
         offset=offset,
         limit=SEARCH_LIMIT,
         returned=returned,
+        has_more=has_more,
         items=items,
     )
 
