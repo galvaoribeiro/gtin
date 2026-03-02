@@ -18,6 +18,8 @@ from app.core.usage import (
     record_org_usage_monthly,
 )
 from app.core.rate_limit import rate_limit_lookup, rate_limit_search
+from app.core.config import settings
+from app.core.meilisearch_client import MeiliError, get_meili_client
 from app.schemas.product import (
     ProductResponse,
     BatchRequest,
@@ -224,6 +226,48 @@ def process_batch_gtins(
     )
 
 
+def fetch_products_by_gtins(db: Session, gtins: list[str]) -> dict[str, ProductResponse]:
+    """
+    Busca produtos por lista de GTINs em uma única query.
+    Retorna mapa gtin -> ProductResponse.
+    """
+    if not gtins:
+        return {}
+
+    placeholders = ", ".join([f":gtin_{i}" for i in range(len(gtins))])
+    query = text(f"""
+        SELECT
+            gtin,
+            gtin_type,
+            brand,
+            product_name,
+            origin_country,
+            ncm,
+            cest,
+            gross_weight_value,
+            gross_weight_unit
+        FROM products
+        WHERE gtin IN ({placeholders})
+    """)
+    params = {f"gtin_{i}": g for i, g in enumerate(gtins)}
+    rows = db.execute(query, params).fetchall()
+
+    result: dict[str, ProductResponse] = {}
+    for row in rows:
+        result[row.gtin] = ProductResponse(
+            gtin=row.gtin,
+            gtin_type=row.gtin_type,
+            brand=row.brand,
+            product_name=row.product_name,
+            origin_country=row.origin_country,
+            ncm=row.ncm,
+            cest=row.cest,
+            gross_weight_value=row.gross_weight_value,
+            gross_weight_unit=row.gross_weight_unit,
+        )
+    return result
+
+
 @router.post(
     "/batch",
     response_model=BatchResponse,
@@ -324,6 +368,7 @@ async def get_products_batch_query(
     summary="Buscar produtos por filtros",
     description=(
         "Busca produtos por brand, product_name e/ou ncm. "
+        "Quando SEARCH_BACKEND=meili, usa Meilisearch para busca textual e Postgres para detalhes por GTIN. "
         "Retorna paginação por offset com limite fixo de 10 itens. "
         "Rate limit: 1 pesquisa a cada 2-12 segundos dependendo do plano."
     ),
@@ -337,8 +382,8 @@ async def get_products_batch_query(
 )
 async def search_products(
     request: Request,
-    brand: str | None = Query(None, description="Marca (contém, case-insensitive)"),
-    product_name: str | None = Query(None, description="Nome do produto (contém, case-insensitive)"),
+    brand: str | None = Query(None, description="Marca (busca textual)"),
+    product_name: str | None = Query(None, description="Nome do produto (busca textual)"),
     ncm: str | None = Query(None, description="Código NCM (match exato)"),
     offset: int = Query(0, ge=0, description="Offset para paginação (múltiplos de 10)"),
     auth: ApiKeyAuth = Depends(rate_limit_search),
@@ -395,61 +440,91 @@ async def search_products(
             detail="Informe pelo menos um filtro: brand, product_name ou ncm."
         )
 
-    where_clauses = []
-    params: dict[str, str | int] = {}
+    items: list[ProductResponse] = []
+    has_more = False
+    total: int | None = None
 
-    if brand_filter:
-        where_clauses.append("brand ILIKE :brand")
-        params["brand"] = f"%{brand_filter}%"
+    if settings.SEARCH_BACKEND == "meili":
+        query_terms = [t for t in [brand_filter, product_name_filter] if t]
+        meili_query = " ".join(query_terms).strip()
 
-    if product_name_filter:
-        where_clauses.append("product_name ILIKE :product_name")
-        params["product_name"] = f"%{product_name_filter}%"
+        try:
+            meili = get_meili_client()
+            meili_result = meili.search_products(
+                query=meili_query,
+                ncm_filter=ncm_filter,
+                offset=offset,
+                limit=SEARCH_LIMIT,
+            )
+        except MeiliError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Busca temporariamente indisponível (Meilisearch): {exc}",
+            )
 
-    if ncm_filter:
-        where_clauses.append("ncm = :ncm")
-        params["ncm"] = ncm_filter
+        products_by_gtin = fetch_products_by_gtins(db, meili_result.gtins)
+        for gtin in meili_result.gtins:
+            product = products_by_gtin.get(gtin)
+            if product:
+                items.append(product)
 
-    where_sql = " AND ".join(where_clauses)
-    base_select = """
-        SELECT 
-            gtin,
-            gtin_type,
-            brand,
-            product_name,
-            origin_country,
-            ncm,
-            cest,
-            gross_weight_value,
-            gross_weight_unit
-        FROM products
-    """
+        has_more = meili_result.has_more
+        total = meili_result.estimated_total_hits
+    else:
+        where_clauses = []
+        params: dict[str, str | int] = {}
 
-    # Consulta paginada com +1 item para informar se há próxima página sem COUNT(*)
-    select_query = text(
-        base_select
-        + " WHERE "
-        + where_sql
-        + " LIMIT :limit OFFSET :offset"
-    )
-    params_with_pagination = {**params, "limit": SEARCH_LIMIT + 1, "offset": offset}
-    rows = db.execute(select_query, params_with_pagination).fetchall()
-    has_more = len(rows) > SEARCH_LIMIT
-    rows = rows[:SEARCH_LIMIT]
+        if brand_filter:
+            where_clauses.append("brand ILIKE :brand")
+            params["brand"] = f"%{brand_filter}%"
 
-    items = []
-    for row in rows:
-        items.append(ProductResponse(
-            gtin=row.gtin,
-            gtin_type=row.gtin_type,
-            brand=row.brand,
-            product_name=row.product_name,
-            origin_country=row.origin_country,
-            ncm=row.ncm,
-            cest=row.cest,
-            gross_weight_value=row.gross_weight_value,
-            gross_weight_unit=row.gross_weight_unit,
-        ))
+        if product_name_filter:
+            where_clauses.append("product_name ILIKE :product_name")
+            params["product_name"] = f"%{product_name_filter}%"
+
+        if ncm_filter:
+            where_clauses.append("ncm = :ncm")
+            params["ncm"] = ncm_filter
+
+        where_sql = " AND ".join(where_clauses)
+        base_select = """
+            SELECT
+                gtin,
+                gtin_type,
+                brand,
+                product_name,
+                origin_country,
+                ncm,
+                cest,
+                gross_weight_value,
+                gross_weight_unit
+            FROM products
+        """
+
+        # Consulta paginada com +1 item para informar se há próxima página sem COUNT(*)
+        select_query = text(
+            base_select
+            + " WHERE "
+            + where_sql
+            + " LIMIT :limit OFFSET :offset"
+        )
+        params_with_pagination = {**params, "limit": SEARCH_LIMIT + 1, "offset": offset}
+        rows = db.execute(select_query, params_with_pagination).fetchall()
+        has_more = len(rows) > SEARCH_LIMIT
+        rows = rows[:SEARCH_LIMIT]
+
+        for row in rows:
+            items.append(ProductResponse(
+                gtin=row.gtin,
+                gtin_type=row.gtin_type,
+                brand=row.brand,
+                product_name=row.product_name,
+                origin_country=row.origin_country,
+                ncm=row.ncm,
+                cest=row.cest,
+                gross_weight_value=row.gross_weight_value,
+                gross_weight_unit=row.gross_weight_unit,
+            ))
 
     returned = len(items)
 
@@ -459,7 +534,7 @@ async def search_products(
     db.commit()
 
     return SearchResponse(
-        total=None,
+        total=total,
         offset=offset,
         limit=SEARCH_LIMIT,
         returned=returned,
