@@ -50,7 +50,7 @@ class Settings:
     MEILI_URL: str = os.getenv("MEILI_URL", "").rstrip("/")
     MEILI_API_KEY: str = os.getenv("MEILI_API_KEY", "")
     MEILI_INDEX_PRODUCTS: str = os.getenv("MEILI_INDEX_PRODUCTS", "products")
-    MEILI_TIMEOUT_SECONDS: float = float(os.getenv("MEILI_TIMEOUT_SECONDS", "2.5"))
+    MEILI_TIMEOUT_SECONDS: float = float(os.getenv("MEILI_TIMEOUT_SECONDS", "60"))
 
 
 settings = Settings()

@@ -81,6 +81,14 @@ def fetch_batch(db, last_gtin: str | None, batch_size: int) -> list[dict[str, An
     return docs
 
 
+import os
+import sys
+import time # Adicionado para a pausa
+from pathlib import Path
+from typing import Any
+
+# ... (Mantenha os imports do SQLAlchemy e configurações do projeto) ...
+
 def main() -> None:
     if BATCH_SIZE <= 0:
         raise ValueError("REINDEX_BATCH_SIZE deve ser maior que zero")
@@ -91,7 +99,17 @@ def main() -> None:
     db = SessionLocal()
     total_indexed = 0
     batch_number = 0
+    
+    # Sistema de Checkpoint
+    progress_file = "reindex_progress.txt"
     last_gtin: str | None = None
+    
+    if os.path.exists(progress_file):
+        with open(progress_file, "r") as f:
+            saved_gtin = f.read().strip()
+            if saved_gtin:
+                last_gtin = saved_gtin
+                print(f"[REINDEX] Retomando automaticamente a partir do GTIN: {last_gtin}")
 
     try:
         while True:
@@ -105,12 +123,23 @@ def main() -> None:
             total_indexed += len(docs)
             last_gtin = docs[-1]["gtin"]
 
+            # Salva o progresso no disco após cada lote de sucesso
+            with open(progress_file, "w") as f:
+                f.write(last_gtin)
+
             print(
                 f"[REINDEX] batch={batch_number} docs={len(docs)} "
                 f"total={total_indexed} last_gtin={last_gtin}"
             )
+            
+            # PAUSA ESTRATÉGICA: Evita que a RAM do Meilisearch exploda
+            time.sleep(1.5) 
 
         print(f"[REINDEX] concluído com sucesso. total_indexed={total_indexed}")
+        # Limpa o arquivo de progresso quando termina tudo
+        if os.path.exists(progress_file):
+            os.remove(progress_file)
+            
     except MeiliError as exc:
         print(f"[REINDEX] erro de Meilisearch: {exc}")
         raise
