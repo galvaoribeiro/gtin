@@ -281,7 +281,23 @@ def run_migrations():
             """))
             conn.commit()
             print("[MIGRATION] Coluna 'owner_tax_id' removida (se existia).")
-                
+
+            # Migração 8: Adicionar coluna search_vector (tsvector) em products para FTS
+            result = conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'products' AND column_name = 'search_vector'
+            """))
+            if not result.fetchone():
+                print("[MIGRATION] Adicionando coluna 'search_vector' na tabela products...")
+                conn.execute(text(
+                    "ALTER TABLE products ADD COLUMN search_vector tsvector"
+                ))
+                conn.commit()
+                print("[MIGRATION] Coluna 'search_vector' adicionada.")
+            else:
+                print("[MIGRATION] Coluna 'search_vector' ja existe.")
+
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")
 
@@ -367,6 +383,53 @@ def health_check_db():
         return {"status": "ok", "database": "connected"}
     else:
         return {"status": "error", "database": "disconnected"}
+
+
+@app.get("/health/search", tags=["Health"])
+def health_check_search():
+    """
+    Verifica o estado do backend de busca configurado.
+    Para pgfts: checa coluna search_vector, índice GIN e cobertura.
+    """
+    from sqlalchemy import text as sa_text
+    from app.db.session import engine
+
+    info: dict = {"search_backend": settings.SEARCH_BACKEND}
+
+    if settings.SEARCH_BACKEND == "pgfts":
+        try:
+            with engine.connect() as conn:
+                col = conn.execute(sa_text("""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = 'products' AND column_name = 'search_vector'
+                """)).fetchone()
+                info["column_exists"] = col is not None
+
+                idx = conn.execute(sa_text("""
+                    SELECT indexname
+                    FROM pg_indexes
+                    WHERE tablename = 'products' AND indexname = 'idx_products_search_vector'
+                """)).fetchone()
+                info["gin_index_exists"] = idx is not None
+
+                row = conn.execute(sa_text("""
+                    SELECT
+                        COUNT(*) AS total,
+                        COUNT(search_vector) AS populated
+                    FROM (SELECT search_vector FROM products LIMIT 100000) sub
+                """)).fetchone()
+                info["sample_total"] = row.total
+                info["sample_populated"] = row.populated
+
+            info["status"] = "ok" if info.get("gin_index_exists") and info.get("sample_populated", 0) > 0 else "degraded"
+        except Exception as exc:
+            info["status"] = "error"
+            info["detail"] = str(exc)
+    else:
+        info["status"] = "ok"
+
+    return info
 
 
 # Incluir routers da API v1

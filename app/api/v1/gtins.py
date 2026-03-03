@@ -362,13 +362,81 @@ async def get_products_batch_query(
     return batch_response
 
 
+def _search_pgfts(
+    db: Session,
+    *,
+    brand_filter: str | None,
+    product_name_filter: str | None,
+    ncm_filter: str | None,
+    offset: int,
+) -> tuple[list[ProductResponse], bool]:
+    """
+    Busca usando PostgreSQL Full-Text Search (tsvector + GIN).
+    Retorna (items, has_more).
+    """
+    query_terms = " ".join(t for t in [brand_filter, product_name_filter] if t).strip()
+
+    where_clauses: list[str] = []
+    params: dict[str, str | int] = {}
+
+    if query_terms:
+        where_clauses.append(
+            "search_vector @@ plainto_tsquery('simple', :q)"
+        )
+        params["q"] = query_terms
+
+    if ncm_filter:
+        where_clauses.append("ncm = :ncm")
+        params["ncm"] = ncm_filter
+
+    where_sql = " AND ".join(where_clauses) if where_clauses else "TRUE"
+
+    select_query = text(f"""
+        SELECT
+            gtin,
+            gtin_type,
+            brand,
+            product_name,
+            origin_country,
+            ncm,
+            cest,
+            gross_weight_value,
+            gross_weight_unit
+        FROM products
+        WHERE {where_sql}
+        LIMIT :limit OFFSET :offset
+    """)
+    params["limit"] = SEARCH_LIMIT + 1
+    params["offset"] = offset
+
+    rows = db.execute(select_query, params).fetchall()
+    has_more = len(rows) > SEARCH_LIMIT
+    rows = rows[:SEARCH_LIMIT]
+
+    items = [
+        ProductResponse(
+            gtin=row.gtin,
+            gtin_type=row.gtin_type,
+            brand=row.brand,
+            product_name=row.product_name,
+            origin_country=row.origin_country,
+            ncm=row.ncm,
+            cest=row.cest,
+            gross_weight_value=row.gross_weight_value,
+            gross_weight_unit=row.gross_weight_unit,
+        )
+        for row in rows
+    ]
+    return items, has_more
+
+
 @router.get(
     "/search",
     response_model=SearchResponse,
     summary="Buscar produtos por filtros",
     description=(
         "Busca produtos por brand, product_name e/ou ncm. "
-        "Quando SEARCH_BACKEND=meili, usa Meilisearch para busca textual e Postgres para detalhes por GTIN. "
+        "Backend configurável via SEARCH_BACKEND (pgfts, meili, postgres). "
         "Retorna paginação por offset com limite fixo de 10 itens. "
         "Rate limit: 1 pesquisa a cada 2-12 segundos dependendo do plano."
     ),
@@ -444,7 +512,15 @@ async def search_products(
     has_more = False
     total: int | None = None
 
-    if settings.SEARCH_BACKEND == "meili":
+    if settings.SEARCH_BACKEND == "pgfts":
+        items, has_more = _search_pgfts(
+            db,
+            brand_filter=brand_filter,
+            product_name_filter=product_name_filter,
+            ncm_filter=ncm_filter,
+            offset=offset,
+        )
+    elif settings.SEARCH_BACKEND == "meili":
         query_terms = [t for t in [brand_filter, product_name_filter] if t]
         meili_query = " ".join(query_terms).strip()
 
@@ -501,7 +577,6 @@ async def search_products(
             FROM products
         """
 
-        # Consulta paginada com +1 item para informar se há próxima página sem COUNT(*)
         select_query = text(
             base_select
             + " WHERE "
