@@ -371,19 +371,23 @@ def _search_pgfts(
     offset: int,
 ) -> tuple[list[ProductResponse], bool]:
     """
-    Busca usando PostgreSQL Full-Text Search (tsvector + GIN).
-    Retorna (items, has_more).
+    Busca usando PostgreSQL Full-Text Search com índices GIN funcionais
+    por coluna. Cada filtro atua **apenas** na sua coluna correspondente.
     """
-    query_terms = " ".join(t for t in [brand_filter, product_name_filter] if t).strip()
-
     where_clauses: list[str] = []
     params: dict[str, str | int] = {}
 
-    if query_terms:
+    if brand_filter:
         where_clauses.append(
-            "search_vector @@ plainto_tsquery('simple', :q)"
+            "to_tsvector('simple', coalesce(brand, '')) @@ plainto_tsquery('simple', :brand_q)"
         )
-        params["q"] = query_terms
+        params["brand_q"] = brand_filter
+
+    if product_name_filter:
+        where_clauses.append(
+            "to_tsvector('simple', coalesce(product_name, '')) @@ plainto_tsquery('simple', :name_q)"
+        )
+        params["name_q"] = product_name_filter
 
     if ncm_filter:
         where_clauses.append("ncm = :ncm")
