@@ -393,16 +393,33 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             org.plan = "basic"
             org.subscription_status = "canceled"
             org.stripe_subscription_id = None
+            org.current_period_end = None
             db.commit()
             print(f"[WEBHOOK] Organização {org.id} voltou para plano Basic")
     
     # Pagamento de invoice bem-sucedido
     elif event_type == "invoice.payment_succeeded":
         customer_id = data_object["customer"]
+        subscription_id = data_object.get("subscription")
         org = db.query(Organization).filter(Organization.stripe_customer_id == customer_id).first()
         
         if org:
             print(f"[WEBHOOK] Pagamento bem-sucedido para organização {org.id}")
+            # Sincronizar assinatura após pagamento para manter current_period_end atualizado.
+            if subscription_id:
+                subscription_obj = StripeService.get_subscription(subscription_id)
+                if subscription_obj:
+                    subscription_data = StripeService.extract_subscription_data(subscription_obj)
+                    org.stripe_subscription_id = subscription_data["stripe_subscription_id"]
+                    org.subscription_status = subscription_data["subscription_status"]
+                    org.current_period_end = subscription_data["current_period_end"]
+                    org.plan = subscription_data["plan"]
+                    org.default_payment_method = subscription_data["default_payment_method"]
+                    db.commit()
+                    print(
+                        f"[WEBHOOK] (invoice.payment_succeeded) Organização {org.id} "
+                        f"sincronizada, next_billing={org.current_period_end}"
+                    )
             # Você pode registrar o pagamento em uma tabela de transações, enviar email, etc.
     
     # Pagamento falhou
