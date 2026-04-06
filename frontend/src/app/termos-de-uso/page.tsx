@@ -152,27 +152,7 @@ export default function TermsOfUsePage() {
                   fiscal de produtos por GTIN.
                 </p>
               </div>
-              <div className="grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
-                <div>
-                  <span className="font-medium text-foreground">Empresa:</span> RM Assessoria e
-                  Consultoria Ltda
-                </div>
-                <div>
-                  <span className="font-medium text-foreground">CNPJ:</span> 42.029.950/0001-99
-                </div>
-                <div>
-                  <span className="font-medium text-foreground">Sede:</span> Porto Velho-RO
-                </div>
-                <div>
-                  <span className="font-medium text-foreground">Contato jurídico:</span>{" "}
-                  <a
-                    href="mailto:contato@pesquisagtin.com.br"
-                    className="underline underline-offset-4 hover:text-primary"
-                  >
-                    contato@pesquisagtin.com.br
-                  </a>
-                </div>
-              </div>
+          
             </div>
 
             <Card className="w-full max-w-xl border-border/70 shadow-sm">
