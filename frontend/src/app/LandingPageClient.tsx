@@ -202,7 +202,7 @@ export default function LandingPageClient() {
                         className="w-8 h-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs font-medium overflow-hidden"
                         title={company}
                     >
-                        <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/40" />
+                        <div className="w-full h-full bg-linear-to-br from-primary/20 to-primary/40" />
                     </div>
                     ))}
                 </div>
@@ -696,10 +696,10 @@ export default function LandingPageClient() {
             <div>
               <h4 className="font-semibold text-primary mb-6">Suporte</h4>
               <ul className="space-y-4 text-sm text-muted-foreground">
-                <li><Link href="#" className="hover:text-primary">Documentação</Link></li>
-                <li><Link href="#" className="hover:text-primary">Fale Conosco</Link></li>
-                <li><Link href="#" className="hover:text-primary">Termos de Uso</Link></li>
-                <li><Link href="#" className="hover:text-primary">Privacidade</Link></li>
+                <li><Link href="/docs" className="hover:text-primary">Documentação</Link></li>
+                <li><a href="mailto:contato@pesquisagtin.com.br?subject=Contato%20Pesquisa%20GTIN" className="hover:text-primary">Fale Conosco</a></li>
+                <li><Link href="/termos-de-uso" className="hover:text-primary">Termos de Uso</Link></li>
+                <li><a href="mailto:contato@pesquisagtin.com.br?subject=Solicita%C3%A7%C3%A3o%20LGPD%20e%20Privacidade" className="hover:text-primary">Privacidade</a></li>
               </ul>
             </div>
           </div>
