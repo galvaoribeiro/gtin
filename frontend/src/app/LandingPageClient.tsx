@@ -699,7 +699,7 @@ export default function LandingPageClient() {
                 <li><Link href="/docs" className="hover:text-primary">Documentação</Link></li>
                 <li><a href="mailto:contato@pesquisagtin.com.br?subject=Contato%20Pesquisa%20GTIN" className="hover:text-primary">Fale Conosco</a></li>
                 <li><Link href="/termos-de-uso" className="hover:text-primary">Termos de Uso</Link></li>
-                <li><a href="mailto:contato@pesquisagtin.com.br?subject=Solicita%C3%A7%C3%A3o%20LGPD%20e%20Privacidade" className="hover:text-primary">Privacidade</a></li>
+                <li><Link href="/politica-de-privacidade" className="hover:text-primary">Privacidade</Link></li>
               </ul>
             </div>
           </div>
