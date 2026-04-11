@@ -119,12 +119,20 @@ export default function LoginPage() {
 
             {/* Senha */}
             <div className="space-y-2">
-              <label
-                htmlFor="password"
-                className="text-sm font-medium text-zinc-300"
-              >
-                Senha
-              </label>
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="password"
+                  className="text-sm font-medium text-zinc-300"
+                >
+                  Senha
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  Esqueci minha senha
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"

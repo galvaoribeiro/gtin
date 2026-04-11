@@ -344,6 +344,27 @@ def run_migrations():
             else:
                 print("[MIGRATION] Tabela 'admin_audit_logs' ja existe.")
 
+            # Migração 11: Campos de recuperação de senha em users
+            result = conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'users' AND column_name = 'password_reset_token_hash'
+            """))
+            if not result.fetchone():
+                print("[MIGRATION] Adicionando campos de recuperação de senha em users...")
+                conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_token_hash VARCHAR(64)"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_expires_at TIMESTAMP NULL"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_used_at TIMESTAMP NULL"))
+                conn.execute(text("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS ux_users_password_reset_token_hash
+                    ON users(password_reset_token_hash)
+                    WHERE password_reset_token_hash IS NOT NULL
+                """))
+                conn.commit()
+                print("[MIGRATION] Campos de recuperação de senha adicionados.")
+            else:
+                print("[MIGRATION] Campos de recuperação de senha ja existem.")
+
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")
 

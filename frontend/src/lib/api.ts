@@ -331,6 +331,112 @@ export function logout(): void {
 }
 
 // =============================================================================
+// Password Reset
+// =============================================================================
+
+/**
+ * Solicita recuperação de senha (e-mail com link)
+ */
+export async function requestPasswordReset(email: string): Promise<{ detail: string }> {
+  const url = `${API_BASE_URL}/v1/auth/forgot-password`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        let detail: string | undefined;
+        try {
+          const errorBody = await response.json();
+          detail = errorBody.detail;
+        } catch {
+          // ignore
+        }
+        throw new ApiError(
+          detail || "Muitas tentativas. Aguarde antes de tentar novamente.",
+          429,
+          detail,
+        );
+      }
+
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // ignore
+      }
+      throw new ApiError(
+        detail || `Erro ao solicitar recuperação: ${response.status}`,
+        response.status,
+        detail,
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido",
+    );
+  }
+}
+
+/**
+ * Redefine a senha usando o token recebido por e-mail
+ */
+export async function resetPassword(
+  token: string,
+  newPassword: string,
+): Promise<{ detail: string }> {
+  const url = `${API_BASE_URL}/v1/auth/reset-password`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+
+    if (!response.ok) {
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // ignore
+      }
+      throw new ApiError(
+        detail || `Erro ao redefinir senha: ${response.status}`,
+        response.status,
+        detail,
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido",
+    );
+  }
+}
+
+// =============================================================================
 // Product/GTIN Types and Helpers
 // =============================================================================
 

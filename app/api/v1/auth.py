@@ -1,20 +1,29 @@
 """
 Endpoints de autenticação.
 ===========================
-Implementa login, logout e informações do usuário autenticado.
+Implementa login, logout, informações do usuário autenticado e recuperação de senha.
 """
 
-from datetime import timedelta
+import hashlib
+import logging
+import secrets
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.db.models import User, Organization
-from app.schemas.user import UserLogin, Token, UserResponse, UserRegister, UserUpdate
+from app.schemas.user import (
+    UserLogin, Token, UserResponse, UserRegister, UserUpdate,
+    ForgotPasswordRequest, ResetPasswordRequest, MessageResponse,
+)
 from app.core.security import verify_password, create_access_token, get_password_hash, decode_access_token
 from app.core.config import settings
 from app.api.deps import get_current_user, oauth2_scheme
+from app.services.email_service import send_password_reset_email
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/v1/auth", tags=["Auth"])
@@ -257,4 +266,153 @@ def update_me(
         actor_user_id=actor_user_id,
         actor_email=actor_email,
     )
+
+
+# =============================================================================
+# Password Reset
+# =============================================================================
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+_FORGOT_GENERIC_MSG = (
+    "Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha."
+)
+
+
+@router.post(
+    "/forgot-password",
+    response_model=MessageResponse,
+    summary="Solicitar recuperação de senha",
+    description="Envia e-mail com link para redefinição de senha. Não revela se o e-mail existe.",
+    responses={
+        200: {"description": "Solicitação processada (sempre 200)"},
+    },
+)
+def forgot_password(
+    data: ForgotPasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    _apply_forgot_rate_limit(request)
+
+    user = db.query(User).filter(User.email == data.email).first()
+
+    if user and user.is_active:
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = _hash_token(raw_token)
+
+        user.password_reset_token_hash = token_hash
+        user.password_reset_expires_at = (
+            datetime.utcnow()
+            + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+        )
+        user.password_reset_used_at = None
+        db.commit()
+
+        reset_link = (
+            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?token={raw_token}"
+        )
+
+        try:
+            send_password_reset_email(user.email, reset_link)
+        except Exception:
+            logger.exception("Falha ao enviar e-mail de reset para %s", user.email)
+
+    return MessageResponse(detail=_FORGOT_GENERIC_MSG)
+
+
+@router.post(
+    "/reset-password",
+    response_model=MessageResponse,
+    summary="Redefinir senha",
+    description="Recebe o token enviado por e-mail e uma nova senha.",
+    responses={
+        200: {"description": "Senha redefinida com sucesso"},
+        400: {"description": "Token inválido, expirado ou já utilizado"},
+    },
+)
+def reset_password(
+    data: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    token_hash = _hash_token(data.token)
+
+    user = (
+        db.query(User)
+        .filter(User.password_reset_token_hash == token_hash)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token inválido ou expirado.",
+        )
+
+    if user.password_reset_used_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este link já foi utilizado. Solicite um novo.",
+        )
+
+    if (
+        user.password_reset_expires_at is None
+        or datetime.utcnow() > user.password_reset_expires_at
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token expirado. Solicite um novo link.",
+        )
+
+    user.hashed_password = get_password_hash(data.new_password)
+    user.password_reset_used_at = datetime.utcnow()
+    user.password_reset_token_hash = None
+    user.password_reset_expires_at = None
+    db.commit()
+
+    return MessageResponse(detail="Senha redefinida com sucesso.")
+
+
+# =============================================================================
+# Rate limit helpers (forgot-password)
+# =============================================================================
+
+_FORGOT_COOLDOWN_SECONDS = 10
+_FORGOT_DAILY_LIMIT = 10
+
+
+def _apply_forgot_rate_limit(request: Request) -> None:
+    """Rate limit por IP para forgot-password (fail-open se Redis indisponível)."""
+    try:
+        from app.core.rate_limit import redis_rate_limiter, get_client_ip
+
+        ip = get_client_ip(request)
+
+        allowed, retry_after = redis_rate_limiter.check_cooldown(
+            key=f"rl:ip:{ip}:forgot:cooldown",
+            cooldown_seconds=_FORGOT_COOLDOWN_SECONDS,
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Aguarde alguns segundos antes de tentar novamente.",
+                headers={"Retry-After": str(retry_after)},
+            )
+
+        allowed, _remaining, retry_after = redis_rate_limiter.check_daily_limit_until_midnight(
+            key=f"rl:ip:{ip}:forgot:daily",
+            daily_limit=_FORGOT_DAILY_LIMIT,
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Limite diário de solicitações atingido. Tente novamente amanhã.",
+                headers={"Retry-After": str(retry_after)},
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass
 

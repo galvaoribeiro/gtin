@@ -108,6 +108,10 @@ class User(Base):
     role = Column(String(20), nullable=False, default="user", comment="Papel do usuário: user, admin")
     is_active = Column(Boolean, nullable=False, default=True, comment="Se o usuário está ativo")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    password_reset_token_hash = Column(String(64), nullable=True, unique=True, comment="SHA-256 do token de reset (uso único)")
+    password_reset_expires_at = Column(DateTime, nullable=True, comment="Expiração do token de reset")
+    password_reset_used_at = Column(DateTime, nullable=True, comment="Quando o token foi usado")
     
     # Relacionamento com organização
     organization = relationship("Organization", back_populates="users")

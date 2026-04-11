@@ -77,3 +77,23 @@ class TokenData(BaseModel):
     user_id: Optional[int] = None
     email: Optional[str] = None
 
+
+# =============================================================================
+# Password Reset Schemas
+# =============================================================================
+
+class ForgotPasswordRequest(BaseModel):
+    """Schema para solicitar recuperação de senha."""
+    email: EmailStr = Field(..., description="Email da conta")
+
+
+class ResetPasswordRequest(BaseModel):
+    """Schema para redefinir a senha."""
+    token: str = Field(..., min_length=1, description="Token de recuperação recebido por e-mail")
+    new_password: str = Field(..., min_length=8, description="Nova senha (mínimo 8 caracteres)")
+
+
+class MessageResponse(BaseModel):
+    """Schema de resposta genérica com mensagem."""
+    detail: str = Field(..., description="Mensagem de retorno")
+
