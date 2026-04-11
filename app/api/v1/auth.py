@@ -12,9 +12,9 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.models import User, Organization
 from app.schemas.user import UserLogin, Token, UserResponse, UserRegister, UserUpdate
-from app.core.security import verify_password, create_access_token, get_password_hash
+from app.core.security import verify_password, create_access_token, get_password_hash, decode_access_token
 from app.core.config import settings
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, oauth2_scheme
 
 
 router = APIRouter(prefix="/v1/auth", tags=["Auth"])
@@ -154,13 +154,26 @@ def register(
         401: {"description": "Não autenticado"},
     }
 )
-def get_me(current_user: User = Depends(get_current_user)):
+def get_me(
+    current_user: User = Depends(get_current_user),
+    token: str = Depends(oauth2_scheme),
+):
     """
     Retorna os dados do usuário autenticado.
     
     Requer autenticação via JWT (Bearer token).
     """
     organization = current_user.organization
+
+    payload = (decode_access_token(token) or {}) if token else {}
+    impersonated = bool(payload.get("impersonated"))
+    actor_user_id = payload.get("actor_sub")
+    actor_email = payload.get("actor_email")
+    try:
+        actor_user_id = int(actor_user_id) if actor_user_id is not None else None
+    except (TypeError, ValueError):
+        actor_user_id = None
+
     return UserResponse(
         id=current_user.id,
         email=current_user.email,
@@ -168,8 +181,12 @@ def get_me(current_user: User = Depends(get_current_user)):
         organization_name=organization.name if organization else None,
         plan=organization.plan if organization else None,
         monthly_limit=organization.monthly_limit if organization else None,
+        role=getattr(current_user, "role", "user") or "user",
         is_active=current_user.is_active,
         created_at=current_user.created_at,
+        impersonated=impersonated,
+        actor_user_id=actor_user_id,
+        actor_email=actor_email,
     )
 
 
@@ -187,6 +204,7 @@ def get_me(current_user: User = Depends(get_current_user)):
 def update_me(
     data: UserUpdate,
     current_user: User = Depends(get_current_user),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
     """
@@ -216,6 +234,15 @@ def update_me(
     if organization:
         db.refresh(organization)
 
+    payload = (decode_access_token(token) or {}) if token else {}
+    impersonated = bool(payload.get("impersonated"))
+    actor_user_id = payload.get("actor_sub")
+    actor_email = payload.get("actor_email")
+    try:
+        actor_user_id = int(actor_user_id) if actor_user_id is not None else None
+    except (TypeError, ValueError):
+        actor_user_id = None
+
     return UserResponse(
         id=current_user.id,
         email=current_user.email,
@@ -223,7 +250,11 @@ def update_me(
         organization_name=organization.name if organization else None,
         plan=organization.plan if organization else None,
         monthly_limit=organization.monthly_limit if organization else None,
+        role=getattr(current_user, "role", "user") or "user",
         is_active=current_user.is_active,
         created_at=current_user.created_at,
+        impersonated=impersonated,
+        actor_user_id=actor_user_id,
+        actor_email=actor_email,
     )
 

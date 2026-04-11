@@ -9,6 +9,7 @@ from datetime import datetime, date
 from typing import Optional
 
 from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, DeclarativeBase
 
 
@@ -104,6 +105,7 @@ class User(Base):
     email = Column(String(255), nullable=False, unique=True, index=True, comment="Email do usuário")
     hashed_password = Column(String(255), nullable=False, comment="Senha hasheada com bcrypt")
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    role = Column(String(20), nullable=False, default="user", comment="Papel do usuário: user, admin")
     is_active = Column(Boolean, nullable=False, default=True, comment="Se o usuário está ativo")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
@@ -112,6 +114,25 @@ class User(Base):
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email='{self.email}', org_id={self.organization_id})>"
+
+
+class AdminAuditLog(Base):
+    """Log de auditoria para ações administrativas (staff)."""
+
+    __tablename__ = "admin_audit_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    actor_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    action = Column(String(100), nullable=False, index=True)
+    target_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    target_org_id = Column(Integer, ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True)
+    payload = Column(JSONB, nullable=True)
+    ip = Column(String(64), nullable=True)
+    user_agent = Column(String(512), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    def __repr__(self) -> str:
+        return f"<AdminAuditLog(id={self.id}, action='{self.action}', actor={self.actor_user_id})>"
 
 
 class ApiKey(Base):

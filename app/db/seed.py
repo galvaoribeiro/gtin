@@ -69,6 +69,7 @@ def seed_initial_data(db: Session) -> tuple[Organization, ApiKey, User]:
             email=DEV_USER_EMAIL,
             hashed_password=get_password_hash(DEV_USER_PASSWORD),
             organization_id=existing_org.id,
+            role="admin",
             is_active=True,
         )
         db.add(existing_user)

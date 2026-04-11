@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   login as apiLogin,
@@ -9,25 +9,32 @@ import {
   getCurrentUser,
   isAuthenticated,
   clearAuthToken,
+  setAuthToken,
+  getAuthToken,
   type LoginCredentials,
   type RegisterData,
   type UserData,
   ApiError,
 } from "./api";
 
+const IMPERSONATION_KEY = "admin_original_token";
+
 interface AuthContextType {
   user: UserData | null;
   isLoading: boolean;
   isLoggedIn: boolean;
+  isImpersonating: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
+  startImpersonation: (token: string) => Promise<void>;
+  stopImpersonation: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Rotas que não precisam de autenticação
 const publicRoutes = ["/login", "/register", "/", "/docs", "/pricing", "/sobre", "/bulk", "/termos-de-uso", "/politica-de-privacidade"];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -36,30 +43,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
-  
-  // Refs para evitar chamadas duplicadas e race conditions
+
   const isCheckingAuth = useRef(false);
   const hasCheckedAuth = useRef(false);
 
-  // Verificar autenticação ao carregar - APENAS UMA VEZ
+  const isImpersonating =
+    typeof window !== "undefined" && !!localStorage.getItem(IMPERSONATION_KEY);
+
   useEffect(() => {
     async function checkAuth() {
-      // Evitar múltiplas chamadas simultâneas
-      if (isCheckingAuth.current || hasCheckedAuth.current) {
-        return;
-      }
-      
+      if (isCheckingAuth.current || hasCheckedAuth.current) return;
       isCheckingAuth.current = true;
-      
       try {
-        // Verificar se há token salvo
         if (isAuthenticated()) {
           try {
             const userData = await getCurrentUser();
             setUser(userData);
-          } catch (err) {
-            // Token inválido ou expirado - limpar token
-            console.warn("Token inválido ou expirado:", err);
+          } catch {
             clearAuthToken();
             setUser(null);
           }
@@ -70,33 +70,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     }
-
     checkAuth();
   }, []);
 
-  // Redirecionar para login se não autenticado em rota protegida
   useEffect(() => {
     if (isLoading) return;
-
     const isPublicRoute = publicRoutes.some(
       (route) => pathname === route || pathname?.startsWith("/docs")
     );
-
-    // Se não está em rota pública e não está logado, redireciona para login
     if (!isPublicRoute && !user) {
       router.push("/login");
     }
-
-    // Se está na página de login ou registro e já está logado, redireciona para dashboard
     if ((pathname === "/login" || pathname === "/register") && user) {
       router.push("/dashboard");
     }
   }, [isLoading, user, pathname, router]);
 
+  const refreshUser = async () => {
+    try {
+      const userData = await getCurrentUser();
+      setUser(userData);
+    } catch {
+      clearAuthToken();
+      setUser(null);
+    }
+  };
+
   const login = async (credentials: LoginCredentials) => {
     setError(null);
     setIsLoading(true);
-
     try {
       await apiLogin(credentials);
       const userData = await getCurrentUser();
@@ -117,7 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (data: RegisterData) => {
     setError(null);
     setIsLoading(true);
-
     try {
       await apiRegister(data);
       const userData = await getCurrentUser();
@@ -136,9 +137,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(IMPERSONATION_KEY);
+    }
     apiLogout();
     setUser(null);
     router.push("/login");
+  };
+
+  const startImpersonation = async (newToken: string) => {
+    const currentToken = getAuthToken();
+    if (currentToken && typeof window !== "undefined") {
+      localStorage.setItem(IMPERSONATION_KEY, currentToken);
+    }
+    setAuthToken(newToken);
+    const userData = await getCurrentUser();
+    setUser(userData);
+    router.push("/dashboard");
+  };
+
+  const stopImpersonation = async () => {
+    if (typeof window === "undefined") return;
+    const originalToken = localStorage.getItem(IMPERSONATION_KEY);
+    localStorage.removeItem(IMPERSONATION_KEY);
+    if (originalToken) {
+      setAuthToken(originalToken);
+      const userData = await getCurrentUser();
+      setUser(userData);
+      router.push("/admin/users");
+    } else {
+      logout();
+    }
   };
 
   return (
@@ -147,9 +176,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isLoggedIn: !!user,
+        isImpersonating,
         login,
         register,
         logout,
+        startImpersonation,
+        stopImpersonation,
+        refreshUser,
         error,
       }}
     >
@@ -165,4 +198,3 @@ export function useAuth() {
   }
   return context;
 }
-

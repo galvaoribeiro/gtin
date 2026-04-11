@@ -250,3 +250,18 @@ def get_current_organization_from_user(
     """
     return current_user.organization
 
+
+def require_admin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Dependência que exige que o usuário autenticado seja admin (staff).
+    Retorna o User se for admin; caso contrário, 403.
+    """
+    if getattr(current_user, "role", None) != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso restrito (admin).",
+        )
+    return current_user
+

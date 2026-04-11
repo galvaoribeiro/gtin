@@ -19,6 +19,7 @@ from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.metrics import router as metrics_router
 from app.api.v1.public import router as public_router
 from app.api.v1.billing import router as billing_router
+from app.api.v1.admin import router as admin_router
 from app.core.config import settings
 
 
@@ -298,6 +299,51 @@ def run_migrations():
             else:
                 print("[MIGRATION] Coluna 'search_vector' ja existe.")
 
+            # Migração 9: Adicionar coluna role em users (admin/user)
+            result = conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'users' AND column_name = 'role'
+            """))
+            if not result.fetchone():
+                print("[MIGRATION] Adicionando coluna 'role' na tabela users...")
+                conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'"))
+                conn.commit()
+                print("[MIGRATION] Coluna 'role' adicionada.")
+            else:
+                print("[MIGRATION] Coluna 'role' ja existe.")
+
+            # Migração 10: Criar tabela admin_audit_logs
+            result = conn.execute(text("""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_name = 'admin_audit_logs'
+            """))
+            if not result.fetchone():
+                print("[MIGRATION] Criando tabela 'admin_audit_logs'...")
+                conn.execute(text("""
+                    CREATE TABLE admin_audit_logs (
+                        id SERIAL PRIMARY KEY,
+                        actor_user_id INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+                        action VARCHAR(100) NOT NULL,
+                        target_user_id INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+                        target_org_id INTEGER NULL REFERENCES organizations(id) ON DELETE SET NULL,
+                        payload JSONB NULL,
+                        ip VARCHAR(64) NULL,
+                        user_agent VARCHAR(512) NULL,
+                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_aal_actor ON admin_audit_logs(actor_user_id)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_aal_action ON admin_audit_logs(action)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_aal_target_user ON admin_audit_logs(target_user_id)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_aal_target_org ON admin_audit_logs(target_org_id)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_aal_created ON admin_audit_logs(created_at)"))
+                conn.commit()
+                print("[MIGRATION] Tabela 'admin_audit_logs' criada com sucesso!")
+            else:
+                print("[MIGRATION] Tabela 'admin_audit_logs' ja existe.")
+
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")
 
@@ -440,4 +486,5 @@ app.include_router(auth_router)
 app.include_router(dashboard_router)
 app.include_router(metrics_router)
 app.include_router(billing_router)
+app.include_router(admin_router)
 

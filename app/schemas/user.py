@@ -44,8 +44,13 @@ class UserResponse(UserBase):
     organization_name: Optional[str] = Field(None, description="Nome da organização")
     plan: Optional[str] = Field(None, description="Plano atual: basic, starter, pro, advanced")
     monthly_limit: Optional[int] = Field(None, description="Limite mensal do plano")
+    role: str = Field(default="user", description="Papel do usuário: user, admin")
     is_active: bool = Field(..., description="Se o usuário está ativo")
     created_at: datetime = Field(..., description="Data de criação")
+
+    impersonated: bool = Field(default=False, description="Sessão de impersonação ativa")
+    actor_user_id: Optional[int] = Field(None, description="ID do admin que está impersonando")
+    actor_email: Optional[str] = Field(None, description="Email do admin que está impersonando")
     
     class Config:
         from_attributes = True

@@ -110,8 +110,12 @@ export interface UserData {
   organization_name: string | null;
   plan: string | null;
   monthly_limit?: number | null;
+  role: string;
   is_active: boolean;
   created_at: string;
+  impersonated?: boolean;
+  actor_user_id?: number | null;
+  actor_email?: string | null;
 }
 
 /**
@@ -1245,4 +1249,103 @@ export async function createBillingPortalSession(): Promise<BillingPortalRespons
       error instanceof Error ? error.message : "Erro desconhecido"
     );
   }
+}
+
+// =============================================================================
+// Admin endpoints (require role=admin)
+// =============================================================================
+
+export interface AdminUserItem {
+  id: number;
+  email: string;
+  organization_id: number;
+  organization_name: string | null;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AdminUsersPage {
+  items: AdminUserItem[];
+  page: number;
+  per_page: number;
+  total: number;
+}
+
+export interface AdminOrganizationItem {
+  id: number;
+  name: string;
+  plan: string;
+  created_at: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  subscription_status: string | null;
+  current_period_end: string | null;
+  default_payment_method: string | null;
+}
+
+export interface AdminOrganizationsPage {
+  items: AdminOrganizationItem[];
+  page: number;
+  per_page: number;
+  total: number;
+}
+
+async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = `${API_BASE_URL}${path}`;
+  const response = await fetch(url, {
+    ...init,
+    headers: { ...getJwtAuthHeaders(), ...(init?.headers || {}) },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearAuthToken();
+      throw new ApiError("Sessão expirada", 401);
+    }
+    let detail: string | undefined;
+    try { const b = await response.json(); detail = b.detail; } catch { /* ignore */ }
+    throw new ApiError(detail || `Erro ${response.status}`, response.status, detail);
+  }
+
+  return response.json();
+}
+
+export function adminListUsers(params?: { page?: number; per_page?: number; q?: string; organization_id?: number }) {
+  const sp = new URLSearchParams();
+  if (params?.page) sp.set("page", String(params.page));
+  if (params?.per_page) sp.set("per_page", String(params.per_page));
+  if (params?.q) sp.set("q", params.q);
+  if (params?.organization_id) sp.set("organization_id", String(params.organization_id));
+  const qs = sp.toString();
+  return adminFetch<AdminUsersPage>(`/v1/admin/users${qs ? `?${qs}` : ""}`);
+}
+
+export function adminUpdateUser(userId: number, data: { is_active?: boolean; role?: string; new_password?: string }) {
+  return adminFetch<AdminUserItem>(`/v1/admin/users/${userId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export function adminImpersonateUser(userId: number) {
+  return adminFetch<TokenResponse>(`/v1/admin/users/${userId}/impersonate`, { method: "POST" });
+}
+
+export function adminListOrganizations(params?: { page?: number; per_page?: number; q?: string }) {
+  const sp = new URLSearchParams();
+  if (params?.page) sp.set("page", String(params.page));
+  if (params?.per_page) sp.set("per_page", String(params.per_page));
+  if (params?.q) sp.set("q", params.q);
+  const qs = sp.toString();
+  return adminFetch<AdminOrganizationsPage>(`/v1/admin/organizations${qs ? `?${qs}` : ""}`);
+}
+
+export function adminUpdateOrganization(orgId: number, data: Record<string, unknown>) {
+  return adminFetch<AdminOrganizationItem>(`/v1/admin/organizations/${orgId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
 }
