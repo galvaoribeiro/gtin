@@ -11,6 +11,7 @@ from datetime import datetime
 import os
 
 from app.api.deps import get_db, get_current_user
+from app.core.config import settings
 from app.db.models import Organization, User
 from app.services.stripe_service import StripeService
 from app.schemas.organization import OrganizationResponse
@@ -196,6 +197,12 @@ def create_checkout_session(
     org = db.query(Organization).filter(Organization.id == current_user.organization_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organização não encontrada")
+
+    if not settings.BILLING_PLAN_CHANGES_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="Mudanças de plano temporariamente indisponíveis."
+        )
     
     # Verificar se o plano é válido
     if request.plan not in ["starter", "pro", "advanced"]:

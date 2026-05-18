@@ -38,6 +38,9 @@ class Settings:
         "STRIPE_PRICE_ADVANCED",
         os.getenv("STRIPE_PRICE_ENTERPRISE", ""),
     )
+    BILLING_PLAN_CHANGES_ENABLED: bool = os.getenv(
+        "BILLING_PLAN_CHANGES_ENABLED", "true"
+    ).lower() in ("true", "1", "yes")
     
     # Redis Settings (para rate limiting)
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
