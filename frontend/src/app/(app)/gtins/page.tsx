@@ -120,6 +120,51 @@ export default function GtinsPage() {
     }
   };
 
+  // CSV generation helper
+  const buildCsv = () => {
+    if (!batchResult) return "";
+    const header = "GTIN;Status;Produto;Marca;NCM;CEST;País de Origem;Peso;Unidade";
+    const rows = batchResult.results.map((item) => {
+      const status = item.found ? "Encontrado" : "Não encontrado";
+      const p = item.product;
+      return [
+        item.gtin,
+        status,
+        p?.product_name || "",
+        p?.brand || "",
+        p?.ncm_formatted || p?.ncm || "",
+        p?.cest?.join(", ") || "",
+        p?.origin_country || "",
+        p?.gross_weight?.value?.toString() || "",
+        p?.gross_weight?.unit || "",
+      ].map((v) => `"${v.replace(/"/g, '""')}"`).join(";");
+    });
+    return [header, ...rows].join("\n");
+  };
+
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const handleCopyResults = async () => {
+    const csv = buildCsv();
+    if (!csv) return;
+    await navigator.clipboard.writeText(csv);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2500);
+  };
+
+  const handleDownloadCsv = () => {
+    const csv = buildCsv();
+    if (!csv) return;
+    const bom = "\uFEFF";
+    const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "consulta_gtin_lote.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -419,12 +464,24 @@ export default function GtinsPage() {
           {batchResult && (
             <Card>
               <CardHeader>
-                <CardTitle>Resultados</CardTitle>
-                <CardDescription>
-                  {batchResult.total_requested} consultados &middot;{" "}
-                  <span className="text-green-700 dark:text-green-400">{batchResult.total_found} encontrados</span> &middot;{" "}
-                  <span className="text-amber-700 dark:text-amber-400">{batchResult.total_requested - batchResult.total_found} não encontrados</span>
-                </CardDescription>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <CardTitle>Resultados</CardTitle>
+                    <CardDescription className="mt-1">
+                      {batchResult.total_requested} consultados {"\u00b7"}{" "}
+                      <span className="text-green-700 dark:text-green-400">{batchResult.total_found} encontrados</span> {"\u00b7"}{" "}
+                      <span className="text-amber-700 dark:text-amber-400">{batchResult.total_requested - batchResult.total_found} não encontrados</span>
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button variant="outline" size="sm" onClick={handleCopyResults}>
+                      {copySuccess ? "Copiado!" : "Copiar"}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleDownloadCsv}>
+                      Baixar CSV
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -436,6 +493,9 @@ export default function GtinsPage() {
                       <TableHead>Marca</TableHead>
                       <TableHead>NCM</TableHead>
                       <TableHead>CEST</TableHead>
+                      <TableHead>País de Origem</TableHead>
+                      <TableHead>Peso</TableHead>
+                      <TableHead>Unidade</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -468,6 +528,15 @@ export default function GtinsPage() {
                           {item.product?.cest && item.product.cest.length > 0
                             ? item.product.cest.join(", ")
                             : "\u2014"}
+                        </TableCell>
+                        <TableCell>
+                          {item.product?.origin_country || "\u2014"}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {item.product?.gross_weight?.value || "\u2014"}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {item.product?.gross_weight?.unit || "\u2014"}
                         </TableCell>
                       </TableRow>
                     ))}
