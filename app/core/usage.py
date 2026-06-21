@@ -157,6 +157,38 @@ def record_org_usage_monthly(
     })
 
 
+def record_org_usage_monthly_batch(
+    db: Session,
+    organization_id: int,
+    success_count: int,
+    error_count: int,
+) -> None:
+    """
+    Registra múltiplas chamadas na tabela de uso mensal por organização.
+    Útil para endpoints em lote (batch) onde várias consultas são feitas em uma única request.
+    """
+    if success_count == 0 and error_count == 0:
+        return
+
+    usage_month = get_current_month_start_sao_paulo()
+
+    query = text("""
+        INSERT INTO organization_usage_monthly (organization_id, usage_month, success_count, error_count)
+        VALUES (:organization_id, :usage_month, :success_count, :error_count)
+        ON CONFLICT (organization_id, usage_month)
+        DO UPDATE SET
+            success_count = organization_usage_monthly.success_count + :success_count,
+            error_count = organization_usage_monthly.error_count + :error_count
+    """)
+
+    db.execute(query, {
+        "organization_id": organization_id,
+        "usage_month": usage_month,
+        "success_count": success_count,
+        "error_count": error_count,
+    })
+
+
 def get_organization_monthly_usage(db: Session, organization_id: int) -> int:
     """
     Retorna o total de chamadas de sucesso da organização no mês corrente (America/Sao_Paulo).

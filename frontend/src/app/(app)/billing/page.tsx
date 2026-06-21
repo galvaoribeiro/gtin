@@ -47,8 +47,7 @@ const PLANS = [
       "5.000 consultas/mês",
       "Batch até 2 GTINs",
       "60 req/min",
-      "Gestão de 1 API Key"
-     
+      "Gestão de 1 API Key",
     ],
   },
   {
@@ -60,7 +59,6 @@ const PLANS = [
       "Batch até 5 GTINs",
       "90 req/min",
       "Gestão de até 10 API Keys",
-      
     ],
   },
   {
@@ -72,7 +70,6 @@ const PLANS = [
       "Batch até 10 GTINs",
       "120 req/min",
       "Gestão de até 50 API Keys",
-      
     ],
   },
 ];

@@ -597,6 +597,91 @@ export async function fetchGtinDashboard(gtin: string): Promise<Product> {
 export const fetchGtin = fetchGtinDashboard;
 
 // =============================================================================
+// Dashboard GTIN Batch Endpoint (usa JWT)
+// =============================================================================
+
+/**
+ * Interface para resposta de batch do dashboard (raw da API)
+ */
+interface ApiBatchResponseItem {
+  gtin: string;
+  found: boolean;
+  product: ApiProduct | null;
+}
+
+interface ApiBatchResponse {
+  total_requested: number;
+  total_found: number;
+  results: ApiBatchResponseItem[];
+}
+
+/**
+ * Consulta múltiplos GTINs via dashboard (usa JWT).
+ * Máximo de 50 GTINs por requisição.
+ * Apenas GTINs encontrados consomem cota mensal.
+ */
+export async function fetchGtinBatchDashboard(gtins: string[]): Promise<BatchResponse> {
+  const url = `${API_BASE_URL}/v1/dashboard/gtins/batch`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        ...getJwtAuthHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ gtins }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        detail || `Erro ao consultar lote: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    const apiResponse: ApiBatchResponse = await response.json();
+
+    // Transformar cada produto encontrado para o formato do frontend
+    const results: BatchResult[] = apiResponse.results.map((item) => ({
+      gtin: item.gtin,
+      found: item.found,
+      product: item.found && item.product ? transformProduct(item.product) : null,
+    }));
+
+    return {
+      total_requested: apiResponse.total_requested,
+      total_found: apiResponse.total_found,
+      results,
+    };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+// =============================================================================
 // Public GTIN Endpoint (sem autenticação)
 // =============================================================================
 
