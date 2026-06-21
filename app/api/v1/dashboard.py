@@ -116,13 +116,7 @@ def get_product_by_gtin_dashboard(
             detail="Nenhuma chave de acesso ativa para esta organização. Crie ou reative uma chave de acesso para fazer a consulta.",
         )
     
-    # Enforce limites: basic não pode consumir API; demais usam limite mensal
     org = current_user.organization
-    if org.plan == "basic":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seu plano não permite consultas de API. Faça upgrade para Starter ou superior."
-        )
 
     monthly_limit = org.monthly_limit
     used_month = get_organization_monthly_usage(db, org.id)

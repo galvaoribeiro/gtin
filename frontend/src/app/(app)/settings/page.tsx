@@ -128,9 +128,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2">
                   <span>Limite do plano:</span>
                   <Badge variant="outline">
-                    {profile?.plan === "basic"
-                      ? "Sem acesso à API"
-                      : profile?.monthly_limit != null
+                    {profile?.monthly_limit != null
                       ? `${profile.monthly_limit.toLocaleString()} / mês`
                       : "—"}
                   </Badge>

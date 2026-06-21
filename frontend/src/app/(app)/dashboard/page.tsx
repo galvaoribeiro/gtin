@@ -107,36 +107,25 @@ export default function DashboardPage() {
     const plan = user?.plan || "basic";
     switch (plan) {
       case "starter":
-        return { isBasic: false, monthlyLimit: 5000 };
+        return { monthlyLimit: 5000 };
       case "pro":
-        return { isBasic: false, monthlyLimit: 10000 };
+        return { monthlyLimit: 10000 };
       case "advanced":
-        return { isBasic: false, monthlyLimit: 20000 };
+        return { monthlyLimit: 20000 };
       default:
-        return { isBasic: true, monthlyLimit: 0 };
+        return { monthlyLimit: 5 };
     }
   };
 
-  // Derivar uso exibido (sem API para basic; 7d para demais)
   const getUsageToday = () => {
-    const { isBasic, monthlyLimit } = getPlanLimits();
-    if (isBasic) {
-      return {
-        label: "Sem consultas avançadas neste plano",
-        consultas: 0,
-        limite: 0,
-        percentual: 0,
-        isBasic,
-      };
-    }
-    const consumo = summary?.total_calls ?? 0; // últimos 7 dias
+    const { monthlyLimit } = getPlanLimits();
+    const consumo = summary?.total_calls ?? 0;
     const limite = monthlyLimit || 0;
     return {
       label: "Consumo (7 dias)",
       consultas: consumo,
       limite,
       percentual: limite > 0 ? Math.min(100, Math.round((consumo / limite) * 100)) : 0,
-      isBasic,
     };
   };
 
@@ -177,12 +166,12 @@ export default function DashboardPage() {
   // Obter rate limit baseado no plano
   const getRateLimit = (plan: string | null | undefined): string => {
     const rateLimits: Record<string, string> = {
-      basic: "5 req/min",
+      basic: "10 req/min",
       starter: "60 req/min",
       pro: "90 req/min",
       advanced: "120 req/min",
     };
-    return rateLimits[plan || "basic"] || "5 req/min";
+    return rateLimits[plan || "basic"] || "10 req/min";
   };
 
   if (loading) {
@@ -251,10 +240,8 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-sm text-zinc-600 dark:text-zinc-400">
               {(() => {
-                const { isBasic, monthlyLimit } = getPlanLimits();
-                return isBasic ? (
-                  <p>Limite: sem consultas avançadas neste plano (Basic)</p>
-                ) : (
+                const { monthlyLimit } = getPlanLimits();
+                return (
                   <p>
                     Limite: {monthlyLimit ? monthlyLimit.toLocaleString() : "—"} consultas/mês
                   </p>
@@ -284,9 +271,7 @@ export default function DashboardPage() {
               />
             </div>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              {usageToday.isBasic
-                ? "Plano Basic não inclui consultas avançadas."
-                : `${usageToday.percentual}% do limite mensal (base 7d)`}
+              {`${usageToday.percentual}% do limite mensal (base 7d)`}
             </p>
           </CardContent>
         </Card>

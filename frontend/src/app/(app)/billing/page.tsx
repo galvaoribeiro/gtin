@@ -32,9 +32,11 @@ const PLANS = [
     name: "Basic",
     price: 0,
     features: [
-      "Sem API keys (apenas cadastro/login)",
+      "5 consultas/mês",
+      "1 API Key",
+      "10 req/min",
+      "Sem batch",
       "Acesso ao dashboard",
-      "Suporte via documentação",
     ],
   },
   {

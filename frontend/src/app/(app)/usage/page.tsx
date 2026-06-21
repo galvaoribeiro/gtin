@@ -116,17 +116,17 @@ export default function UsagePage() {
     const normalized = plan || "basic";
     switch (normalized) {
       case "starter":
-        return { isBasic: false, monthlyLimit: 5000 };
+        return { monthlyLimit: 5000 };
       case "pro":
-        return { isBasic: false, monthlyLimit: 10000 };
+        return { monthlyLimit: 10000 };
       case "advanced":
-        return { isBasic: false, monthlyLimit: 20000 };
+        return { monthlyLimit: 20000 };
       default:
-        return { isBasic: true, monthlyLimit: 0 };
+        return { monthlyLimit: 5 };
     }
   };
 
-  const { isBasic, monthlyLimit } = getPlanLimits(user?.plan);
+  const { monthlyLimit } = getPlanLimits(user?.plan);
 
   // Calcular estatísticas do mês (usando série diária carregada)
   const getMonthStats = () => {
@@ -264,7 +264,7 @@ export default function UsagePage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>{isBasic ? "Média Diária" : "Média Diária (30d)"}</CardDescription>
+            <CardDescription>Média Diária (30d)</CardDescription>
             <CardTitle className="text-2xl">
               {monthStats.average.toLocaleString()}
             </CardTitle>
@@ -296,20 +296,16 @@ export default function UsagePage() {
           <CardHeader className="pb-2">
             <CardDescription>Limite do Plano</CardDescription>
             <CardTitle className="text-2xl">
-              {isBasic
-                ? "Sem consultas avançadas neste plano"
-                : monthlyLimit
+              {monthlyLimit
                 ? `${monthlyLimit.toLocaleString()} / mês`
                 : "—"}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              {isBasic
-                ? "Plano Basic não inclui consultas avançadas."
-                : "Aplicado mensalmente por organização."}
+              Aplicado mensalmente por organização.
             </p>
-            {!isBasic && monthlyLimit ? (
+            {monthlyLimit ? (
               <div className="mt-2 flex items-center gap-2">
                 <div className="h-2 w-24 rounded-full bg-zinc-200 dark:bg-zinc-700">
                   <div

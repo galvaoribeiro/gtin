@@ -109,12 +109,6 @@ def list_api_keys(
     Returns:
         Objeto paginado de API keys com informações básicas (key mascarada).
     """
-    if org.plan == "basic":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seu plano não permite gerenciar API keys. Faça upgrade para Starter ou superior."
-        )
-
     # Garantir limite máximo de 10 itens por página
     per_page = min(per_page, 10)
 
@@ -177,12 +171,6 @@ def create_api_key(
     Returns:
         API key criada com a key completa.
     """
-    if org.plan == "basic":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seu plano não permite criar API keys. Faça upgrade para Starter ou superior."
-        )
-
     active_limit = org.get_api_key_active_limit_by_plan()
     active_count = (
         db.query(ApiKey)

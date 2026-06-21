@@ -107,11 +107,6 @@ def process_batch_gtins(
         )
 
     org = auth.organization
-    if org.plan == "basic":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seu plano não permite consultas de API. Faça upgrade para Starter ou superior."
-        )
 
     # Limite por plano (cada requisição batch conta como 1)
     batch_limit = org.batch_limit
@@ -126,7 +121,6 @@ def process_batch_gtins(
             detail=f"Limite do plano excedido: máximo de {batch_limit} GTINs por batch."
         )
 
-    # Enforce limites: diário para basic, mensal para demais
     monthly_limit = org.monthly_limit
     used_month = get_organization_monthly_usage(db, org.id)
     if monthly_limit > 0 and used_month + 1 > monthly_limit:
@@ -272,7 +266,7 @@ def fetch_products_by_gtins(db: Session, gtins: list[str]) -> dict[str, ProductR
     "/batch",
     response_model=BatchResponse,
     summary="Consultar produtos em lote (POST)",
-    description="Consulta múltiplos produtos de uma vez. Limites por plano: starter=2, pro=5, advanced=10 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Requer API key válida. Rate limit por plano (60-120 req/min).",
+    description="Consulta múltiplos produtos de uma vez. Limites por plano: starter=2, pro=5, advanced=10 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Requer API key válida. Rate limit por plano (10-120 req/min).",
     responses={
         200: {"description": "Resultados da consulta em lote"},
         400: {"description": "Requisição inválida"},
@@ -303,7 +297,7 @@ async def get_products_batch(
     "/batch",
     response_model=BatchResponse,
     summary="Consultar produtos em lote (GET)",
-    description="Consulta múltiplos produtos de uma vez via query parameters. Limites por plano: starter=2, pro=5, advanced=10 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Ideal para cacheamento. Requer API key válida. Rate limit por plano (60-120 req/min).",
+    description="Consulta múltiplos produtos de uma vez via query parameters. Limites por plano: starter=2, pro=5, advanced=10 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Ideal para cacheamento. Requer API key válida. Rate limit por plano (10-120 req/min).",
     responses={
         200: {"description": "Resultados da consulta em lote"},
         400: {"description": "Requisição inválida"},
@@ -466,11 +460,6 @@ async def search_products(
     Limite fixo de 10 itens por página.
     """
     org = auth.organization
-    if org.plan == "basic":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seu plano não permite consultas de API. Faça upgrade para Starter ou superior."
-        )
 
     monthly_limit = org.monthly_limit
     used_month = get_organization_monthly_usage(db, org.id)
@@ -626,7 +615,7 @@ async def search_products(
     "/{gtin}",
     response_model=ProductResponse,
     summary="Consultar produto por GTIN",
-    description="Retorna os dados de um produto a partir do seu código GTIN (código de barras). Requer API key válida. Rate limit por plano (60-120 req/min).",
+    description="Retorna os dados de um produto a partir do seu código GTIN (código de barras). Requer API key válida. Rate limit por plano (10-120 req/min).",
     responses={
         200: {"description": "Produto encontrado"},
         401: {"description": "API key inválida ou não fornecida"},
@@ -649,11 +638,6 @@ async def get_product_by_gtin(
     normalized_gtin = normalize_gtin(gtin)
     
     org = auth.organization
-    if org.plan == "basic":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seu plano não permite consultas de API. Faça upgrade para Starter ou superior."
-        )
 
     monthly_limit = org.monthly_limit
     used_month = get_organization_monthly_usage(db, org.id)

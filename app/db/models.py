@@ -23,7 +23,7 @@ class Organization(Base):
     Modelo para organizações/clientes.
     
     Cada organização pode ter múltiplas API keys e um plano de uso.
-    Planos: basic (cadastro/login, sem API keys), starter, pro, advanced
+    Planos: basic (1 key, 5 consultas/mês, sem batch), starter, pro, advanced
     """
     __tablename__ = "organizations"
     
@@ -65,7 +65,7 @@ class Organization(Base):
     def get_monthly_limit_by_plan(self) -> int:
         """Retorna o limite mensal de chamadas de API por organização, de acordo com o plano."""
         limits = {
-            "basic": 0,        # basic não possui acesso a API
+            "basic": 5,
             "starter": 5000,
             "pro": 10000,
             "advanced": 20000,
@@ -80,7 +80,7 @@ class Organization(Base):
     def get_api_key_active_limit_by_plan(self) -> int:
         """Limite de API keys ativas permitido por plano."""
         limits = {
-            "basic": 0,
+            "basic": 1,
             "starter": 1,
             "pro": 10,
             "advanced": 50,
