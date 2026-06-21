@@ -36,8 +36,8 @@ export default function DashboardPage() {
   const [dailySeries, setDailySeries] = useState<DailySeriesResponse | null>(null);
   const router = useRouter();
   
-  // Usar user do auth-context em vez de buscar novamente
-  const { user } = useAuth();
+  // Usar user do auth-context e renovar para refletir mudanças por webhook.
+  const { user, refreshUser } = useAuth();
   
   // Refs para evitar chamadas duplicadas e cleanup
   const isLoadingRef = useRef(false);
@@ -48,10 +48,25 @@ export default function DashboardPage() {
     isMountedRef.current = true;
     
     loadData();
+
+    const refreshUserOnFocus = () => {
+      void refreshUser();
+    };
+
+    const refreshUserOnVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refreshUser();
+      }
+    };
+
+    window.addEventListener("focus", refreshUserOnFocus);
+    document.addEventListener("visibilitychange", refreshUserOnVisibilityChange);
     
     // Cleanup: marcar como desmontado
     return () => {
       isMountedRef.current = false;
+      window.removeEventListener("focus", refreshUserOnFocus);
+      document.removeEventListener("visibilitychange", refreshUserOnVisibilityChange);
     };
   }, []);
 
@@ -71,6 +86,7 @@ export default function DashboardPage() {
       const [summaryData, dailyData] = await Promise.all([
         getUsageSummary(7),
         getUsageDaily(),
+        refreshUser(),
       ]);
       
       // Só atualizar estado se ainda estiver montado
@@ -105,6 +121,10 @@ export default function DashboardPage() {
 
   const getPlanLimits = () => {
     const plan = user?.plan || "basic";
+    if (typeof user?.monthly_limit === "number") {
+      return { monthlyLimit: user.monthly_limit };
+    }
+
     switch (plan) {
       case "starter":
         return { monthlyLimit: 5000 };
