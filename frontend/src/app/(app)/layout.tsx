@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 
 const sidebarLinks = [
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/gtins", label: "GTINs", icon: "🔍" },
-  { href: "/api-keys", label: "API Keys", icon: "🔑" },
+  { href: "/gtins", label: "Consultar GTIN", icon: "🔍" },
+  { href: "/api-keys", label: "Chave de Acesso", icon: "🔑" },
   { href: "/usage", label: "Uso", icon: "📈" },
   { href: "/billing", label: "Cobrança", icon: "💳" },
   { href: "/settings", label: "Configurações", icon: "⚙️" },

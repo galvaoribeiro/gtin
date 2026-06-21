@@ -82,7 +82,7 @@ export default function ApiKeysPage() {
         }
         setError(err.detail || err.message);
       } else {
-        setError("Erro ao carregar API keys");
+        setError("Erro ao carregar chaves de acesso");
       }
     } finally {
       setLoading(false);
@@ -180,10 +180,10 @@ export default function ApiKeysPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
-            API Keys
+            Chave de Acesso
           </h1>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-            Gerencie suas chaves de acesso à API
+            Gerencie suas chaves de acesso
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -216,9 +216,9 @@ export default function ApiKeysPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Gerar Nova API Key</DialogTitle>
+            <DialogTitle>Gerar Nova Chave de Acesso</DialogTitle>
             <DialogDescription>
-              Dê um nome descritivo para sua nova chave de API. Isso ajudará você a identificá-la no futuro.
+              Dê um nome descritivo para sua nova chave de acesso. Isso ajudará você a identificá-la no futuro.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -306,7 +306,7 @@ export default function ApiKeysPage() {
         <CardHeader>
           <CardTitle>Suas Chaves</CardTitle>
           <CardDescription>
-            Lista de todas as API keys da sua conta
+            Lista de todas as chaves de acesso da sua conta
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -316,7 +316,7 @@ export default function ApiKeysPage() {
             </div>
           ) : total === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <p className="text-zinc-500">Nenhuma API key encontrada. Clique em &quot;Gerar Nova Chave&quot; para criar uma.</p>
+              <p className="text-zinc-500">Nenhuma chave de acesso encontrada. Clique em &quot;Gerar Nova Chave&quot; para criar uma.</p>
             </div>
           ) : (
             <>
@@ -404,9 +404,9 @@ export default function ApiKeysPage() {
       <Dialog open={revokeDialogOpen} onOpenChange={setRevokeDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Revogar API Key</DialogTitle>
+            <DialogTitle>Revogar Chave de Acesso</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja revogar esta API key? Essa ação não poderá ser desfeita.
+              Tem certeza que deseja revogar esta chave de acesso? Essa ação não poderá ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">

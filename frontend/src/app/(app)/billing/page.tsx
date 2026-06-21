@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -285,15 +285,28 @@ export default function BillingPage() {
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {plan.features.map((feature, index) => (
-                      <li
-                        key={index}
-                        className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400"
-                      >
-                        <span className="text-green-500">✓</span>
-                        {feature}
-                      </li>
-                    ))}
+                    {plan.features.map((feature, index) => {
+                      const isHighlight = index === 0 && plan.id !== "basic";
+                      return (
+                        <Fragment key={index}>
+                          <li
+                            className={
+                              isHighlight
+                                ? "flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-white"
+                                : "flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400"
+                            }
+                          >
+                            <span className="text-green-500">✓</span>
+                            {feature}
+                          </li>
+                          {isHighlight && (
+                            <li className="ml-6 text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                              Limites de API
+                            </li>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                   </ul>
                   <Button
                     className="mt-4 w-full"

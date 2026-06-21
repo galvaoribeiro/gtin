@@ -197,10 +197,10 @@ export default function UsagePage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
-            Uso da API
+            Uso
           </h1>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-            Acompanhe o consumo detalhado da sua conta
+            Acompanhe suas consultas e o consumo do plano
           </p>
         </div>
         <div className="flex items-center justify-center py-12">
@@ -215,10 +215,10 @@ export default function UsagePage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
-            Uso da API
+            Uso
           </h1>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-            Acompanhe o consumo detalhado da sua conta
+            Acompanhe suas consultas e o consumo do plano
           </p>
         </div>
         <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
@@ -239,10 +239,10 @@ export default function UsagePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
-          Uso da API
+          Uso
         </h1>
         <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-          Acompanhe o consumo detalhado da sua conta
+          Acompanhe suas consultas e o consumo do plano
         </p>
       </div>
 
@@ -297,7 +297,7 @@ export default function UsagePage() {
             <CardDescription>Limite do Plano</CardDescription>
             <CardTitle className="text-2xl">
               {isBasic
-                ? "Sem acesso à API"
+                ? "Sem consultas avançadas neste plano"
                 : monthlyLimit
                 ? `${monthlyLimit.toLocaleString()} / mês`
                 : "—"}
@@ -306,7 +306,7 @@ export default function UsagePage() {
           <CardContent>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               {isBasic
-                ? "Plano Basic não inclui API keys."
+                ? "Plano Basic não inclui consultas avançadas."
                 : "Aplicado mensalmente por organização."}
             </p>
             {!isBasic && monthlyLimit ? (
@@ -407,18 +407,18 @@ export default function UsagePage() {
         </CardContent>
       </Card>
 
-      {/* Uso por API Key */}
+      {/* Uso por Chave de Acesso */}
       <Card>
         <CardHeader>
-          <CardTitle>Uso por API Key</CardTitle>
+          <CardTitle>Uso por Chave de Acesso</CardTitle>
           <CardDescription>
-            Distribuição das chamadas por chave de API (últimos 30 dias)
+            Distribuição das consultas por chave de acesso (últimos 30 dias)
           </CardDescription>
         </CardHeader>
         <CardContent>
           {!summary || summary.by_api_key.length === 0 ? (
             <p className="py-4 text-center text-zinc-500">
-              Nenhuma API key com uso registrado
+              Nenhuma chave de acesso com uso registrado
             </p>
           ) : (
             <div className="space-y-4">
@@ -433,7 +433,7 @@ export default function UsagePage() {
                   <div key={apiKey.api_key_id} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">
-                        {apiKey.api_key_name || `API Key #${apiKey.api_key_id}`}
+                        {apiKey.api_key_name || `Chave #${apiKey.api_key_id}`}
                       </span>
                       <span className="text-sm text-zinc-600 dark:text-zinc-400">
                         {apiKeyTotal.toLocaleString()} ({percentage}%)

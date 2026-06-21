@@ -113,7 +113,7 @@ def get_product_by_gtin_dashboard(
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Nenhuma API key ativa para esta organização. Crie ou reative uma API key para fazer a consulta.",
+            detail="Nenhuma chave de acesso ativa para esta organização. Crie ou reative uma chave de acesso para fazer a consulta.",
         )
     
     # Enforce limites: basic não pode consumir API; demais usam limite mensal

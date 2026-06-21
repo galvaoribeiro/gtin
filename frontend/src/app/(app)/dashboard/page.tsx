@@ -122,7 +122,7 @@ export default function DashboardPage() {
     const { isBasic, monthlyLimit } = getPlanLimits();
     if (isBasic) {
       return {
-        label: "Sem acesso à API",
+        label: "Sem consultas avançadas neste plano",
         consultas: 0,
         limite: 0,
         percentual: 0,
@@ -253,7 +253,7 @@ export default function DashboardPage() {
               {(() => {
                 const { isBasic, monthlyLimit } = getPlanLimits();
                 return isBasic ? (
-                  <p>Limite: sem acesso à API (plano Basic)</p>
+                  <p>Limite: sem consultas avançadas neste plano (Basic)</p>
                 ) : (
                   <p>
                     Limite: {monthlyLimit ? monthlyLimit.toLocaleString() : "—"} consultas/mês
@@ -285,7 +285,7 @@ export default function DashboardPage() {
             </div>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
               {usageToday.isBasic
-                ? "Plano Basic não inclui API."
+                ? "Plano Basic não inclui consultas avançadas."
                 : `${usageToday.percentual}% do limite mensal (base 7d)`}
             </p>
           </CardContent>
