@@ -24,14 +24,12 @@ export function LandingNavbar({ variant = "landing" }: LandingNavbarProps) {
   const anchorItems: NavItem[] = [
     { label: "Benefícios", anchor: "benefits", type: "anchor" },
     { label: "Funcionalidades", anchor: "features", type: "anchor" },
-    { label: "API", anchor: "api", type: "anchor" },
+    { label: "Como funciona", anchor: "casos-de-uso", type: "anchor" },
     { label: "Planos", anchor: "pricing", type: "anchor" },
   ];
 
   const simpleItems: NavItem[] = [
     { label: "Home", href: "/", type: "link" },
-    { label: "API", href: "/docs", type: "link" },
-    // Se estiver na página bulk, "Preços" vira anchor, senão é link
     isBulkPage
       ? { label: "Preços", anchor: "pricing", type: "anchor" }
       : { label: "Preços", href: "/pricing", type: "link" },
