@@ -35,8 +35,6 @@ export function LandingNavbar({ variant = "landing" }: LandingNavbarProps) {
       : { label: "Preços", href: "/pricing", type: "link" },
   ];
 
-  const bulkLink: NavItem = { label: "Bulk (Lote)", href: "/bulk", type: "link" };
-
   const handleScrollTo = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -45,8 +43,7 @@ export function LandingNavbar({ variant = "landing" }: LandingNavbarProps) {
     setIsMenuOpen(false);
   };
 
-  const desktopItems =
-    variant === "landing" ? [...anchorItems, bulkLink] : [bulkLink, ...simpleItems];
+  const desktopItems = variant === "landing" ? anchorItems : simpleItems;
   const mobileItems = desktopItems;
 
   return (
