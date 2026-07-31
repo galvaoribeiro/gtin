@@ -26,6 +26,7 @@ export function LandingNavbar({ variant = "landing" }: LandingNavbarProps) {
     { label: "Funcionalidades", anchor: "features", type: "anchor" },
     { label: "Como funciona", anchor: "casos-de-uso", type: "anchor" },
     { label: "Planos", anchor: "pricing", type: "anchor" },
+    { label: "Consulta em massa", href: "/bulk", type: "link" },
   ];
 
   const simpleItems: NavItem[] = [
