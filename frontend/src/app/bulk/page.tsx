@@ -40,10 +40,10 @@ const steps = [
 ];
 
 const tiers = [
-  { name: "Starter", price: "R$ 0,40", range: "1–999 GTINs", note: "Preço por GTIN" },
-  { name: "Pro", price: "R$ 0,35", range: "1.000–9.999 GTINs", note: "Preço por GTIN" },
-  { name: "Advanced", price: "R$ 0,30", range: "10.000–99.999 GTINs", note: "Preço por GTIN" },
-  { name: "Enterprise", price: "R$ 0,25", range: "100.000+ GTINs", note: "Preço por GTIN" },
+  { name: "Starter", price: "R$ 0,30", range: "1–999 GTINs", note: "Preço por GTIN" },
+  { name: "Pro", price: "R$ 0,25", range: "1.000–9.999 GTINs", note: "Preço por GTIN" },
+  { name: "Advanced", price: "R$ 0,20", range: "10.000–99.999 GTINs", note: "Preço por GTIN" },
+  { name: "Enterprise", price: "R$ 0,15", range: "100.000+ GTINs", note: "Preço por GTIN" },
 ];
 
 const mailtoHref = "mailto:contato@pesquisagtin.com.br?subject=Consulta%20Bulk%20GTIN&body=Oi!%20Quero%20consultar%20GTINs%20em%20lote.";
