@@ -9,7 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.db.models import User, ApiKey
+from app.db.models import MAX_BATCH_SIZE, User, ApiKey
 from app.api.deps import get_current_user
 from app.schemas.product import (
     ProductResponse,
@@ -162,15 +162,13 @@ def get_product_by_gtin_dashboard(
     return product
 
 
-DASHBOARD_BATCH_LIMIT = 50
-
-
 @router.post(
     "/gtins/batch",
     response_model=BatchResponse,
     summary="Consultar produtos em lote (Dashboard)",
     description=(
-        "Consulta até 50 GTINs de uma vez via dashboard. "
+        "Consulta vários GTINs de uma vez via dashboard, respeitando o limite de batch do plano "
+        f"(teto técnico de {MAX_BATCH_SIZE} GTINs por requisição). "
         "Apenas GTINs encontrados consomem cota mensal. "
         "Requer autenticação JWT."
     ),
@@ -178,7 +176,7 @@ DASHBOARD_BATCH_LIMIT = 50
         200: {"description": "Resultados da consulta em lote"},
         400: {"description": "Requisição inválida"},
         401: {"description": "Não autenticado"},
-        403: {"description": "Sem API key ativa"},
+        403: {"description": "Sem API key ativa ou plano sem batch"},
         429: {"description": "Limite mensal excedido"},
     }
 )
@@ -190,17 +188,11 @@ def get_products_batch_dashboard(
     """
     Consulta múltiplos produtos por GTIN via dashboard (JWT).
 
-    - Máximo de 50 GTINs por requisição.
+    - Quantidade máxima definida pelo limite de batch do plano da organização.
     - Apenas GTINs encontrados consomem a cota mensal da organização.
     - GTINs não encontrados aparecem como found=false sem consumir cota.
     """
     gtins = batch_request.gtins
-
-    if len(gtins) > DASHBOARD_BATCH_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Máximo de {DASHBOARD_BATCH_LIMIT} GTINs por requisição.",
-        )
 
     if len(gtins) == 0:
         raise HTTPException(
@@ -216,6 +208,18 @@ def get_products_batch_dashboard(
         )
 
     org = current_user.organization
+
+    batch_limit = min(org.batch_limit, MAX_BATCH_SIZE)
+    if batch_limit <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seu plano não permite consultas em lote. Atualize seu plano para habilitar.",
+        )
+    if len(gtins) > batch_limit:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Limite do plano excedido: máximo de {batch_limit} GTINs por lote.",
+        )
 
     # Normalizar GTINs
     normalized_map: dict[str, str] = {}

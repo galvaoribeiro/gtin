@@ -68,9 +68,21 @@ class AdminOrganizationsPage(BaseModel):
 
 class AdminOrganizationUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=255)
-    plan: Optional[str] = Field(None, description="basic, starter, pro, advanced")
+    plan: Optional[str] = Field(None, description="basic, starter, pro, advanced, enterprise")
     stripe_customer_id: Optional[str] = None
     stripe_subscription_id: Optional[str] = None
     subscription_status: Optional[str] = None
     current_period_end: Optional[datetime] = None
     default_payment_method: Optional[str] = None
+
+
+class AdminEnterpriseUpgradeLinkResponse(BaseModel):
+    """
+    Link do Portal de Cobrança gerado para o cliente confirmar o upgrade
+    Enterprise. A migração ainda não ocorreu neste momento: ela só é
+    efetivada (e cobrada) quando o próprio cliente abre o link e confirma.
+    """
+
+    message: str = Field(..., description="Resumo da operação para exibição ao administrador")
+    portal_url: str = Field(..., description="Link do Portal de Cobrança para o cliente confirmar a troca e o pagamento")
+    organization_id: int = Field(..., description="ID da organização associada ao link")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,12 +26,14 @@ import {
 import {
   fetchGtinDashboard,
   fetchGtinBatchDashboard,
+  getCurrentUser,
   ApiError,
   type Product,
   type BatchResponse,
 } from "@/lib/api";
 
-const BATCH_LIMIT = 50;
+// Teto técnico da API; o limite real vem do plano da organização.
+const MAX_BATCH_SIZE = 100;
 
 function parseGtinList(raw: string): string[] {
   return raw
@@ -55,9 +57,27 @@ export default function GtinsPage() {
   const [batchResult, setBatchResult] = useState<BatchResponse | null>(null);
   const [batchError, setBatchError] = useState<string | null>(null);
   const [isBatchLoading, setIsBatchLoading] = useState(false);
+  const [batchLimit, setBatchLimit] = useState<number | null>(null);
 
   const parsedGtins = parseGtinList(batchInput);
   const parsedCount = parsedGtins.length;
+  const isLoadingBatchLimit = batchLimit === null;
+  const effectiveBatchLimit = Math.min(batchLimit ?? MAX_BATCH_SIZE, MAX_BATCH_SIZE);
+  const batchDisabled = isLoadingBatchLimit || effectiveBatchLimit <= 0;
+
+  useEffect(() => {
+    let active = true;
+    getCurrentUser()
+      .then((user) => {
+        if (active) setBatchLimit(user.batch_limit ?? 0);
+      })
+      .catch(() => {
+        // Sem o limite do plano, o backend continua validando a requisição.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Individual search
   const handleSearch = async () => {
@@ -96,7 +116,7 @@ export default function GtinsPage() {
 
   // Batch search
   const handleBatchSearch = async () => {
-    if (parsedCount === 0 || parsedCount > BATCH_LIMIT) return;
+    if (parsedCount === 0 || parsedCount > effectiveBatchLimit) return;
 
     setIsBatchLoading(true);
     setBatchResult(null);
@@ -374,7 +394,11 @@ export default function GtinsPage() {
             <CardHeader>
               <CardTitle>Consulta em Lote</CardTitle>
               <CardDescription>
-                Cole até {BATCH_LIMIT} GTINs, um por linha. Também aceita dados copiados de planilhas (separados por tab, vírgula ou ponto e vírgula).
+                {isLoadingBatchLimit
+                  ? "Carregando o limite do seu plano..."
+                  : batchDisabled
+                  ? "Seu plano não inclui consulta em lote. Atualize seu plano para habilitar."
+                  : `Cole até ${effectiveBatchLimit} GTINs, um por linha. Também aceita dados copiados de planilhas (separados por tab, vírgula ou ponto e vírgula).`}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -384,14 +408,15 @@ export default function GtinsPage() {
                 onChange={(e) => setBatchInput(e.target.value)}
                 rows={8}
                 className="font-mono text-sm"
+                disabled={batchDisabled}
               />
               <div className="flex items-center justify-between">
-                <p className={`text-sm ${parsedCount > BATCH_LIMIT ? "text-red-600 font-medium" : "text-zinc-500"}`}>
-                  {parsedCount} / {BATCH_LIMIT} GTINs
+                <p className={`text-sm ${parsedCount > effectiveBatchLimit ? "text-red-600 font-medium" : "text-zinc-500"}`}>
+                  {isLoadingBatchLimit ? `${parsedCount} GTINs` : `${parsedCount} / ${effectiveBatchLimit} GTINs`}
                 </p>
                 <Button
                   onClick={handleBatchSearch}
-                  disabled={isBatchLoading || parsedCount === 0 || parsedCount > BATCH_LIMIT}
+                  disabled={isBatchLoading || batchDisabled || parsedCount === 0 || parsedCount > effectiveBatchLimit}
                 >
                   {isBatchLoading ? (
                     <>
@@ -422,9 +447,9 @@ export default function GtinsPage() {
                   )}
                 </Button>
               </div>
-              {parsedCount > BATCH_LIMIT && (
+              {!batchDisabled && parsedCount > effectiveBatchLimit && (
                 <p className="text-sm text-red-600">
-                  Limite excedido. Reduza para no máximo {BATCH_LIMIT} GTINs.
+                  Limite excedido. Reduza para no máximo {effectiveBatchLimit} GTINs.
                 </p>
               )}
             </CardContent>

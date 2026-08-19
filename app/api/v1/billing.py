@@ -12,7 +12,7 @@ import os
 
 from app.api.deps import get_db, get_current_user
 from app.core.config import settings
-from app.db.models import Organization, User
+from app.db.models import PRIVATE_PLANS, PUBLIC_PLANS, Organization, User
 from app.services.stripe_service import StripeService
 from app.schemas.organization import OrganizationResponse
 from pydantic import BaseModel, Field
@@ -23,6 +23,44 @@ router = APIRouter(prefix="/api/v1/billing", tags=["Billing"])
 # URL base do frontend (configurável via variável de ambiente)
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
 
+# Planos que o cliente pode contratar sozinho (basic é gratuito e não usa checkout)
+PUBLIC_PAID_PLANS = [p for p in PUBLIC_PLANS if p != "basic"]
+
+
+def _reject_private_plan(plan: str) -> None:
+    """
+    Impede que um plano negociado seja contratado pelo self-service, mesmo que
+    o cliente descubra o slug e chame a API diretamente.
+    """
+    if plan in PRIVATE_PLANS:
+        raise HTTPException(
+            status_code=403,
+            detail="Este plano é negociado com nosso time comercial e não pode ser contratado por aqui.",
+        )
+
+
+def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> None:
+    """
+    Sincroniza a organização com os dados de uma subscription do Stripe.
+
+    O plano só é sobrescrito quando o Price/metadata é reconhecido: um Price
+    desconhecido não pode rebaixar silenciosamente um cliente para basic.
+    """
+    org.stripe_subscription_id = subscription_data["stripe_subscription_id"]
+    org.subscription_status = subscription_data["subscription_status"]
+    org.current_period_end = subscription_data["current_period_end"]
+    org.default_payment_method = subscription_data["default_payment_method"]
+
+    plan = subscription_data["plan"]
+    if plan:
+        org.plan = plan
+    else:
+        print(
+            "[WEBHOOK] Price desconhecido na subscription "
+            f"{subscription_data['stripe_subscription_id']}; "
+            f"mantendo plano atual da organização {org.id}: {org.plan}"
+        )
+
 
 # =============================================================================
 # Schemas
@@ -30,7 +68,7 @@ FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
 
 class CheckoutSessionRequest(BaseModel):
     """Request para criar sessão de checkout."""
-    plan: str = Field(..., description="Plano: starter, pro, advanced")
+    plan: str = Field(..., description="Plano self-service: starter, pro, advanced")
 
 
 class CheckoutSessionResponse(BaseModel):
@@ -51,6 +89,8 @@ class SubscriptionResponse(BaseModel):
     current_period_end: Optional[datetime]
     cancel_at_period_end: bool = False
     monthly_limit: int
+    batch_limit: int
+    api_key_limit: int
 
 
 class InvoiceItem(BaseModel):
@@ -81,7 +121,7 @@ class BillingDataResponse(BaseModel):
 
 class SwitchPlanRequest(BaseModel):
     """Request para trocar de plano."""
-    new_plan: str = Field(..., description="Novo plano: basic, starter, pro, advanced")
+    new_plan: str = Field(..., description="Novo plano self-service: basic, starter, pro, advanced")
 
 
 # =============================================================================
@@ -112,7 +152,9 @@ def get_subscription(
         status=org.subscription_status,
         current_period_end=org.current_period_end,
         cancel_at_period_end=cancel_at_period_end,
-        monthly_limit=org.monthly_limit
+        monthly_limit=org.monthly_limit,
+        batch_limit=org.batch_limit,
+        api_key_limit=org.api_key_active_limit,
     )
 
 
@@ -140,7 +182,9 @@ def get_billing_data(
         status=org.subscription_status,
         current_period_end=org.current_period_end,
         cancel_at_period_end=cancel_at_period_end,
-        monthly_limit=org.monthly_limit
+        monthly_limit=org.monthly_limit,
+        batch_limit=org.batch_limit,
+        api_key_limit=org.api_key_active_limit,
     )
     
     # Invoices e Payment Methods (só se tiver customer no Stripe)
@@ -214,10 +258,11 @@ def create_checkout_session(
             )
     
     # Verificar se o plano é válido
-    if request.plan not in ["starter", "pro", "advanced"]:
+    _reject_private_plan(request.plan)
+    if request.plan not in PUBLIC_PAID_PLANS:
         raise HTTPException(
             status_code=400,
-            detail="Plano inválido. Escolha entre: starter, pro, advanced"
+            detail=f"Plano inválido. Escolha entre: {', '.join(PUBLIC_PAID_PLANS)}"
         )
     
     # Criar ou recuperar customer no Stripe
@@ -252,6 +297,7 @@ def create_checkout_session(
             session_id=session.id
         )
     except ValueError as e:
+        print(f"[WEBHOOK ERROR] Falha na validação: {e}")  # Adicione esta linha
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -311,7 +357,8 @@ def switch_plan(
     new_plan = request.new_plan
     
     # Validar plano
-    if new_plan not in ["basic", "starter", "pro", "advanced"]:
+    _reject_private_plan(new_plan)
+    if new_plan not in PUBLIC_PLANS:
         raise HTTPException(status_code=400, detail="Plano inválido")
     
     # Downgrade para basic (grátis) - cancelar subscription
@@ -388,18 +435,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             subscription_obj = StripeService.get_subscription(subscription_id) or data_object
             subscription_data = StripeService.extract_subscription_data(subscription_obj)
 
-            org.stripe_subscription_id = subscription_data["stripe_subscription_id"]
-            org.subscription_status = subscription_data["subscription_status"]
-            org.current_period_end = subscription_data["current_period_end"]
-            org.plan = subscription_data["plan"]
-            org.default_payment_method = subscription_data["default_payment_method"]
-
-            print(f"org.stripe_subscription_id: {org.stripe_subscription_id}")
-            print(f"org.subscription_status: {org.subscription_status}")
-            print(f"org.current_period_end: {org.current_period_end}")
-            print(f"org.plan: {org.plan}")
-            print(f"org.default_payment_method: {org.default_payment_method}")
-
+            _apply_subscription_to_org(org, subscription_data)
             db.commit()
             print(f"[WEBHOOK] Organização {org.id} atualizada: {org.plan}, status={org.subscription_status}")
     
@@ -456,20 +492,8 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             subscription_obj = StripeService.get_subscription(subscription_id)
             if subscription_obj:
                 subscription_data = StripeService.extract_subscription_data(subscription_obj)
-                org.stripe_subscription_id = subscription_data["stripe_subscription_id"]
-                org.subscription_status = subscription_data["subscription_status"]
-                org.current_period_end = subscription_data["current_period_end"]
-                org.plan = subscription_data["plan"]
-                org.default_payment_method = subscription_data["default_payment_method"]
+                _apply_subscription_to_org(org, subscription_data)
                 db.commit()
-                
-
-                print(f"org.stripe_subscription_id: {org.stripe_subscription_id}")
-                print(f"org.subscription_status: {org.subscription_status}")
-                print(f"org.current_period_end: {org.current_period_end}")
-                print(f"org.plan: {org.plan}")
-                print(f"org.default_payment_method: {org.default_payment_method}")
-
                 print(f"[WEBHOOK] (checkout.completed) Organização {org.id} atualizada para {org.plan}")
     
     # Customer atualizado (ex.: mudança de payment method padrão)

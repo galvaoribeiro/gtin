@@ -26,7 +26,10 @@ import {
   ApiError,
 } from "@/lib/api";
 
-// Definição dos planos disponíveis
+// Planos negociados com o time comercial: não aparecem na grade de self-service.
+const PRIVATE_PLANS = ["enterprise"];
+
+// Definição dos planos disponíveis para contratação direta
 const PLANS = [
   {
     id: "basic",
@@ -191,6 +194,7 @@ export default function BillingPage() {
   const subscription = billingData?.subscription;
   const invoices = billingData?.invoices || [];
   const paymentMethods = billingData?.payment_methods || [];
+  const hasPrivatePlan = PRIVATE_PLANS.includes(subscription?.plan);
 
   return (
     <div className="space-y-6">
@@ -226,7 +230,7 @@ export default function BillingPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <div>
               <p className="text-sm font-medium text-zinc-500">Plano</p>
               <p className="text-2xl font-bold capitalize">
@@ -242,6 +246,14 @@ export default function BillingPage() {
               </p>
             </div>
             <div>
+              <p className="text-sm font-medium text-zinc-500">Consulta em Lote</p>
+              <p className="text-2xl font-bold">
+                {subscription?.batch_limit
+                  ? `${subscription.batch_limit.toLocaleString("pt-BR")} GTINs`
+                  : "Não incluída"}
+              </p>
+            </div>
+            <div>
               <p className="text-sm font-medium text-zinc-500">Próxima Cobrança</p>
               <p className="text-2xl font-bold">
                 {subscription?.current_period_end
@@ -250,6 +262,12 @@ export default function BillingPage() {
               </p>
             </div>
           </div>
+          {hasPrivatePlan && (
+            <p className="mt-4 rounded-md bg-zinc-100 p-3 text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+              Seu plano é negociado com nosso time comercial. Para alterá-lo, fale com seu contato
+              comercial. Pagamentos e faturas continuam disponíveis no portal de cobrança.
+            </p>
+          )}
           {subscription?.plan !== "basic" && (
             <div className="mt-4">
               <Button onClick={handleManageBilling} variant="outline">
@@ -325,13 +343,15 @@ export default function BillingPage() {
                   <Button
                     className="mt-4 w-full"
                     variant={isCurrent ? "outline" : "default"}
-                    disabled={isCurrent || processingPlan === plan.id}
+                    disabled={isCurrent || hasPrivatePlan || processingPlan === plan.id}
                     onClick={() => handleUpgradePlan(plan.id)}
                   >
                     {processingPlan === plan.id
                       ? "Processando..."
                       : isCurrent
                       ? "Plano Atual"
+                      : hasPrivatePlan
+                      ? "Falar com o comercial"
                       : "Alterar Plano"}
                   </Button>
                 </CardContent>

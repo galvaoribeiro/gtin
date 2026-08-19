@@ -12,10 +12,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin_user
+from app.core.config import settings
 from app.core.security import create_access_token, get_password_hash
-from app.db.models import AdminAuditLog, Organization, User
+from app.db.models import ALL_PLANS, AdminAuditLog, Organization, User
 from app.db.session import get_db
 from app.schemas.admin import (
+    AdminEnterpriseUpgradeLinkResponse,
     AdminOrganizationItem,
     AdminOrganizationUpdate,
     AdminOrganizationsPage,
@@ -24,8 +26,12 @@ from app.schemas.admin import (
     AdminUsersPage,
 )
 from app.schemas.user import Token
+from app.services.stripe_service import StripeService
 
 router = APIRouter(prefix="/v1/admin", tags=["Admin"])
+
+# Status em que uma assinatura ainda pode ter o item de Price substituído
+SWITCHABLE_SUBSCRIPTION_STATUSES = ("active", "trialing", "past_due")
 
 
 def _request_meta(request: Request) -> tuple[Optional[str], Optional[str]]:
@@ -267,7 +273,7 @@ def update_organization(
 
     if "plan" in raw:
         plan = (raw["plan"] or "").strip().lower()
-        if plan not in ("basic", "starter", "pro", "advanced"):
+        if plan not in ALL_PLANS:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="plan inválido")
         before["plan"] = org.plan
         org.plan = plan
@@ -290,3 +296,104 @@ def update_organization(
     db.refresh(org)
 
     return AdminOrganizationItem.model_validate(org)
+
+
+@router.post(
+    "/organizations/{org_id}/provision-enterprise",
+    response_model=AdminEnterpriseUpgradeLinkResponse,
+    summary="Gerar link de upgrade para o plano Enterprise",
+    description=(
+        "Gera um link do Portal de Cobrança do Stripe restrito à troca para o Price Enterprise "
+        "na assinatura já existente da organização. O próprio cliente deve abrir o link e "
+        "confirmar: é só nesse momento que o Stripe cobra o ajuste proporcional "
+        "(proration_behavior=always_invoice) e o plano é sincronizado no banco via webhook. "
+        "Este endpoint não cobra nada e não altera o plano por conta própria. Exclusivo para "
+        "administradores."
+    ),
+)
+def provision_enterprise(
+    org_id: int,
+    request: Request,
+    admin: User = Depends(require_admin_user),
+    db: Session = Depends(get_db),
+):
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organização não encontrada")
+
+    if org.plan == "enterprise":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Esta organização já está no plano Enterprise.",
+        )
+
+    if not settings.STRIPE_PRICE_ENTERPRISE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="STRIPE_PRICE_ENTERPRISE não configurado. Cadastre o Price Enterprise antes de gerar o link.",
+        )
+
+    if not org.stripe_subscription_id or not org.stripe_customer_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Esta organização não possui assinatura no Stripe. Faça a contratação inicial "
+                "com o cliente antes de gerar o link de migração para o Enterprise."
+            ),
+        )
+
+    subscription = StripeService.get_subscription(org.stripe_subscription_id)
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Assinatura não encontrada no Stripe. Verifique o stripe_subscription_id da organização.",
+        )
+
+    if subscription.get("status") not in SWITCHABLE_SUBSCRIPTION_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"A assinatura está com status '{subscription.get('status')}' e não pode ser migrada. "
+                "Regularize a assinatura antes de gerar o link do Enterprise."
+            ),
+        )
+
+    return_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/billing?enterprise=pending"
+
+    try:
+        portal_session = StripeService.create_enterprise_upgrade_portal_session(
+            customer_id=org.stripe_customer_id,
+            subscription_id=org.stripe_subscription_id,
+            return_url=return_url,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Erro ao gerar o link no Stripe: {exc}",
+        )
+
+    ip, ua = _request_meta(request)
+    _audit(
+        db,
+        actor_id=admin.id,
+        action="organizations.enterprise_link_generated",
+        target_org_id=org.id,
+        payload={
+            "stripe_subscription_id": org.stripe_subscription_id,
+            "proration_behavior": "always_invoice",
+        },
+        ip=ip,
+        user_agent=ua,
+    )
+    db.commit()
+
+    return AdminEnterpriseUpgradeLinkResponse(
+        message=(
+            "Link gerado. Envie-o ao cliente: a troca só é efetivada e cobrada quando ele mesmo "
+            "confirmar no Portal de Cobrança."
+        ),
+        portal_url=portal_session.url,
+        organization_id=org.id,
+    )

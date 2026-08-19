@@ -120,21 +120,8 @@ export default function DashboardPage() {
   };
 
   const getPlanLimits = () => {
-    const plan = user?.plan || "basic";
-    if (typeof user?.monthly_limit === "number") {
-      return { monthlyLimit: user.monthly_limit };
-    }
-
-    switch (plan) {
-      case "starter":
-        return { monthlyLimit: 5000 };
-      case "pro":
-        return { monthlyLimit: 10000 };
-      case "advanced":
-        return { monthlyLimit: 20000 };
-      default:
-        return { monthlyLimit: 5 };
-    }
+    // O backend é a fonte de verdade dos limites, inclusive para planos negociados.
+    return { monthlyLimit: user?.monthly_limit ?? 0 };
   };
 
   const getUsageToday = () => {
@@ -179,6 +166,7 @@ export default function DashboardPage() {
       starter: "Starter",
       pro: "Pro",
       advanced: "Advanced",
+      enterprise: "Enterprise",
     };
     return planNames[plan || "basic"] || plan || "Basic";
   };
@@ -190,6 +178,7 @@ export default function DashboardPage() {
       starter: "60 req/min",
       pro: "90 req/min",
       advanced: "120 req/min",
+      enterprise: "120 req/min",
     };
     return rateLimits[plan || "basic"] || "10 req/min";
   };

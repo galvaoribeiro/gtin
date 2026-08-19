@@ -110,6 +110,7 @@ export interface UserData {
   organization_name: string | null;
   plan: string | null;
   monthly_limit?: number | null;
+  batch_limit?: number | null;
   role: string;
   is_active: boolean;
   created_at: string;
@@ -617,7 +618,7 @@ interface ApiBatchResponse {
 
 /**
  * Consulta múltiplos GTINs via dashboard (usa JWT).
- * Máximo de 50 GTINs por requisição.
+ * A quantidade máxima é o limite de batch do plano da organização.
  * Apenas GTINs encontrados consomem cota mensal.
  */
 export async function fetchGtinBatchDashboard(gtins: string[]): Promise<BatchResponse> {
@@ -1243,6 +1244,8 @@ export interface SubscriptionData {
   current_period_end: string | null;
   cancel_at_period_end: boolean;
   monthly_limit: number;
+  batch_limit: number;
+  api_key_limit: number;
 }
 
 /**
@@ -1592,4 +1595,23 @@ export function adminUpdateOrganization(orgId: number, data: Record<string, unkn
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
+}
+
+export interface AdminEnterpriseUpgradeLinkResponse {
+  message: string;
+  portal_url: string;
+  organization_id: number;
+}
+
+/**
+ * Gera um link do Portal de Cobrança do Stripe restrito à troca para o plano
+ * Enterprise na assinatura existente. Nada é cobrado ao chamar este endpoint:
+ * o próprio cliente deve abrir o link e confirmar, momento em que o Stripe
+ * cobra o ajuste proporcional imediatamente. Exclusivo para administradores.
+ */
+export function adminProvisionEnterprise(orgId: number) {
+  return adminFetch<AdminEnterpriseUpgradeLinkResponse>(
+    `/v1/admin/organizations/${orgId}/provision-enterprise`,
+    { method: "POST" }
+  );
 }

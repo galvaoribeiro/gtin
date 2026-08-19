@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.db.models import Organization
+from app.db.models import MAX_BATCH_SIZE, Organization
 from app.api.deps import get_api_key_auth, ApiKeyAuth
 from app.core.usage import (
     record_api_usage,
@@ -100,16 +100,16 @@ def process_batch_gtins(
     total_requested = len(gtins)
 
     # Limite "hard" defensivo para abuso
-    if total_requested > 100:
+    if total_requested > MAX_BATCH_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Máximo de 100 GTINs por requisição."
+            detail=f"Máximo de {MAX_BATCH_SIZE} GTINs por requisição."
         )
 
     org = auth.organization
 
     # Limite por plano (cada requisição batch conta como 1)
-    batch_limit = org.batch_limit
+    batch_limit = min(org.batch_limit, MAX_BATCH_SIZE)
     if batch_limit <= 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

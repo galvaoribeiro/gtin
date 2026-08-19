@@ -18,18 +18,31 @@ class Base(DeclarativeBase):
     pass
 
 
+# Planos que o cliente pode contratar sozinho pelo self-service.
+PUBLIC_PLANS = ("basic", "starter", "pro", "advanced")
+
+# Planos negociados: só podem ser atribuídos por um administrador.
+PRIVATE_PLANS = ("enterprise",)
+
+ALL_PLANS = PUBLIC_PLANS + PRIVATE_PLANS
+
+# Teto técnico de GTINs por requisição em lote, independente do plano.
+MAX_BATCH_SIZE = 100
+
+
 class Organization(Base):
     """
     Modelo para organizações/clientes.
     
     Cada organização pode ter múltiplas API keys e um plano de uso.
-    Planos: basic (1 key, 5 consultas/mês, sem batch), starter, pro, advanced
+    Planos: basic (1 key, 5 consultas/mês, sem batch), starter, pro, advanced,
+    enterprise (negociado, atribuído apenas por administrador)
     """
     __tablename__ = "organizations"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False, comment="Nome da organização/cliente")
-    plan = Column(String(50), nullable=False, default="basic", comment="Plano: basic, starter, pro, advanced")
+    plan = Column(String(50), nullable=False, default="basic", comment="Plano: basic, starter, pro, advanced, enterprise")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
     # Campos Stripe
@@ -54,6 +67,7 @@ class Organization(Base):
             "starter": 2,
             "pro": 5,
             "advanced": 10,
+            "enterprise": MAX_BATCH_SIZE,
         }
         return limits.get(self.plan, 0)
 
@@ -69,6 +83,7 @@ class Organization(Base):
             "starter": 5000,
             "pro": 10000,
             "advanced": 20000,
+            "enterprise": 20000,
         }
         return limits.get(self.plan, 0)
 
@@ -84,6 +99,7 @@ class Organization(Base):
             "starter": 1,
             "pro": 10,
             "advanced": 50,
+            "enterprise": 50,
         }
         return limits.get(self.plan, 0)
 

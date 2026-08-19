@@ -32,6 +32,7 @@ LOOKUP_RATE_LIMITS = {
     "starter": 60,
     "pro": 90,
     "advanced": 120,
+    "enterprise": 120,
 }
 
 # Search endpoint: /search (cooldown em segundos entre requests)
@@ -40,6 +41,7 @@ SEARCH_COOLDOWNS = {
     "starter": 6,     # 1 req a cada 6s
     "pro": 4,         # 1 req a cada 4s
     "advanced": 2,    # 1 req a cada 2s
+    "enterprise": 2,  # 1 req a cada 2s
 }
 
 # Público: limites por IP

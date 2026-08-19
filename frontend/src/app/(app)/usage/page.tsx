@@ -112,21 +112,8 @@ export default function UsagePage() {
     }
   };
 
-  const getPlanLimits = (plan: string | null | undefined) => {
-    const normalized = plan || "basic";
-    switch (normalized) {
-      case "starter":
-        return { monthlyLimit: 5000 };
-      case "pro":
-        return { monthlyLimit: 10000 };
-      case "advanced":
-        return { monthlyLimit: 20000 };
-      default:
-        return { monthlyLimit: 5 };
-    }
-  };
-
-  const { monthlyLimit } = getPlanLimits(user?.plan);
+  // O limite vem do backend para refletir qualquer plano, inclusive os negociados.
+  const monthlyLimit = user?.monthly_limit ?? 0;
 
   // Calcular estatísticas do mês (usando série diária carregada)
   const getMonthStats = () => {

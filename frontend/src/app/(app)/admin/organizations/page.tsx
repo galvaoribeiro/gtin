@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
   adminListOrganizations,
+  adminProvisionEnterprise,
   adminUpdateOrganization,
   type AdminOrganizationItem,
   ApiError,
@@ -27,7 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const PLANS = ["basic", "starter", "pro", "advanced"] as const;
+const PLANS = ["basic", "starter", "pro", "advanced", "enterprise"] as const;
 
 export default function AdminOrganizationsPage() {
   const { user } = useAuth();
@@ -48,6 +49,12 @@ export default function AdminOrganizationsPage() {
   const [editSubStatus, setEditSubStatus] = useState("");
   const [editPaymentMethod, setEditPaymentMethod] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const [enterpriseOrg, setEnterpriseOrg] = useState<AdminOrganizationItem | null>(null);
+  const [enterpriseLink, setEnterpriseLink] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const perPage = 20;
 
@@ -117,12 +124,44 @@ export default function AdminOrganizationsPage() {
     }
   };
 
+  const handleProvisionEnterprise = async () => {
+    if (!enterpriseOrg) return;
+    setProvisioning(true);
+    setError(null);
+    try {
+      const result = await adminProvisionEnterprise(enterpriseOrg.id);
+      setEnterpriseLink(result.portal_url);
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.detail || err.message);
+      else setError("Erro ao gerar o link de upgrade para o Enterprise");
+    } finally {
+      setProvisioning(false);
+    }
+  };
+
+  const closeEnterpriseDialog = () => {
+    setEnterpriseOrg(null);
+    setEnterpriseLink(null);
+    setLinkCopied(false);
+  };
+
+  const handleCopyEnterpriseLink = async () => {
+    if (!enterpriseLink) return;
+    try {
+      await navigator.clipboard.writeText(enterpriseLink);
+      setLinkCopied(true);
+    } catch {
+      // Clipboard indisponível: o link continua visível no campo para copiar manualmente.
+    }
+  };
+
   const planColor = (plan: string) => {
     switch (plan) {
       case "basic": return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
       case "starter": return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
       case "pro": return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
       case "advanced": return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
+      case "enterprise": return "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-300";
       default: return "";
     }
   };
@@ -152,6 +191,14 @@ export default function AdminOrganizationsPage() {
         <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
           <CardContent className="pt-4">
             <p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {notice && (
+        <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950">
+          <CardContent className="pt-4">
+            <p className="text-emerald-700 dark:text-emerald-300 text-sm">{notice}</p>
           </CardContent>
         </Card>
       )}
@@ -202,9 +249,26 @@ export default function AdminOrganizationsPage() {
                         {new Date(o.created_at).toLocaleDateString("pt-BR")}
                       </td>
                       <td className="py-3">
-                        <Button size="sm" variant="outline" onClick={() => openEdit(o)}>
-                          Editar
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => openEdit(o)}>
+                            Editar
+                          </Button>
+                          {o.plan !== "enterprise" && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={!o.stripe_subscription_id}
+                              title={
+                                o.stripe_subscription_id
+                                  ? "Gerar um link para o cliente confirmar e pagar o upgrade Enterprise"
+                                  : "A organização precisa ter uma assinatura ativa no Stripe"
+                              }
+                              onClick={() => { setNotice(null); setEnterpriseOrg(o); }}
+                            >
+                              Gerar link Enterprise
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -295,6 +359,59 @@ export default function AdminOrganizationsPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Enterprise upgrade link dialog */}
+      <Dialog open={!!enterpriseOrg} onOpenChange={(open) => !open && closeEnterpriseDialog()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Upgrade para Enterprise</DialogTitle>
+            <DialogDescription>
+              {enterpriseOrg?.name} (ID {enterpriseOrg?.id})
+            </DialogDescription>
+          </DialogHeader>
+
+          {!enterpriseLink ? (
+            <div className="space-y-4 text-sm text-zinc-600 dark:text-zinc-400">
+              <p>
+                Será gerado um link do Portal de Cobrança do Stripe, restrito à troca para o
+                Price Enterprise na assinatura{" "}
+                <span className="font-mono text-xs">{enterpriseOrg?.stripe_subscription_id}</span>.
+              </p>
+              <p>
+                <strong>Nada é cobrado agora.</strong> Envie o link ao cliente: a troca só é
+                efetivada quando ele mesmo abrir o link e confirmar. Nesse momento o Stripe cobra
+                imediatamente o ajuste proporcional do período atual, e o plano no seu painel é
+                atualizado automaticamente pelo webhook.
+              </p>
+              <p>
+                A organização sai do plano <strong>{enterpriseOrg?.plan}</strong> e passa a ter
+                consulta em lote de até 100 GTINs assim que o cliente confirmar.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={closeEnterpriseDialog} disabled={provisioning}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleProvisionEnterprise} disabled={provisioning}>
+                  {provisioning ? "Gerando link..." : "Gerar link"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 text-sm text-zinc-600 dark:text-zinc-400">
+              <p>Envie este link ao cliente. Ele é pessoal e válido por tempo limitado:</p>
+              <div className="flex gap-2">
+                <Input value={enterpriseLink} readOnly className="font-mono text-xs" />
+                <Button variant="outline" onClick={handleCopyEnterpriseLink}>
+                  {linkCopied ? "Copiado!" : "Copiar"}
+                </Button>
+              </div>
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => { closeEnterpriseDialog(); load(); }}>Concluir</Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

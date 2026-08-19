@@ -33,11 +33,9 @@ class Settings:
     # Stripe Price IDs por plano
     STRIPE_PRICE_STARTER: str = os.getenv("STRIPE_PRICE_STARTER", "")
     STRIPE_PRICE_PRO: str = os.getenv("STRIPE_PRICE_PRO", "")
-    # Mantém fallback para variável antiga STRIPE_PRICE_ENTERPRISE
-    STRIPE_PRICE_ADVANCED: str = os.getenv(
-        "STRIPE_PRICE_ADVANCED",
-        os.getenv("STRIPE_PRICE_ENTERPRISE", ""),
-    )
+    STRIPE_PRICE_ADVANCED: str = os.getenv("STRIPE_PRICE_ADVANCED", "")
+    # Plano negociado, provisionado apenas por administrador
+    STRIPE_PRICE_ENTERPRISE: str = os.getenv("STRIPE_PRICE_ENTERPRISE", "")
     BILLING_PLAN_CHANGES_ENABLED: bool = os.getenv(
         "BILLING_PLAN_CHANGES_ENABLED", "true"
     ).lower() in ("true", "1", "yes")
