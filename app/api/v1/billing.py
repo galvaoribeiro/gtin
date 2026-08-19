@@ -124,6 +124,12 @@ class SwitchPlanRequest(BaseModel):
     new_plan: str = Field(..., description="Novo plano self-service: basic, starter, pro, advanced")
 
 
+class SwitchPlanResponse(BaseModel):
+    """Response da troca de plano."""
+    message: str
+    portal_url: Optional[str] = None
+
+
 # =============================================================================
 # Endpoints
 # =============================================================================
@@ -334,15 +340,17 @@ def create_customer_portal_session(
         raise HTTPException(status_code=500, detail=f"Erro ao criar portal: {str(e)}")
 
 
-@router.post("/switch-plan")
+@router.post("/switch-plan", response_model=SwitchPlanResponse)
 def switch_plan(
     request: SwitchPlanRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Troca de plano. Para downgrade para 'basic', cancela subscription.
-    Para upgrade/downgrade entre planos pagos, atualiza subscription no Stripe.
+    Troca de plano. Para downgrade para 'basic', cancela a subscription.
+    Para upgrade/downgrade entre planos pagos, abre o Portal do Stripe com
+    subscription_update_confirm para que o cliente confirme e pague o ajuste.
+    O plano no banco só é atualizado quando o webhook confirma a troca.
     """
     org = db.query(Organization).filter(Organization.id == current_user.organization_id).first()
     if not org:
@@ -353,15 +361,15 @@ def switch_plan(
             status_code=503,
             detail="Mudanças de plano temporariamente indisponíveis."
         )
-    
+
     new_plan = request.new_plan
-    
+
     # Validar plano
     _reject_private_plan(new_plan)
     if new_plan not in PUBLIC_PLANS:
         raise HTTPException(status_code=400, detail="Plano inválido")
-    
-    # Downgrade para basic (grátis) - cancelar subscription
+
+    # Downgrade para basic (grátis) — cancela a subscription diretamente
     if new_plan == "basic":
         if org.stripe_subscription_id:
             try:
@@ -369,29 +377,57 @@ def switch_plan(
                 org.plan = "basic"
                 org.subscription_status = "canceled"
                 db.commit()
-                return {"message": "Plano alterado para Basic. Subscription cancelada."}
+                return SwitchPlanResponse(message="Plano alterado para Basic. Subscription cancelada.")
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Erro ao cancelar subscription: {str(e)}")
         else:
             org.plan = "basic"
             db.commit()
-            return {"message": "Plano alterado para Basic"}
-    
-    # Upgrade/downgrade entre planos pagos
-    if org.stripe_subscription_id:
-        try:
-            StripeService.update_subscription_plan(org.stripe_subscription_id, new_plan)
-            org.plan = new_plan
-            db.commit()
-            return {"message": f"Plano alterado para {new_plan}"}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Erro ao atualizar plano: {str(e)}")
-    else:
-        # Não tem subscription, precisa criar via checkout
+            return SwitchPlanResponse(message="Plano alterado para Basic")
+
+    # Upgrade/downgrade entre planos pagos → Portal confirm
+    if not org.stripe_subscription_id:
         raise HTTPException(
             status_code=400,
-            detail="Você precisa criar uma assinatura primeiro. Use /checkout-session"
+            detail="Você precisa criar uma assinatura primeiro. Use /checkout-session",
         )
+
+    subscription = StripeService.get_subscription(org.stripe_subscription_id)
+    if not subscription or subscription.get("status") not in StripeService.SWITCHABLE_SUBSCRIPTION_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"A assinatura está com status inválido para troca de plano.",
+        )
+
+    items = (subscription.get("items", {}) or {}).get("data", [])
+    if not items:
+        raise HTTPException(status_code=400, detail="Subscription sem itens para atualizar.")
+    item_id = items[0]["id"]
+
+    new_price_id = StripeService.PLAN_PRICE_MAP.get(new_plan)
+    if not new_price_id:
+        raise HTTPException(status_code=503, detail=f"Plano '{new_plan}' sem Price configurado.")
+
+    try:
+        config_id = StripeService.get_or_create_public_plan_portal_configuration()
+        session = StripeService.create_plan_switch_confirm_session(
+            customer_id=org.stripe_customer_id,
+            subscription_id=org.stripe_subscription_id,
+            subscription_item_id=item_id,
+            new_price_id=new_price_id,
+            configuration_id=config_id,
+            return_url=f"{FRONTEND_BASE_URL}/billing?plan_update=pending",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar link de troca: {str(e)}")
+
+    # O plano não é gravado aqui — será atualizado pelo webhook customer.subscription.updated.
+    return SwitchPlanResponse(
+        message="Confirme a troca no Portal do Stripe.",
+        portal_url=session.url,
+    )
 
 
 @router.post("/webhook", include_in_schema=False)

@@ -28,11 +28,13 @@ class StripeService:
     # Plano basic é gratuito (sem Stripe)
     FREE_PLANS = ["basic"]
 
-    # Metadata usado para identificar, entre as Portal Configurations do
-    # Stripe, a que foi criada especificamente para o upgrade self-service do
-    # Enterprise (mantida fora da configuração padrão do portal).
-    ENTERPRISE_PORTAL_CONFIG_METADATA_KEY = "purpose"
+    # Chave de metadata usada para identificar Portal Configurations dedicadas.
+    PORTAL_CONFIG_METADATA_KEY = "purpose"
     ENTERPRISE_PORTAL_CONFIG_METADATA_VALUE = "enterprise_migration"
+    PUBLIC_PLAN_SWITCH_METADATA_VALUE = "public_plan_switch"
+
+    # Status em que uma assinatura ainda pode ter o item de Price substituído.
+    SWITCHABLE_SUBSCRIPTION_STATUSES = ("active", "trialing", "past_due")
     
     @classmethod
     def get_or_create_customer(
@@ -152,25 +154,25 @@ class StripeService:
         return session
 
     @classmethod
-    def _get_enterprise_price_and_product(cls) -> Dict[str, str]:
-        """Resolve o Price Enterprise configurado e seu Product no Stripe."""
-        price_id = settings.STRIPE_PRICE_ENTERPRISE
-        if not price_id:
-            raise ValueError("STRIPE_PRICE_ENTERPRISE não configurado")
+    def _resolve_prices_to_products(cls, price_ids: list) -> list:
+        """Busca cada Price via Stripe e agrupa por product_id.
 
-        price = stripe.Price.retrieve(price_id)
-        product = price.get("product")
-        product_id = product if isinstance(product, str) else (product or {}).get("id")
-        if not product_id:
-            raise ValueError(f"Não foi possível determinar o produto do Price '{price_id}'")
-
-        return {"price_id": price_id, "product_id": product_id}
+        Retorna: [{"product": "prod_A", "prices": ["price_1", "price_2"]}, ...]
+        """
+        products_map: Dict[str, list] = {}
+        for price_id in price_ids:
+            price = stripe.Price.retrieve(price_id)
+            product = price.get("product")
+            product_id = product if isinstance(product, str) else (product or {}).get("id")
+            if not product_id:
+                raise ValueError(f"Não foi possível determinar o produto do Price '{price_id}'")
+            products_map.setdefault(product_id, []).append(price_id)
+        return [{"product": prod_id, "prices": prices} for prod_id, prices in products_map.items()]
 
     @classmethod
-    def _find_enterprise_portal_configuration(cls, price_id: str) -> Optional[str]:
-        """
-        Procura, entre as Portal Configurations existentes, uma marcada como
-        dedicada à migração Enterprise e já vinculada ao Price atual.
+    def _find_portal_configuration(cls, metadata_value: str, required_price_ids: set) -> Optional[str]:
+        """Procura uma Portal Configuration pelo metadata_value e verifica que todos os
+        required_price_ids estão presentes nela.
         """
         try:
             configs = stripe.billing_portal.Configuration.list(limit=100)
@@ -179,14 +181,39 @@ class StripeService:
 
         for config in configs.auto_paging_iter():
             metadata = config.get("metadata", {}) or {}
-            if metadata.get(cls.ENTERPRISE_PORTAL_CONFIG_METADATA_KEY) != cls.ENTERPRISE_PORTAL_CONFIG_METADATA_VALUE:
+            if metadata.get(cls.PORTAL_CONFIG_METADATA_KEY) != metadata_value:
                 continue
             sub_update = (config.get("features", {}) or {}).get("subscription_update", {}) or {}
             products = sub_update.get("products") or []
             prices_in_config = {p for item in products for p in (item.get("prices") or [])}
-            if price_id in prices_in_config:
+            if required_price_ids.issubset(prices_in_config):
                 return config["id"]
         return None
+
+    @classmethod
+    def _build_portal_configuration(cls, metadata_value: str, price_ids: list, headline: str) -> str:
+        """Cria uma Portal Configuration com proration_behavior=always_invoice.
+
+        Retorna o ID da configuração criada.
+        """
+        products = cls._resolve_prices_to_products(price_ids)
+        created = stripe.billing_portal.Configuration.create(
+            business_profile={"headline": headline},
+            features={
+                "invoice_history": {"enabled": True},
+                # O Stripe exige payment_method_update habilitado sempre que
+                # subscription_update está habilitado.
+                "payment_method_update": {"enabled": True},
+                "subscription_update": {
+                    "enabled": True,
+                    "default_allowed_updates": ["price"],
+                    "proration_behavior": "always_invoice",
+                    "products": products,
+                },
+            },
+            metadata={cls.PORTAL_CONFIG_METADATA_KEY: metadata_value},
+        )
+        return created["id"]
 
     @classmethod
     def get_or_create_enterprise_portal_configuration(cls) -> str:
@@ -200,58 +227,84 @@ class StripeService:
         proporcional é feita imediatamente (proration_behavior=always_invoice)
         no momento em que o cliente confirma a troca.
         """
-        info = cls._get_enterprise_price_and_product()
-        price_id = info["price_id"]
-        product_id = info["product_id"]
+        price_id = settings.STRIPE_PRICE_ENTERPRISE
+        if not price_id:
+            raise ValueError("STRIPE_PRICE_ENTERPRISE não configurado")
 
-        existing = cls._find_enterprise_portal_configuration(price_id)
+        existing = cls._find_portal_configuration(
+            cls.ENTERPRISE_PORTAL_CONFIG_METADATA_VALUE, {price_id}
+        )
         if existing:
             return existing
 
-        created = stripe.billing_portal.Configuration.create(
-            business_profile={"headline": "Atualização para o plano Enterprise"},
-            features={
-                "invoice_history": {"enabled": True},
-                # O Stripe exige payment_method_update habilitado sempre que
-                # subscription_update está habilitado (a troca pode precisar
-                # de confirmação/SCA sobre o método de pagamento do cliente).
-                "payment_method_update": {"enabled": True},
-                "subscription_update": {
-                    "enabled": True,
-                    "default_allowed_updates": ["price"],
-                    "proration_behavior": "always_invoice",
-                    "products": [{"product": product_id, "prices": [price_id]}],
-                },
-            },
-            metadata={
-                cls.ENTERPRISE_PORTAL_CONFIG_METADATA_KEY: cls.ENTERPRISE_PORTAL_CONFIG_METADATA_VALUE,
-            },
+        return cls._build_portal_configuration(
+            cls.ENTERPRISE_PORTAL_CONFIG_METADATA_VALUE,
+            [price_id],
+            "Atualização para o plano Enterprise",
         )
-        return created["id"]
 
     @classmethod
-    def create_enterprise_upgrade_portal_session(
+    def get_or_create_public_plan_portal_configuration(cls) -> str:
+        """
+        Retorna o ID de uma Portal Configuration que contém os três planos
+        públicos (Starter, Pro, Advanced), criando-a se ainda não existir.
+
+        Usada pelo fluxo de troca self-service entre planos pagos. O ajuste
+        proporcional é cobrado imediatamente (proration_behavior=always_invoice)
+        quando o cliente confirma a troca no Portal.
+        """
+        price_ids = [
+            p for p in [
+                settings.STRIPE_PRICE_STARTER,
+                settings.STRIPE_PRICE_PRO,
+                settings.STRIPE_PRICE_ADVANCED,
+            ]
+            if p
+        ]
+        if not price_ids:
+            raise ValueError("Nenhum Price de plano público configurado")
+
+        existing = cls._find_portal_configuration(
+            cls.PUBLIC_PLAN_SWITCH_METADATA_VALUE, set(price_ids)
+        )
+        if existing:
+            return existing
+
+        return cls._build_portal_configuration(
+            cls.PUBLIC_PLAN_SWITCH_METADATA_VALUE,
+            price_ids,
+            "Alterar plano",
+        )
+
+    @classmethod
+    def create_plan_switch_confirm_session(
         cls,
         customer_id: str,
         subscription_id: str,
+        subscription_item_id: str,
+        new_price_id: str,
+        configuration_id: str,
         return_url: str,
     ) -> stripe.billing_portal.Session:
         """
-        Cria uma sessão do Portal de Cobrança já apontada para a troca da
-        subscription informada para o Price Enterprise.
+        Cria uma sessão do Portal de Cobrança com flow_data do tipo
+        subscription_update_confirm, apontando diretamente para o Price de
+        destino. O cliente vê a tela de confirmação e paga o ajuste proporcional
+        (always_invoice) sem precisar navegar pelos seletores do portal.
 
-        O próprio cliente abre o link e confirma a troca; é só nesse momento
-        que o Stripe cobra o ajuste proporcional (imediatamente, pois a
-        Portal Configuration usada aqui está com always_invoice).
+        Substitui tanto create_enterprise_upgrade_portal_session (Enterprise)
+        quanto a troca direta via Subscription.modify (planos públicos).
         """
-        configuration_id = cls.get_or_create_enterprise_portal_configuration()
         return stripe.billing_portal.Session.create(
             customer=customer_id,
             return_url=return_url,
             configuration=configuration_id,
             flow_data={
-                "type": "subscription_update",
-                "subscription_update": {"subscription": subscription_id},
+                "type": "subscription_update_confirm",
+                "subscription_update_confirm": {
+                    "subscription": subscription_id,
+                    "items": [{"id": subscription_item_id, "price": new_price_id}],
+                },
             },
         )
 

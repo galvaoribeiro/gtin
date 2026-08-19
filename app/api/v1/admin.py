@@ -30,9 +30,6 @@ from app.services.stripe_service import StripeService
 
 router = APIRouter(prefix="/v1/admin", tags=["Admin"])
 
-# Status em que uma assinatura ainda pode ter o item de Price substituído
-SWITCHABLE_SUBSCRIPTION_STATUSES = ("active", "trialing", "past_due")
-
 
 def _request_meta(request: Request) -> tuple[Optional[str], Optional[str]]:
     ip = request.client.host if request.client else None
@@ -349,7 +346,7 @@ def provision_enterprise(
             detail="Assinatura não encontrada no Stripe. Verifique o stripe_subscription_id da organização.",
         )
 
-    if subscription.get("status") not in SWITCHABLE_SUBSCRIPTION_STATUSES:
+    if subscription.get("status") not in StripeService.SWITCHABLE_SUBSCRIPTION_STATUSES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
@@ -358,12 +355,24 @@ def provision_enterprise(
             ),
         )
 
+    items = (subscription.get("items", {}) or {}).get("data", [])
+    if not items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Assinatura sem itens — não é possível gerar o link de migração.",
+        )
+    item_id = items[0]["id"]
+
     return_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/billing?enterprise=pending"
 
     try:
-        portal_session = StripeService.create_enterprise_upgrade_portal_session(
+        config_id = StripeService.get_or_create_enterprise_portal_configuration()
+        portal_session = StripeService.create_plan_switch_confirm_session(
             customer_id=org.stripe_customer_id,
             subscription_id=org.stripe_subscription_id,
+            subscription_item_id=item_id,
+            new_price_id=settings.STRIPE_PRICE_ENTERPRISE,
+            configuration_id=config_id,
             return_url=return_url,
         )
     except ValueError as exc:

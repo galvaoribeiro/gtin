@@ -1390,11 +1390,13 @@ export async function createCheckoutSession(plan: string): Promise<CheckoutSessi
 }
 
 /**
- * Troca o plano de uma assinatura existente (com proration no Stripe).
+ * Troca o plano de uma assinatura existente via Portal do Stripe.
+ * Retorna portal_url quando o cliente precisa confirmar a troca no Portal.
+ * Para downgrade para basic (sem portal_url), a troca ocorre imediatamente.
  *
- * @param newPlan - Novo plano (starter, pro, advanced)
+ * @param newPlan - Novo plano (basic, starter, pro, advanced)
  */
-export async function switchPlan(newPlan: string): Promise<{ message: string }> {
+export async function switchPlan(newPlan: string): Promise<{ message: string; portal_url?: string | null }> {
   const url = `${API_BASE_URL}/api/v1/billing/switch-plan`;
 
   try {

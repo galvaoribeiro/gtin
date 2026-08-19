@@ -124,6 +124,11 @@ export default function BillingPage() {
 
       if (hasActiveSubscription) {
         const result = await switchPlan(planId);
+        if (result.portal_url) {
+          window.location.href = result.portal_url;
+          return;
+        }
+        // Downgrade para basic (sem portal_url): troca imediata
         alert(result.message);
         await loadBillingData();
         setProcessingPlan(null);
