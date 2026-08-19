@@ -192,7 +192,8 @@ def create_checkout_session(
     db: Session = Depends(get_db)
 ):
     """
-    Cria uma sessão de checkout do Stripe para iniciar/atualizar subscription.
+    Cria uma sessão de checkout do Stripe para iniciar uma nova subscription.
+    Clientes com assinatura ativa devem usar /switch-plan.
     """
     org = db.query(Organization).filter(Organization.id == current_user.organization_id).first()
     if not org:
@@ -203,6 +204,14 @@ def create_checkout_session(
             status_code=503,
             detail="Mudanças de plano temporariamente indisponíveis."
         )
+
+    if org.stripe_subscription_id:
+        subscription = StripeService.get_subscription(org.stripe_subscription_id)
+        if subscription and subscription.status in ("active", "trialing", "past_due"):
+            raise HTTPException(
+                status_code=400,
+                detail="Você já possui uma assinatura ativa. Use a troca de plano."
+            )
     
     # Verificar se o plano é válido
     if request.plan not in ["starter", "pro", "advanced"]:
@@ -292,6 +301,12 @@ def switch_plan(
     org = db.query(Organization).filter(Organization.id == current_user.organization_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organização não encontrada")
+
+    if not settings.BILLING_PLAN_CHANGES_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="Mudanças de plano temporariamente indisponíveis."
+        )
     
     new_plan = request.new_plan
     

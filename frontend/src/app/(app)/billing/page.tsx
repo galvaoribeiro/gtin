@@ -21,6 +21,7 @@ import {
 import {
   getBillingData,
   createCheckoutSession,
+  switchPlan,
   createBillingPortalSession,
   ApiError,
 } from "@/lib/api";
@@ -109,16 +110,30 @@ export default function BillingPage() {
       return;
     }
 
+    const subscription = billingData?.subscription;
+    const hasActiveSubscription =
+      subscription?.status &&
+      ["active", "trialing", "past_due"].includes(subscription.status) &&
+      subscription.plan !== "basic";
+
     try {
       setProcessingPlan(planId);
+
+      if (hasActiveSubscription) {
+        const result = await switchPlan(planId);
+        alert(result.message);
+        await loadBillingData();
+        setProcessingPlan(null);
+        return;
+      }
+
       const session = await createCheckoutSession(planId);
-      // Redirecionar para o checkout do Stripe
       window.location.href = session.url;
     } catch (err) {
       if (err instanceof ApiError) {
         alert(err.message);
       } else {
-        alert("Erro ao iniciar checkout");
+        alert("Erro ao alterar plano");
       }
       setProcessingPlan(null);
     }

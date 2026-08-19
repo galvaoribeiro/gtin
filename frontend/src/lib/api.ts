@@ -1387,6 +1387,59 @@ export async function createCheckoutSession(plan: string): Promise<CheckoutSessi
 }
 
 /**
+ * Troca o plano de uma assinatura existente (com proration no Stripe).
+ *
+ * @param newPlan - Novo plano (starter, pro, advanced)
+ */
+export async function switchPlan(newPlan: string): Promise<{ message: string }> {
+  const url = `${API_BASE_URL}/api/v1/billing/switch-plan`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        ...getJwtAuthHeaders(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ new_plan: newPlan }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = errorBody.detail;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        detail || `Erro ao trocar de plano: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+/**
  * Interface para resposta de portal de billing
  */
 export interface BillingPortalResponse {
