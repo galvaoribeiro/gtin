@@ -53,6 +53,10 @@ def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> No
 
     plan = subscription_data["plan"]
     if plan:
+        if plan != org.plan:
+            # Plano realmente mudou (upgrade ou downgrade) → remover overrides manuais
+            org.batch_limit_override = None
+            org.monthly_limit_override = None
         org.plan = plan
     else:
         print(
@@ -487,8 +491,11 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             org.plan = "basic"
             org.subscription_status = "canceled"
             org.stripe_subscription_id = None
+            # Subscription encerrada ao fim do período → remover overrides manuais
+            org.batch_limit_override = None
+            org.monthly_limit_override = None
             db.commit()
-            print(f"[WEBHOOK] Organização {org.id} voltou para plano Basic")
+            print(f"[WEBHOOK] Organização {org.id} voltou para plano Basic; overrides removidos")
     
     # Pagamento de invoice bem-sucedido
     elif event_type == "invoice.payment_succeeded":
