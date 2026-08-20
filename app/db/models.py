@@ -45,6 +45,10 @@ class Organization(Base):
     plan = Column(String(50), nullable=False, default="basic", comment="Plano: basic, starter, pro, advanced, enterprise")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
+    # Overrides de limites (quando NULL, usa o valor padrão do plano)
+    batch_limit_override = Column(Integer, nullable=True, comment="Override do limite de GTINs por batch (NULL = padrão do plano)")
+    monthly_limit_override = Column(Integer, nullable=True, comment="Override do limite mensal de chamadas (NULL = padrão do plano)")
+
     # Campos Stripe
     stripe_customer_id = Column(String(255), nullable=True, unique=True, index=True, comment="ID do customer no Stripe")
     stripe_subscription_id = Column(String(255), nullable=True, index=True, comment="ID da subscription ativa no Stripe")
@@ -73,7 +77,9 @@ class Organization(Base):
 
     @property
     def batch_limit(self) -> int:
-        """Propriedade de conveniência para uso em serialização/respostas."""
+        """Retorna o override se definido, caso contrário o padrão do plano."""
+        if self.batch_limit_override is not None:
+            return self.batch_limit_override
         return self.get_batch_limit_by_plan()
 
     def get_monthly_limit_by_plan(self) -> int:
@@ -89,7 +95,9 @@ class Organization(Base):
 
     @property
     def monthly_limit(self) -> int:
-        """Limite mensal (0 se o plano não usa limite mensal)."""
+        """Retorna o override se definido, caso contrário o padrão do plano."""
+        if self.monthly_limit_override is not None:
+            return self.monthly_limit_override
         return self.get_monthly_limit_by_plan()
 
     def get_api_key_active_limit_by_plan(self) -> int:

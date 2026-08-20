@@ -49,6 +49,8 @@ class AdminOrganizationItem(BaseModel):
     name: str
     plan: str
     created_at: datetime
+    batch_limit_override: Optional[int] = None
+    monthly_limit_override: Optional[int] = None
     stripe_customer_id: Optional[str] = None
     stripe_subscription_id: Optional[str] = None
     subscription_status: Optional[str] = None
@@ -69,6 +71,8 @@ class AdminOrganizationsPage(BaseModel):
 class AdminOrganizationUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=255)
     plan: Optional[str] = Field(None, description="basic, starter, pro, advanced, enterprise")
+    batch_limit_override: Optional[int] = Field(None, ge=0, description="Override do limite de batch (null = padrão do plano)")
+    monthly_limit_override: Optional[int] = Field(None, ge=0, description="Override do limite mensal (null = padrão do plano)")
     stripe_customer_id: Optional[str] = None
     stripe_subscription_id: Optional[str] = None
     subscription_status: Optional[str] = None

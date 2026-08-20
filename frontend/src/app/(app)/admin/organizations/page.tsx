@@ -44,6 +44,8 @@ export default function AdminOrganizationsPage() {
   const [editOrg, setEditOrg] = useState<AdminOrganizationItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editPlan, setEditPlan] = useState("");
+  const [editBatchOverride, setEditBatchOverride] = useState("");
+  const [editMonthlyOverride, setEditMonthlyOverride] = useState("");
   const [editStripeCustomerId, setEditStripeCustomerId] = useState("");
   const [editStripeSubId, setEditStripeSubId] = useState("");
   const [editSubStatus, setEditSubStatus] = useState("");
@@ -91,6 +93,8 @@ export default function AdminOrganizationsPage() {
     setEditOrg(o);
     setEditName(o.name);
     setEditPlan(o.plan);
+    setEditBatchOverride(o.batch_limit_override != null ? String(o.batch_limit_override) : "");
+    setEditMonthlyOverride(o.monthly_limit_override != null ? String(o.monthly_limit_override) : "");
     setEditStripeCustomerId(o.stripe_customer_id ?? "");
     setEditStripeSubId(o.stripe_subscription_id ?? "");
     setEditSubStatus(o.subscription_status ?? "");
@@ -104,6 +108,12 @@ export default function AdminOrganizationsPage() {
       const payload: Record<string, unknown> = {};
       if (editName !== editOrg.name) payload.name = editName;
       if (editPlan !== editOrg.plan) payload.plan = editPlan;
+      const origBatch = editOrg.batch_limit_override != null ? String(editOrg.batch_limit_override) : "";
+      if (editBatchOverride !== origBatch)
+        payload.batch_limit_override = editBatchOverride === "" ? null : Number(editBatchOverride);
+      const origMonthly = editOrg.monthly_limit_override != null ? String(editOrg.monthly_limit_override) : "";
+      if (editMonthlyOverride !== origMonthly)
+        payload.monthly_limit_override = editMonthlyOverride === "" ? null : Number(editMonthlyOverride);
       if (editStripeCustomerId !== (editOrg.stripe_customer_id ?? ""))
         payload.stripe_customer_id = editStripeCustomerId || null;
       if (editStripeSubId !== (editOrg.stripe_subscription_id ?? ""))
@@ -333,6 +343,32 @@ export default function AdminOrganizationsPage() {
                   <option key={p} value={p}>{p}</option>
                 ))}
               </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Limite Batch (override)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Padrão do plano"
+                  value={editBatchOverride}
+                  onChange={(e) => setEditBatchOverride(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="mt-1 text-xs text-zinc-400">Vazio = usar padrão do plano</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Limite Mensal (override)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Padrão do plano"
+                  value={editMonthlyOverride}
+                  onChange={(e) => setEditMonthlyOverride(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="mt-1 text-xs text-zinc-400">Vazio = usar padrão do plano</p>
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium">Stripe Customer ID</label>

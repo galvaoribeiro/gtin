@@ -276,6 +276,18 @@ def update_organization(
         org.plan = plan
         after["plan"] = plan
 
+    for field in ("batch_limit_override", "monthly_limit_override"):
+        if field in raw:
+            val = raw[field]
+            if val is not None and val < 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"{field} deve ser >= 0",
+                )
+            before[field] = getattr(org, field)
+            setattr(org, field, val)
+            after[field] = val
+
     for field in ("stripe_customer_id", "stripe_subscription_id",
                   "subscription_status", "current_period_end", "default_payment_method"):
         if field in raw:

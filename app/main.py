@@ -344,7 +344,26 @@ def run_migrations():
             else:
                 print("[MIGRATION] Tabela 'admin_audit_logs' ja existe.")
 
-            # Migração 11: Campos de recuperação de senha em users
+            # Migração 11: Override de limites por organização (batch e mensal)
+            result = conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'organizations' AND column_name = 'batch_limit_override'
+            """))
+            if not result.fetchone():
+                print("[MIGRATION] Adicionando colunas de override de limites em organizations...")
+                conn.execute(text(
+                    "ALTER TABLE organizations ADD COLUMN batch_limit_override INTEGER"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE organizations ADD COLUMN monthly_limit_override INTEGER"
+                ))
+                conn.commit()
+                print("[MIGRATION] Colunas batch_limit_override e monthly_limit_override adicionadas.")
+            else:
+                print("[MIGRATION] Colunas de override de limites ja existem.")
+
+            # Migração 12: Campos de recuperação de senha em users
             result = conn.execute(text("""
                 SELECT column_name
                 FROM information_schema.columns

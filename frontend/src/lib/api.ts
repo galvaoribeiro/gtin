@@ -1526,6 +1526,8 @@ export interface AdminOrganizationItem {
   name: string;
   plan: string;
   created_at: string;
+  batch_limit_override: number | null;
+  monthly_limit_override: number | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   subscription_status: string | null;
