@@ -39,6 +39,17 @@ def _reject_private_plan(plan: str) -> None:
         )
 
 
+def _parse_override_metadata(value: Optional[str]) -> Optional[int]:
+    """Converte uma string de metadata do Stripe em inteiro (ou None)."""
+    if not value:
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed >= 0 else None
+
+
 def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> None:
     """
     Sincroniza a organização com os dados de uma subscription do Stripe.
@@ -54,9 +65,17 @@ def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> No
     plan = subscription_data["plan"]
     if plan:
         if plan != org.plan:
-            # Plano realmente mudou (upgrade ou downgrade) → remover overrides manuais
-            org.batch_limit_override = None
-            org.monthly_limit_override = None
+            if plan == "enterprise":
+                metadata = subscription_data.get("metadata") or {}
+                org.batch_limit_override = _parse_override_metadata(
+                    metadata.get(StripeService.PENDING_ENTERPRISE_BATCH_OVERRIDE_METADATA_KEY)
+                )
+                org.monthly_limit_override = _parse_override_metadata(
+                    metadata.get(StripeService.PENDING_ENTERPRISE_MONTHLY_OVERRIDE_METADATA_KEY)
+                )
+            else:
+                org.batch_limit_override = None
+                org.monthly_limit_override = None
         org.plan = plan
     else:
         print(

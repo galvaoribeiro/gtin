@@ -57,6 +57,8 @@ export default function AdminOrganizationsPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [provisioning, setProvisioning] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [enterpriseBatchOverride, setEnterpriseBatchOverride] = useState("");
+  const [enterpriseMonthlyOverride, setEnterpriseMonthlyOverride] = useState("");
 
   const perPage = 20;
 
@@ -139,7 +141,10 @@ export default function AdminOrganizationsPage() {
     setProvisioning(true);
     setError(null);
     try {
-      const result = await adminProvisionEnterprise(enterpriseOrg.id);
+      const result = await adminProvisionEnterprise(enterpriseOrg.id, {
+        batch_limit_override: enterpriseBatchOverride === "" ? null : Number(enterpriseBatchOverride),
+        monthly_limit_override: enterpriseMonthlyOverride === "" ? null : Number(enterpriseMonthlyOverride),
+      });
       setEnterpriseLink(result.portal_url);
     } catch (err) {
       if (err instanceof ApiError) setError(err.detail || err.message);
@@ -153,6 +158,8 @@ export default function AdminOrganizationsPage() {
     setEnterpriseOrg(null);
     setEnterpriseLink(null);
     setLinkCopied(false);
+    setEnterpriseBatchOverride("");
+    setEnterpriseMonthlyOverride("");
   };
 
   const handleCopyEnterpriseLink = async () => {
@@ -273,7 +280,12 @@ export default function AdminOrganizationsPage() {
                                   ? "Gerar um link para o cliente confirmar e pagar o upgrade Enterprise"
                                   : "A organização precisa ter uma assinatura ativa no Stripe"
                               }
-                              onClick={() => { setNotice(null); setEnterpriseOrg(o); }}
+                              onClick={() => {
+                                setNotice(null);
+                                setEnterpriseOrg(o);
+                                setEnterpriseBatchOverride(o.batch_limit_override != null ? String(o.batch_limit_override) : "");
+                                setEnterpriseMonthlyOverride(o.monthly_limit_override != null ? String(o.monthly_limit_override) : "");
+                              }}
                             >
                               Gerar link Enterprise
                             </Button>
@@ -421,9 +433,35 @@ export default function AdminOrganizationsPage() {
                 imediatamente o ajuste proporcional do período atual, e o plano no seu painel é
                 atualizado automaticamente pelo webhook.
               </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-zinc-900 dark:text-white">Limite Batch (override)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Padrão do plano (100)"
+                    value={enterpriseBatchOverride}
+                    onChange={(e) => setEnterpriseBatchOverride(e.target.value)}
+                    className="mt-1"
+                  />
+                  <p className="mt-1 text-xs text-zinc-400">Vazio = padrão Enterprise (100)</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-zinc-900 dark:text-white">Limite Mensal (override)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="Padrão do plano (20000)"
+                    value={enterpriseMonthlyOverride}
+                    onChange={(e) => setEnterpriseMonthlyOverride(e.target.value)}
+                    className="mt-1"
+                  />
+                  <p className="mt-1 text-xs text-zinc-400">Vazio = padrão Enterprise (20.000)</p>
+                </div>
+              </div>
               <p>
-                A organização sai do plano <strong>{enterpriseOrg?.plan}</strong> e passa a ter
-                consulta em lote de até 100 GTINs assim que o cliente confirmar.
+                Os limites informados acima serão aplicados automaticamente quando o cliente
+                confirmar a troca.
               </p>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={closeEnterpriseDialog} disabled={provisioning}>

@@ -33,6 +33,12 @@ class StripeService:
     ENTERPRISE_PORTAL_CONFIG_METADATA_VALUE = "enterprise_migration"
     PUBLIC_PLAN_SWITCH_METADATA_VALUE = "public_plan_switch"
 
+    # Chaves de metadata usadas para "transportar" overrides Enterprise pendentes
+    # na subscription até que o cliente confirme a troca no Portal de Cobrança.
+    # Limitadas a 40 caracteres, conforme exigido pela API de metadata do Stripe.
+    PENDING_ENTERPRISE_BATCH_OVERRIDE_METADATA_KEY = "pending_ent_batch_limit_override"
+    PENDING_ENTERPRISE_MONTHLY_OVERRIDE_METADATA_KEY = "pending_ent_monthly_limit_override"
+
     # Status em que uma assinatura ainda pode ter o item de Price substituído.
     SWITCHABLE_SUBSCRIPTION_STATUSES = ("active", "trialing", "past_due")
     
@@ -309,6 +315,34 @@ class StripeService:
         )
 
     @classmethod
+    def set_pending_enterprise_overrides(
+        cls,
+        subscription_id: str,
+        batch_limit_override: Optional[int],
+        monthly_limit_override: Optional[int],
+    ) -> stripe.Subscription:
+        """
+        Grava nos metadados da subscription os limites (override) que devem ser
+        aplicados automaticamente à organização quando o cliente confirmar a
+        migração para o Enterprise pelo Portal de Cobrança.
+
+        A API do Stripe faz merge parcial de metadata, portanto só as chaves
+        informadas aqui são afetadas — as demais (organization_id, plan, etc.)
+        permanecem intactas.  Uma string vazia remove a chave.
+        """
+        return stripe.Subscription.modify(
+            subscription_id,
+            metadata={
+                cls.PENDING_ENTERPRISE_BATCH_OVERRIDE_METADATA_KEY: (
+                    str(batch_limit_override) if batch_limit_override is not None else ""
+                ),
+                cls.PENDING_ENTERPRISE_MONTHLY_OVERRIDE_METADATA_KEY: (
+                    str(monthly_limit_override) if monthly_limit_override is not None else ""
+                ),
+            },
+        )
+
+    @classmethod
     def get_subscription(cls, subscription_id: str) -> Optional[stripe.Subscription]:
         """
         Recupera uma subscription do Stripe.
@@ -560,5 +594,6 @@ class StripeService:
             "current_period_end": datetime.fromtimestamp(current_period_end) if current_period_end else None,
             "plan": plan_name,
             "default_payment_method": default_pm,
+            "metadata": dict(subscription.get("metadata", {}) or {}),
         }
 

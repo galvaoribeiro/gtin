@@ -17,6 +17,7 @@ from app.core.security import create_access_token, get_password_hash
 from app.db.models import ALL_PLANS, AdminAuditLog, Organization, User
 from app.db.session import get_db
 from app.schemas.admin import (
+    AdminEnterpriseUpgradeLinkRequest,
     AdminEnterpriseUpgradeLinkResponse,
     AdminOrganizationItem,
     AdminOrganizationUpdate,
@@ -323,9 +324,12 @@ def update_organization(
 def provision_enterprise(
     org_id: int,
     request: Request,
+    data: Optional[AdminEnterpriseUpgradeLinkRequest] = None,
     admin: User = Depends(require_admin_user),
     db: Session = Depends(get_db),
 ):
+    overrides = data or AdminEnterpriseUpgradeLinkRequest()
+
     org = db.query(Organization).filter(Organization.id == org_id).first()
     if not org:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organização não encontrada")
@@ -378,6 +382,11 @@ def provision_enterprise(
     return_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/billing?enterprise=pending"
 
     try:
+        StripeService.set_pending_enterprise_overrides(
+            subscription_id=org.stripe_subscription_id,
+            batch_limit_override=overrides.batch_limit_override,
+            monthly_limit_override=overrides.monthly_limit_override,
+        )
         config_id = StripeService.get_or_create_enterprise_portal_configuration()
         portal_session = StripeService.create_plan_switch_confirm_session(
             customer_id=org.stripe_customer_id,
@@ -404,6 +413,8 @@ def provision_enterprise(
         payload={
             "stripe_subscription_id": org.stripe_subscription_id,
             "proration_behavior": "always_invoice",
+            "batch_limit_override": overrides.batch_limit_override,
+            "monthly_limit_override": overrides.monthly_limit_override,
         },
         ip=ip,
         user_agent=ua,
@@ -417,4 +428,6 @@ def provision_enterprise(
         ),
         portal_url=portal_session.url,
         organization_id=org.id,
+        batch_limit_override=overrides.batch_limit_override,
+        monthly_limit_override=overrides.monthly_limit_override,
     )

@@ -80,6 +80,24 @@ class AdminOrganizationUpdate(BaseModel):
     default_payment_method: Optional[str] = None
 
 
+class AdminEnterpriseUpgradeLinkRequest(BaseModel):
+    """
+    Limites (override) que devem ser aplicados automaticamente à organização
+    no momento em que o cliente confirmar a migração para o Enterprise pelo
+    Portal de Cobrança.  Deixe em branco (null) para usar os valores padrão
+    do plano Enterprise (batch: 100, mensal: 20.000).
+    """
+
+    batch_limit_override: Optional[int] = Field(
+        None, ge=0,
+        description="Limite de GTINs por batch a aplicar quando o cliente confirmar (null = padrão do plano, 100)",
+    )
+    monthly_limit_override: Optional[int] = Field(
+        None, ge=0,
+        description="Limite mensal de chamadas a aplicar quando o cliente confirmar (null = padrão do plano, 20000)",
+    )
+
+
 class AdminEnterpriseUpgradeLinkResponse(BaseModel):
     """
     Link do Portal de Cobrança gerado para o cliente confirmar o upgrade
@@ -90,3 +108,5 @@ class AdminEnterpriseUpgradeLinkResponse(BaseModel):
     message: str = Field(..., description="Resumo da operação para exibição ao administrador")
     portal_url: str = Field(..., description="Link do Portal de Cobrança para o cliente confirmar a troca e o pagamento")
     organization_id: int = Field(..., description="ID da organização associada ao link")
+    batch_limit_override: Optional[int] = Field(None, description="Limite de batch que será aplicado quando o cliente confirmar")
+    monthly_limit_override: Optional[int] = Field(None, description="Limite mensal que será aplicado quando o cliente confirmar")

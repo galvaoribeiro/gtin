@@ -1605,6 +1605,8 @@ export interface AdminEnterpriseUpgradeLinkResponse {
   message: string;
   portal_url: string;
   organization_id: number;
+  batch_limit_override: number | null;
+  monthly_limit_override: number | null;
 }
 
 /**
@@ -1613,9 +1615,16 @@ export interface AdminEnterpriseUpgradeLinkResponse {
  * o próprio cliente deve abrir o link e confirmar, momento em que o Stripe
  * cobra o ajuste proporcional imediatamente. Exclusivo para administradores.
  */
-export function adminProvisionEnterprise(orgId: number) {
+export function adminProvisionEnterprise(
+  orgId: number,
+  data?: { batch_limit_override?: number | null; monthly_limit_override?: number | null },
+) {
   return adminFetch<AdminEnterpriseUpgradeLinkResponse>(
     `/v1/admin/organizations/${orgId}/provision-enterprise`,
-    { method: "POST" }
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data ?? {}),
+    },
   );
 }
