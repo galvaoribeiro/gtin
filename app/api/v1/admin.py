@@ -205,6 +205,8 @@ def list_organizations(
     page: int = 1,
     per_page: int = 20,
     q: Optional[str] = None,
+    plan: Optional[str] = None,
+    org_id: Optional[int] = None,
     admin: User = Depends(require_admin_user),
     db: Session = Depends(get_db),
 ):
@@ -214,6 +216,13 @@ def list_organizations(
     query = db.query(Organization)
     if q:
         query = query.filter(Organization.name.ilike(f"%{q.strip()}%"))
+    if plan:
+        plan_norm = plan.strip().lower()
+        if plan_norm not in ALL_PLANS:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Plano inválido")
+        query = query.filter(Organization.plan == plan_norm)
+    if org_id is not None:
+        query = query.filter(Organization.id == org_id)
 
     total = query.count()
     rows = (
@@ -225,7 +234,7 @@ def list_organizations(
 
     ip, ua = _request_meta(request)
     _audit(db, actor_id=admin.id, action="organizations.list",
-           payload={"page": page, "q": q}, ip=ip, user_agent=ua)
+           payload={"page": page, "q": q, "plan": plan, "org_id": org_id}, ip=ip, user_agent=ua)
     db.commit()
 
     return AdminOrganizationsPage(

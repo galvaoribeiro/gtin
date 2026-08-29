@@ -45,6 +45,8 @@ export default function AdminOrganizationsPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [planFilter, setPlanFilter] = useState("");
+  const [idFilter, setIdFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,7 +78,14 @@ export default function AdminOrganizationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await adminListOrganizations({ page, per_page: perPage, q: search || undefined });
+      const orgId = Number(idFilter.trim());
+      const data = await adminListOrganizations({
+        page,
+        per_page: perPage,
+        q: search || undefined,
+        plan: planFilter || undefined,
+        org_id: idFilter.trim() && Number.isInteger(orgId) && orgId > 0 ? orgId : undefined,
+      });
       setOrgs(data.items);
       setTotal(data.total);
     } catch (err) {
@@ -87,7 +96,7 @@ export default function AdminOrganizationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, router]);
+  }, [page, search, planFilter, idFilter, router]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -95,10 +104,13 @@ export default function AdminOrganizationsPage() {
 
   const totalPages = Math.ceil(total / perPage);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const hasFilters = Boolean(search || planFilter || idFilter.trim());
+
+  const clearFilters = () => {
+    setSearch("");
+    setPlanFilter("");
+    setIdFilter("");
     setPage(1);
-    load();
   };
 
   const openEdit = (o: AdminOrganizationItem) => {
@@ -213,15 +225,63 @@ export default function AdminOrganizationsPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSearch} className="flex gap-2 max-w-md">
-        <Input
-          placeholder="Buscar por nome..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1"
-        />
-        <Button type="submit" variant="secondary">Buscar</Button>
-      </form>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-48 flex-1">
+          <label htmlFor="org-search" className="mb-1 block text-xs font-medium text-zinc-500">
+            Nome
+          </label>
+          <Input
+            id="org-search"
+            placeholder="Buscar por nome..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+        <div className="w-28">
+          <label htmlFor="org-id-filter" className="mb-1 block text-xs font-medium text-zinc-500">
+            ID
+          </label>
+          <Input
+            id="org-id-filter"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            placeholder="Ex.: 42"
+            value={idFilter}
+            onChange={(e) => {
+              setIdFilter(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+        <div className="w-44">
+          <label htmlFor="org-plan-filter" className="mb-1 block text-xs font-medium text-zinc-500">
+            Plano
+          </label>
+          <select
+            id="org-plan-filter"
+            className="h-9 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+            value={planFilter}
+            onChange={(e) => {
+              setPlanFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Todos</option>
+            {PLANS.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </div>
+        {hasFilters && (
+          <Button type="button" variant="outline" onClick={clearFilters}>
+            Limpar
+          </Button>
+        )}
+      </div>
 
       {error && (
         <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">

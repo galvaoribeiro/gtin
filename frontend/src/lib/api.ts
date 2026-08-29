@@ -1586,11 +1586,19 @@ export function adminImpersonateUser(userId: number) {
   return adminFetch<TokenResponse>(`/v1/admin/users/${userId}/impersonate`, { method: "POST" });
 }
 
-export function adminListOrganizations(params?: { page?: number; per_page?: number; q?: string }) {
+export function adminListOrganizations(params?: {
+  page?: number;
+  per_page?: number;
+  q?: string;
+  plan?: string;
+  org_id?: number;
+}) {
   const sp = new URLSearchParams();
   if (params?.page) sp.set("page", String(params.page));
   if (params?.per_page) sp.set("per_page", String(params.per_page));
   if (params?.q) sp.set("q", params.q);
+  if (params?.plan) sp.set("plan", params.plan);
+  if (params?.org_id != null) sp.set("org_id", String(params.org_id));
   const qs = sp.toString();
   return adminFetch<AdminOrganizationsPage>(`/v1/admin/organizations${qs ? `?${qs}` : ""}`);
 }
