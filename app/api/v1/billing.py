@@ -77,6 +77,16 @@ def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> No
                 org.batch_limit_override = None
                 org.monthly_limit_override = None
         org.plan = plan
+
+        # O preço Enterprise negociado só faz sentido enquanto a organização
+        # estiver de fato no plano Enterprise; nos demais planos as colunas
+        # são limpas para não exibir um valor de uma negociação anterior.
+        if plan == "enterprise":
+            org.enterprise_price_id = subscription_data.get("price_id")
+            org.enterprise_amount_cents = subscription_data.get("price_unit_amount")
+        else:
+            org.enterprise_price_id = None
+            org.enterprise_amount_cents = None
     else:
         print(
             "[WEBHOOK] Price desconhecido na subscription "
@@ -511,8 +521,11 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             org.subscription_status = "canceled"
             org.stripe_subscription_id = None
             # Subscription encerrada ao fim do período → remover overrides manuais
+            # e o preço Enterprise negociado (se havia)
             org.batch_limit_override = None
             org.monthly_limit_override = None
+            org.enterprise_price_id = None
+            org.enterprise_amount_cents = None
             db.commit()
             print(f"[WEBHOOK] Organização {org.id} voltou para plano Basic; overrides removidos")
     

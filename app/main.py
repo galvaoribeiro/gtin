@@ -384,6 +384,21 @@ def run_migrations():
             else:
                 print("[MIGRATION] Campos de recuperação de senha ja existem.")
 
+            # Migração 13: Preço Enterprise customizado em organizations
+            result = conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'organizations' AND column_name = 'enterprise_price_id'
+            """))
+            if not result.fetchone():
+                print("[MIGRATION] Adicionando campos de preço Enterprise customizado em organizations...")
+                conn.execute(text("ALTER TABLE organizations ADD COLUMN enterprise_price_id VARCHAR(255)"))
+                conn.execute(text("ALTER TABLE organizations ADD COLUMN enterprise_amount_cents INTEGER"))
+                conn.commit()
+                print("[MIGRATION] Campos de preço Enterprise customizado adicionados.")
+            else:
+                print("[MIGRATION] Campos de preço Enterprise customizado ja existem.")
+
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")
 

@@ -33,6 +33,10 @@ class StripeService:
     ENTERPRISE_PORTAL_CONFIG_METADATA_VALUE = "enterprise_migration"
     PUBLIC_PLAN_SWITCH_METADATA_VALUE = "public_plan_switch"
 
+    # Chave de metadata gravada nos Prices Enterprise customizados, usada para
+    # identificar o plano quando o Price não é um dos IDs fixos em PLAN_PRICE_MAP.
+    PRICE_PLAN_METADATA_KEY = "gtin_plan"
+
     # Chaves de metadata usadas para "transportar" overrides Enterprise pendentes
     # na subscription até que o cliente confirme a troca no Portal de Cobrança.
     # Limitadas a 40 caracteres, conforme exigido pela API de metadata do Stripe.
@@ -222,10 +226,85 @@ class StripeService:
         return created["id"]
 
     @classmethod
-    def get_or_create_enterprise_portal_configuration(cls) -> str:
+    def create_enterprise_custom_price(
+        cls,
+        organization_id: int,
+        amount_cents: int,
+        subscription_currency: Optional[str] = None,
+    ) -> stripe.Price:
+        """
+        Cria (ou reaproveita) um Price dedicado ao valor negociado com uma
+        organização Enterprise.
+
+        `STRIPE_PRICE_ENTERPRISE` é usado apenas como template: dele saem o
+        product, a moeda e o intervalo de recorrência. O valor efetivamente
+        cobrado é sempre o `amount_cents` informado pelo administrador.
+
+        Reaproveita um Price existente com o mesmo `lookup_key` (mesma
+        organização + valor + intervalo + moeda) para evitar acumular Prices
+        descartáveis no Stripe a cada novo link gerado.
+
+        Args:
+            organization_id: ID interno da organização
+            amount_cents: Valor mensal negociado, em centavos
+            subscription_currency: Moeda da subscription atual da organização,
+                usada para validar compatibilidade com o Price template
+                (o Stripe não permite troca de moeda numa mesma subscription)
+
+        Raises:
+            ValueError: Se STRIPE_PRICE_ENTERPRISE não estiver configurado ou
+                se a moeda da subscription for diferente da do Price template
+        """
+        base_price_id = settings.STRIPE_PRICE_ENTERPRISE
+        if not base_price_id:
+            raise ValueError("STRIPE_PRICE_ENTERPRISE não configurado")
+
+        base = stripe.Price.retrieve(base_price_id)
+        product = base.get("product")
+        product_id = product if isinstance(product, str) else (product or {}).get("id")
+        currency = base.get("currency")
+        recurring = base.get("recurring") or {}
+        interval = recurring.get("interval") or "month"
+
+        if subscription_currency and currency and subscription_currency.lower() != currency.lower():
+            raise ValueError(
+                f"A assinatura está em '{subscription_currency}', mas o Price Enterprise "
+                f"template está em '{currency}'. O Stripe não permite Price customizado "
+                "em moeda diferente da assinatura atual."
+            )
+
+        lookup_key = f"ent_org{organization_id}_{amount_cents}_{interval}_{currency}"
+
+        existing = stripe.Price.list(lookup_keys=[lookup_key], active=True, limit=1)
+        existing_data = existing.get("data") if existing else None
+        if existing_data:
+            return existing_data[0]
+
+        return stripe.Price.create(
+            product=product_id,
+            unit_amount=amount_cents,
+            currency=currency,
+            recurring={
+                "interval": interval,
+                "interval_count": recurring.get("interval_count", 1),
+            },
+            lookup_key=lookup_key,
+            nickname=f"Enterprise - org {organization_id}",
+            metadata={
+                "organization_id": str(organization_id),
+                cls.PRICE_PLAN_METADATA_KEY: "enterprise",
+            },
+        )
+
+    @classmethod
+    def get_or_create_enterprise_portal_configuration(cls, price_id: str) -> str:
         """
         Retorna o ID de uma Portal Configuration dedicada exclusivamente à
-        troca para o Price Enterprise, criando-a se ainda não existir.
+        troca para o Price Enterprise informado, criando-a se ainda não existir.
+
+        Como cada organização Enterprise tem seu próprio Price negociado, há
+        uma Configuration por Price — sem esbarrar no limite de produtos por
+        configuração, já que cada uma contém apenas um Price.
 
         Fica de fora da configuração padrão do portal (usada pelo botão
         "Gerenciar Assinatura" de autoatendimento), para que o Enterprise
@@ -233,9 +312,8 @@ class StripeService:
         proporcional é feita imediatamente (proration_behavior=always_invoice)
         no momento em que o cliente confirma a troca.
         """
-        price_id = settings.STRIPE_PRICE_ENTERPRISE
         if not price_id:
-            raise ValueError("STRIPE_PRICE_ENTERPRISE não configurado")
+            raise ValueError("Price Enterprise não informado")
 
         existing = cls._find_portal_configuration(
             cls.ENTERPRISE_PORTAL_CONFIG_METADATA_VALUE, {price_id}
@@ -568,19 +646,32 @@ class StripeService:
         # Plano: o Price do item 0 é a fonte prioritária, pois reflete a
         # assinatura de fato mesmo quando o cliente troca de plano fora do
         # nosso backend (ex.: self-service no Portal de Cobrança, que nunca
-        # escreve em metadata.plan). metadata.plan só é usado como fallback
-        # quando o Price não é reconhecido, e apenas se contiver um plano
-        # válido — evitando tanto plano desatualizado quanto downgrade
-        # silencioso para um Price desconhecido.
+        # escreve em metadata.plan). Um Price customizado (Enterprise
+        # negociado) não está em PLAN_PRICE_MAP, então cai para a metadata do
+        # próprio Price (gtin_plan). metadata.plan da subscription só é usado
+        # como último fallback, e apenas se contiver um plano válido —
+        # evitando tanto plano desatualizado quanto downgrade silencioso para
+        # um Price desconhecido.
         price_id = None
+        price_unit_amount = None
+        price_currency = None
+        price_metadata: Dict[str, Any] = {}
         try:
             items = subscription.get("items", {}).get("data", [])
             if items:
-                price_id = (items[0].get("price", {}) or {}).get("id")
+                price_obj = items[0].get("price", {}) or {}
+                price_id = price_obj.get("id")
+                price_unit_amount = price_obj.get("unit_amount")
+                price_currency = price_obj.get("currency")
+                price_metadata = dict(price_obj.get("metadata", {}) or {})
         except Exception:
             price_id = None
 
         plan_name = cls._map_price_to_plan(price_id)
+        if not plan_name:
+            meta_plan = price_metadata.get(cls.PRICE_PLAN_METADATA_KEY)
+            if meta_plan in cls.PLAN_PRICE_MAP or meta_plan in cls.FREE_PLANS:
+                plan_name = meta_plan
         if not plan_name:
             meta_plan = (subscription.get("metadata", {}) or {}).get("plan")
             if meta_plan in cls.PLAN_PRICE_MAP or meta_plan in cls.FREE_PLANS:
@@ -595,5 +686,8 @@ class StripeService:
             "plan": plan_name,
             "default_payment_method": default_pm,
             "metadata": dict(subscription.get("metadata", {}) or {}),
+            "price_id": price_id,
+            "price_unit_amount": price_unit_amount,
+            "price_currency": price_currency,
         }
 

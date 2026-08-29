@@ -1533,6 +1533,8 @@ export interface AdminOrganizationItem {
   subscription_status: string | null;
   current_period_end: string | null;
   default_payment_method: string | null;
+  enterprise_price_id: string | null;
+  enterprise_amount_cents: number | null;
 }
 
 export interface AdminOrganizationsPage {
@@ -1605,26 +1607,34 @@ export interface AdminEnterpriseUpgradeLinkResponse {
   message: string;
   portal_url: string;
   organization_id: number;
+  amount_cents: number;
+  currency: string;
+  price_id: string;
   batch_limit_override: number | null;
   monthly_limit_override: number | null;
 }
 
 /**
- * Gera um link do Portal de Cobrança do Stripe restrito à troca para o plano
- * Enterprise na assinatura existente. Nada é cobrado ao chamar este endpoint:
- * o próprio cliente deve abrir o link e confirmar, momento em que o Stripe
- * cobra o ajuste proporcional imediatamente. Exclusivo para administradores.
+ * Gera um link do Portal de Cobrança do Stripe restrito à troca para um Price
+ * Enterprise dedicado (criado com o valor negociado) na assinatura existente.
+ * Nada é cobrado ao chamar este endpoint: o próprio cliente deve abrir o link
+ * e confirmar, momento em que o Stripe cobra o ajuste proporcional
+ * imediatamente. Exclusivo para administradores.
  */
 export function adminProvisionEnterprise(
   orgId: number,
-  data?: { batch_limit_override?: number | null; monthly_limit_override?: number | null },
+  data: {
+    amount_cents: number;
+    batch_limit_override?: number | null;
+    monthly_limit_override?: number | null;
+  },
 ) {
   return adminFetch<AdminEnterpriseUpgradeLinkResponse>(
     `/v1/admin/organizations/${orgId}/provision-enterprise`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data ?? {}),
+      body: JSON.stringify(data),
     },
   );
 }

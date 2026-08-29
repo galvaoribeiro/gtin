@@ -30,6 +30,13 @@ import {
 
 const PLANS = ["basic", "starter", "pro", "advanced", "enterprise"] as const;
 
+const brlFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+function formatCentsToBrl(cents: number | null | undefined): string {
+  if (cents == null) return "—";
+  return brlFormatter.format(cents / 100);
+}
+
 export default function AdminOrganizationsPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -54,9 +61,12 @@ export default function AdminOrganizationsPage() {
 
   const [enterpriseOrg, setEnterpriseOrg] = useState<AdminOrganizationItem | null>(null);
   const [enterpriseLink, setEnterpriseLink] = useState<string | null>(null);
+  const [enterpriseLinkAmountCents, setEnterpriseLinkAmountCents] = useState<number | null>(null);
+  const [enterpriseLinkPriceId, setEnterpriseLinkPriceId] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   const [provisioning, setProvisioning] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [enterpriseAmount, setEnterpriseAmount] = useState("");
   const [enterpriseBatchOverride, setEnterpriseBatchOverride] = useState("");
   const [enterpriseMonthlyOverride, setEnterpriseMonthlyOverride] = useState("");
 
@@ -136,16 +146,22 @@ export default function AdminOrganizationsPage() {
     }
   };
 
+  const enterpriseAmountCents = Math.round(Number(enterpriseAmount.replace(",", ".")) * 100);
+  const enterpriseAmountValid = enterpriseAmount.trim() !== "" && Number.isFinite(enterpriseAmountCents) && enterpriseAmountCents > 0;
+
   const handleProvisionEnterprise = async () => {
-    if (!enterpriseOrg) return;
+    if (!enterpriseOrg || !enterpriseAmountValid) return;
     setProvisioning(true);
     setError(null);
     try {
       const result = await adminProvisionEnterprise(enterpriseOrg.id, {
+        amount_cents: enterpriseAmountCents,
         batch_limit_override: enterpriseBatchOverride === "" ? null : Number(enterpriseBatchOverride),
         monthly_limit_override: enterpriseMonthlyOverride === "" ? null : Number(enterpriseMonthlyOverride),
       });
       setEnterpriseLink(result.portal_url);
+      setEnterpriseLinkAmountCents(result.amount_cents);
+      setEnterpriseLinkPriceId(result.price_id);
     } catch (err) {
       if (err instanceof ApiError) setError(err.detail || err.message);
       else setError("Erro ao gerar o link de upgrade para o Enterprise");
@@ -157,7 +173,10 @@ export default function AdminOrganizationsPage() {
   const closeEnterpriseDialog = () => {
     setEnterpriseOrg(null);
     setEnterpriseLink(null);
+    setEnterpriseLinkAmountCents(null);
+    setEnterpriseLinkPriceId(null);
     setLinkCopied(false);
+    setEnterpriseAmount("");
     setEnterpriseBatchOverride("");
     setEnterpriseMonthlyOverride("");
   };
@@ -236,6 +255,7 @@ export default function AdminOrganizationsPage() {
                     <th className="pb-2 pr-4">ID</th>
                     <th className="pb-2 pr-4">Nome</th>
                     <th className="pb-2 pr-4">Plano</th>
+                    <th className="pb-2 pr-4">Valor Enterprise</th>
                     <th className="pb-2 pr-4">Stripe</th>
                     <th className="pb-2 pr-4">Status Assinatura</th>
                     <th className="pb-2 pr-4">Criada em</th>
@@ -249,6 +269,9 @@ export default function AdminOrganizationsPage() {
                       <td className="py-3 pr-4 font-medium">{o.name}</td>
                       <td className="py-3 pr-4">
                         <Badge className={planColor(o.plan)}>{o.plan}</Badge>
+                      </td>
+                      <td className="py-3 pr-4 text-xs">
+                        {formatCentsToBrl(o.enterprise_amount_cents)}
                       </td>
                       <td className="py-3 pr-4 text-xs text-zinc-500 font-mono truncate max-w-[120px]">
                         {o.stripe_customer_id ?? "—"}
@@ -283,6 +306,7 @@ export default function AdminOrganizationsPage() {
                               onClick={() => {
                                 setNotice(null);
                                 setEnterpriseOrg(o);
+                                setEnterpriseAmount("");
                                 setEnterpriseBatchOverride(o.batch_limit_override != null ? String(o.batch_limit_override) : "");
                                 setEnterpriseMonthlyOverride(o.monthly_limit_override != null ? String(o.monthly_limit_override) : "");
                               }}
@@ -296,7 +320,7 @@ export default function AdminOrganizationsPage() {
                   ))}
                   {orgs.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-zinc-400">
+                      <td colSpan={8} className="py-8 text-center text-zinc-400">
                         Nenhuma organização encontrada
                       </td>
                     </tr>
@@ -423,8 +447,8 @@ export default function AdminOrganizationsPage() {
           {!enterpriseLink ? (
             <div className="space-y-4 text-sm text-zinc-600 dark:text-zinc-400">
               <p>
-                Será gerado um link do Portal de Cobrança do Stripe, restrito à troca para o
-                Price Enterprise na assinatura{" "}
+                Será gerado um Price dedicado no Stripe com o valor negociado abaixo e um link do
+                Portal de Cobrança, restrito a essa troca, na assinatura{" "}
                 <span className="font-mono text-xs">{enterpriseOrg?.stripe_subscription_id}</span>.
               </p>
               <p>
@@ -433,6 +457,19 @@ export default function AdminOrganizationsPage() {
                 imediatamente o ajuste proporcional do período atual, e o plano no seu painel é
                 atualizado automaticamente pelo webhook.
               </p>
+              <div>
+                <label className="text-sm font-medium text-zinc-900 dark:text-white">Valor mensal (R$)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="Ex.: 1500.00"
+                  value={enterpriseAmount}
+                  onChange={(e) => setEnterpriseAmount(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="mt-1 text-xs text-zinc-400">Valor negociado com o cliente (obrigatório)</p>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-zinc-900 dark:text-white">Limite Batch (override)</label>
@@ -467,13 +504,17 @@ export default function AdminOrganizationsPage() {
                 <Button variant="outline" onClick={closeEnterpriseDialog} disabled={provisioning}>
                   Cancelar
                 </Button>
-                <Button onClick={handleProvisionEnterprise} disabled={provisioning}>
+                <Button onClick={handleProvisionEnterprise} disabled={provisioning || !enterpriseAmountValid}>
                   {provisioning ? "Gerando link..." : "Gerar link"}
                 </Button>
               </div>
             </div>
           ) : (
             <div className="space-y-4 text-sm text-zinc-600 dark:text-zinc-400">
+              <p>
+                Price dedicado criado: <span className="font-mono text-xs">{enterpriseLinkPriceId}</span>{" "}
+                no valor de <strong>{formatCentsToBrl(enterpriseLinkAmountCents)}/mês</strong>.
+              </p>
               <p>Envie este link ao cliente. Ele é pessoal e válido por tempo limitado:</p>
               <div className="flex gap-2">
                 <Input value={enterpriseLink} readOnly className="font-mono text-xs" />

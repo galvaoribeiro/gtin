@@ -324,12 +324,10 @@ def update_organization(
 def provision_enterprise(
     org_id: int,
     request: Request,
-    data: Optional[AdminEnterpriseUpgradeLinkRequest] = None,
+    data: AdminEnterpriseUpgradeLinkRequest,
     admin: User = Depends(require_admin_user),
     db: Session = Depends(get_db),
 ):
-    overrides = data or AdminEnterpriseUpgradeLinkRequest()
-
     org = db.query(Organization).filter(Organization.id == org_id).first()
     if not org:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organização não encontrada")
@@ -382,17 +380,31 @@ def provision_enterprise(
     return_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/billing?enterprise=pending"
 
     try:
+        price = StripeService.create_enterprise_custom_price(
+            organization_id=org.id,
+            amount_cents=data.amount_cents,
+            subscription_currency=subscription.get("currency"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Erro ao criar o Price customizado no Stripe: {exc}",
+        )
+
+    try:
         StripeService.set_pending_enterprise_overrides(
             subscription_id=org.stripe_subscription_id,
-            batch_limit_override=overrides.batch_limit_override,
-            monthly_limit_override=overrides.monthly_limit_override,
+            batch_limit_override=data.batch_limit_override,
+            monthly_limit_override=data.monthly_limit_override,
         )
-        config_id = StripeService.get_or_create_enterprise_portal_configuration()
+        config_id = StripeService.get_or_create_enterprise_portal_configuration(price["id"])
         portal_session = StripeService.create_plan_switch_confirm_session(
             customer_id=org.stripe_customer_id,
             subscription_id=org.stripe_subscription_id,
             subscription_item_id=item_id,
-            new_price_id=settings.STRIPE_PRICE_ENTERPRISE,
+            new_price_id=price["id"],
             configuration_id=config_id,
             return_url=return_url,
         )
@@ -404,6 +416,9 @@ def provision_enterprise(
             detail=f"Erro ao gerar o link no Stripe: {exc}",
         )
 
+    price_currency = price.get("currency")
+    price_amount = price.get("unit_amount") or data.amount_cents
+
     ip, ua = _request_meta(request)
     _audit(
         db,
@@ -413,8 +428,11 @@ def provision_enterprise(
         payload={
             "stripe_subscription_id": org.stripe_subscription_id,
             "proration_behavior": "always_invoice",
-            "batch_limit_override": overrides.batch_limit_override,
-            "monthly_limit_override": overrides.monthly_limit_override,
+            "amount_cents": price_amount,
+            "currency": price_currency,
+            "price_id": price["id"],
+            "batch_limit_override": data.batch_limit_override,
+            "monthly_limit_override": data.monthly_limit_override,
         },
         ip=ip,
         user_agent=ua,
@@ -428,6 +446,9 @@ def provision_enterprise(
         ),
         portal_url=portal_session.url,
         organization_id=org.id,
-        batch_limit_override=overrides.batch_limit_override,
-        monthly_limit_override=overrides.monthly_limit_override,
+        amount_cents=price_amount,
+        currency=price_currency,
+        price_id=price["id"],
+        batch_limit_override=data.batch_limit_override,
+        monthly_limit_override=data.monthly_limit_override,
     )
