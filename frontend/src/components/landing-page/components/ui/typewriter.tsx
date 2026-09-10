@@ -6,9 +6,10 @@ interface TypewriterProps {
   delay?: number;
   className?: string;
   startOnView?: boolean;
+  multiline?: boolean;
 }
 
-export function Typewriter({ text, delay = 50, className = "", startOnView = true }: TypewriterProps) {
+export function Typewriter({ text, delay = 50, className = "", startOnView = true, multiline = false }: TypewriterProps) {
   const [currentText, setCurrentText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const ref = useRef(null);
@@ -27,5 +28,13 @@ export function Typewriter({ text, delay = 50, className = "", startOnView = tru
     }
   }, [currentIndex, delay, text, startOnView, isInView]);
 
-  return <span ref={ref} className={className}>{currentText}</span>;
+  const layoutClass = multiline
+    ? "block whitespace-pre min-h-[1em]"
+    : "inline";
+
+  return (
+    <span ref={ref} className={`${layoutClass} ${className}`.trim()}>
+      {currentText}
+    </span>
+  );
 }

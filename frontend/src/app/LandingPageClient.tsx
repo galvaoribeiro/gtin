@@ -555,9 +555,9 @@ export default function LandingPageClient() {
             </div>
             <div className="p-6 overflow-x-auto min-h-75">
               <pre className="text-emerald-400 font-mono text-sm leading-relaxed">
-                <Typewriter 
-                  delay={5} 
-                  startOnView={false}
+                <Typewriter
+                  delay={5}
+                  multiline
                   text={`// Exemplo de resposta
 {
   "gtin": "7894900011517",
