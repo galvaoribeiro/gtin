@@ -25,6 +25,7 @@ export function LandingNavbar({ variant = "landing" }: LandingNavbarProps) {
     { label: "Benefícios", anchor: "benefits", type: "anchor" },
     { label: "Funcionalidades", anchor: "features", type: "anchor" },
     { label: "Como funciona", anchor: "casos-de-uso", type: "anchor" },
+    { label: "API", anchor: "api", type: "anchor" },
     { label: "Planos", anchor: "pricing", type: "anchor" },
     { label: "Consulta em massa", href: "/bulk", type: "link" },
   ];

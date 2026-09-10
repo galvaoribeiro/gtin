@@ -14,6 +14,7 @@ import {
   ShieldCheck, 
   Users,
   FileText,
+  Code2,
   Loader2,
   AlertCircle,
   AlertTriangle
@@ -511,6 +512,69 @@ export default function LandingPageClient() {
         </div>
       </section>
 
+      {/* API Section */}
+      <section id="api" className="py-24 px-6 bg-[#0B1120] text-white overflow-hidden relative border-t border-white/10">
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay"></div>
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center relative z-10">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-sm font-medium text-accent">
+              <Code2 className="w-4 h-4" />
+              <span>Developer First</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-semibold text-white">
+              API de alto desempenho
+            </h2>
+            <p className="text-lg text-white/80 leading-relaxed">
+              Autenticação simples via Bearer API Key, respostas em JSON e contratos claros para integração rápida.
+              Ideal para consulta unitária e batch.
+            </p>
+            <div className="pt-4 flex gap-4">
+              <Button asChild className="bg-white text-primary hover:bg-white/90 rounded-full px-8 h-12">
+                <Link href="/docs">Explorar Endpoints</Link>
+              </Button>
+            </div>
+            
+            <div className="pt-8 flex items-center gap-4 text-white/40 text-sm">
+              <span className="uppercase tracking-wider font-semibold text-xs">Built with</span>
+              <div className="flex gap-3 items-center">
+                <span className="px-2 py-1 rounded bg-white/10 border border-white/10 text-white/80 font-medium">Next.js</span>
+                <span className="px-2 py-1 rounded bg-white/10 border border-white/10 text-white/80 font-medium">TypeScript</span>
+                <span className="px-2 py-1 rounded bg-white/10 border border-white/10 text-white/80 font-medium">Tailwind</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-[#0D1117] rounded-xl border border-white/10 shadow-2xl overflow-hidden font-mono text-sm">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/5">
+              <div className="flex gap-2">
+                <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                <div className="w-3 h-3 rounded-full bg-green-500/80" />
+              </div>
+              <div className="text-xs text-white/40">GET /v1/products/{'{gtin}'}</div>
+            </div>
+            <div className="p-6 overflow-x-auto min-h-75">
+              <pre className="text-emerald-400 font-mono text-sm leading-relaxed">
+                <Typewriter 
+                  delay={5} 
+                  startOnView={false}
+                  text={`// Exemplo de resposta
+{
+  "gtin": "7894900011517",
+  "description": "REFRIGERANTE COCA COLA 350ML",
+  "brand": "COCA COLA",
+  "ncm": "2202.10.00",
+  "cest": "03.007.00",
+  "origin": 0,
+  "gross_weight": 0.365
+}`} 
+                />
+              </pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing */}
       <section id="pricing" className="py-24 px-6">
         <div className="max-w-7xl mx-auto">
@@ -654,6 +718,7 @@ export default function LandingPageClient() {
               <h4 className="font-semibold text-primary mb-6">Produto</h4>
               <ul className="space-y-4 text-sm text-muted-foreground">
                 <li><Link href="#features" className="hover:text-primary">Funcionalidades</Link></li>
+                <li><Link href="#api" className="hover:text-primary">API</Link></li>
                 <li><Link href="#pricing" className="hover:text-primary">Preços</Link></li>
                 <li><Link href="/bulk" className="hover:text-primary">Consulta em massa</Link></li>
                 <li><Link href="/sobre" className="hover:text-primary">Sobre</Link></li>
