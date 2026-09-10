@@ -225,7 +225,7 @@ export default function DocsPage() {
                   path="/v1/gtins/batch"
                   title="Consultar produtos em lote (POST)"
                   badgeNote="Lookup (req/min)"
-                  description="Consulta múltiplos GTINs em uma única requisição. O limite de itens por batch depende do seu plano, com hard limit de 100 GTINs por requisição."
+                  description="Consulta múltiplos GTINs em uma única requisição. O limite de itens por batch depende do seu plano."
                   requestExample={`curl -X POST "${baseUrl}/v1/gtins/batch" \\\n  -H "X-API-Key: SUA_CHAVE_API" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "gtins": ["7891234567890", "0012345678905"]\n  }'`}
                   responseExample={`{\n  "total_requested": 2,\n  "total_found": 1,\n  "results": [\n    {\n      "gtin": "7891234567890",\n      "found": true,\n      "product": {\n        "gtin": "7891234567890",\n        "gtin_type": "GTIN-13",\n        "brand": "Marca Exemplo",\n        "product_name": "Produto Exemplo 500ml",\n        "owner_tax_id": "00000000000000",\n        "origin_country": "BR",\n        "ncm": "00000000",\n        "cest": "0000000",\n        "gross_weight_value": 0.5,\n        "gross_weight_unit": "kg",\n        "dsit_date": "2025-01-15",\n        "updated_at": "2026-01-16T10:30:00Z",\n        "image_url": "https://example.com/image.jpg"\n      }\n    },\n    {\n      "gtin": "0012345678905",\n      "found": false,\n      "product": null\n    }\n  ]\n}`}
                   statusCodes={[
@@ -324,7 +324,7 @@ export default function DocsPage() {
                 <Card className="p-6">
                   <div className="text-sm font-semibold text-foreground">Batch: limite de GTINs por requisição</div>
                   <p className="text-sm text-muted-foreground mt-2">
-                    O batch tem um limite por plano e um hard limit de 100 itens. No{" "}
+                    O batch tem um limite por plano. No{" "}
                     <code className="bg-muted px-2 py-1 rounded text-xs">GET /v1/gtins/batch</code> o limite é 10.
                   </p>
                   <div className="mt-4">
@@ -524,7 +524,7 @@ export default function DocsPage() {
                 <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
                   <li>
                     Use <code className="bg-muted px-2 py-1 rounded text-xs">POST /batch</code> para lotes maiores (até o
-                    limite do seu plano; hard limit 100).
+                    limite do seu plano).
                   </li>
                   <li>
                     Use <code className="bg-muted px-2 py-1 rounded text-xs">GET /batch</code> (máx. 10) quando quiser
