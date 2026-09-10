@@ -402,11 +402,11 @@ export default function DocsPage() {
                         </TableRow>
                         <TableRow>
                           <TableCell>pro</TableCell>
-                          <TableCell>10.000</TableCell>
+                          <TableCell>12.000</TableCell>
                         </TableRow>
                         <TableRow>
                           <TableCell>advanced</TableCell>
-                          <TableCell>20.000</TableCell>
+                          <TableCell>30.000</TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>

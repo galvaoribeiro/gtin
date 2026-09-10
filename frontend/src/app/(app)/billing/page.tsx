@@ -59,7 +59,7 @@ const PLANS = [
     name: "Pro",
     price: 399.9,
     features: [
-      "10.000 consultas/mês",
+      "12.000 consultas/mês",
       "Batch até 5 GTINs",
       "90 req/min",
       "Gestão de até 10 API Keys",
@@ -70,7 +70,7 @@ const PLANS = [
     name: "Advanced",
     price: 799.9,
     features: [
-      "20.000 consultas/mês",
+      "30.000 consultas/mês",
       "Batch até 10 GTINs",
       "120 req/min",
       "Gestão de até 50 API Keys",

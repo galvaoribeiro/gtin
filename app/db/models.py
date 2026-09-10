@@ -91,8 +91,8 @@ class Organization(Base):
         limits = {
             "basic": 5,
             "starter": 5000,
-            "pro": 10000,
-            "advanced": 20000,
+            "pro": 12000,
+            "advanced": 30000,
             "enterprise": 20000,
         }
         return limits.get(self.plan, 0)

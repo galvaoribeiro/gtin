@@ -569,7 +569,7 @@ export default function LandingPageClient() {
                   <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-primary font-medium">
                       <CheckCircle2 className="w-4 h-4" />
-                      Até 10.000 consultas/mês
+                      Até 12.000 consultas/mês
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -601,7 +601,7 @@ export default function LandingPageClient() {
                   <ul className="space-y-3">
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Até 20.000 consultas/mês
+                      Até 30.000 consultas/mês
                     </li>
                     <li className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="w-4 h-4 text-primary" />
