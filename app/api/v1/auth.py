@@ -41,10 +41,12 @@ router = APIRouter(prefix="/v1/auth", tags=["Auth"])
     responses={
         200: {"description": "Login bem sucedido"},
         401: {"description": "Credenciais inválidas"},
+        429: {"description": "Muitas tentativas de login"},
     }
 )
 def login(
     credentials: UserLogin,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """
@@ -56,10 +58,13 @@ def login(
     Returns:
         Token JWT de acesso
     """
+    _ensure_login_not_locked(request, credentials.email)
+
     # Buscar usuário pelo email
     user = db.query(User).filter(User.email == credentials.email).first()
     
     if not user:
+        _record_login_failure(request, credentials.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou senha incorretos",
@@ -68,6 +73,7 @@ def login(
     
     # Verificar senha
     if not verify_password(credentials.password, user.hashed_password):
+        _record_login_failure(request, credentials.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou senha incorretos",
@@ -76,11 +82,14 @@ def login(
     
     # Verificar se o usuário está ativo
     if not user.is_active:
+        _record_login_failure(request, credentials.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuário desativado",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    _clear_login_failures(request, credentials.email)
     
     # Criar token JWT
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -378,11 +387,82 @@ def reset_password(
 
 
 # =============================================================================
-# Rate limit helpers (forgot-password)
+# Rate limit helpers (login / forgot-password)
 # =============================================================================
 
 _FORGOT_COOLDOWN_SECONDS = 10
 _FORGOT_DAILY_LIMIT = 10
+
+
+def _login_email_key(email: str) -> str:
+    return hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()
+
+
+def _login_lockout_retry_after(request: Request, email: str) -> int:
+    from app.core.rate_limit import redis_rate_limiter, get_client_ip
+
+    ip = get_client_ip(request)
+    email_key = _login_email_key(email)
+    return max(
+        redis_rate_limiter.get_login_lockout_retry_after("ip", ip),
+        redis_rate_limiter.get_login_lockout_retry_after("email", email_key),
+    )
+
+
+def _raise_login_lockout(retry_after: int) -> None:
+    minutes = max(retry_after // 60, 1)
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail=(
+            f"Muitas tentativas de login incorretas. "
+            f"Tente novamente em cerca de {minutes} minuto(s)."
+        ),
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
+def _ensure_login_not_locked(request: Request, email: str) -> None:
+    """Bloqueia login se IP ou e-mail estiver em lockout (fail-open sem Redis)."""
+    try:
+        retry_after = _login_lockout_retry_after(request, email)
+        if retry_after > 0:
+            _raise_login_lockout(retry_after)
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
+
+def _record_login_failure(request: Request, email: str) -> None:
+    """Registra falha consecutiva por IP e e-mail."""
+    try:
+        from app.core.rate_limit import redis_rate_limiter, get_client_ip
+
+        ip = get_client_ip(request)
+        email_key = _login_email_key(email)
+        redis_rate_limiter.record_login_failure_streak("ip", ip)
+        redis_rate_limiter.record_login_failure_streak("email", email_key)
+
+        retry_after = _login_lockout_retry_after(request, email)
+        if retry_after > 0:
+            _raise_login_lockout(retry_after)
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
+
+def _clear_login_failures(request: Request, email: str) -> None:
+    """Zera contadores após login bem-sucedido."""
+    try:
+        from app.core.rate_limit import redis_rate_limiter, get_client_ip
+
+        ip = get_client_ip(request)
+        email_key = _login_email_key(email)
+        redis_rate_limiter.clear_login_failure_streak("ip", ip)
+        redis_rate_limiter.clear_login_failure_streak("email", email_key)
+    except Exception:
+        pass
 
 
 def _apply_forgot_rate_limit(request: Request) -> None:

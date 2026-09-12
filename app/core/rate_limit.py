@@ -48,39 +48,52 @@ SEARCH_COOLDOWNS = {
 PUBLIC_DAILY_LIMIT = 20  # até o final do dia (America/Sao_Paulo)
 PUBLIC_COOLDOWN_SECONDS = 5  # delay entre chamadas para desincentivar scraping
 
+# Login: lockout progressivo por falhas consecutivas (IP ou e-mail)
+LOGIN_FAILURE_THRESHOLD = 10
+LOGIN_LOCKOUT_BASE_SECONDS = 5 * 60  # 1º bloqueio: 5 min; depois 10, 15, 20...
+
 
 # =============================================================================
 # Redis connection singleton
 # =============================================================================
 
 _redis_client: Optional[redis.Redis] = None
+_redis_init_attempted: bool = False
 
 
 def get_redis_client() -> Optional[redis.Redis]:
     """
     Retorna uma conexão Redis singleton.
     Retorna None se Redis não estiver habilitado ou não conseguir conectar.
+    A conexão é tentada apenas uma vez por processo; falhas não são re-tentadas
+    a cada requisição (evita timeouts repetidos quando Redis está offline).
     """
-    global _redis_client
-    
+    global _redis_client, _redis_init_attempted
+
     if not settings.REDIS_ENABLED:
         return None
-    
-    if _redis_client is None:
-        try:
-            _redis_client = redis.from_url(
-                settings.REDIS_URL,
-                decode_responses=True,
-                socket_connect_timeout=2,
-                socket_timeout=2,
-            )
-            # Testar conexão
-            _redis_client.ping()
-            logger.info("Redis conectado com sucesso: %s", settings.REDIS_URL.split("@")[-1])
-        except redis.RedisError as e:
-            logger.warning("Não foi possível conectar ao Redis: %s. Rate limiting desabilitado.", e)
-            _redis_client = None
-    
+
+    if _redis_init_attempted:
+        return _redis_client
+
+    _redis_init_attempted = True
+
+    try:
+        _redis_client = redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+        )
+        _redis_client.ping()
+        logger.info("Redis conectado com sucesso: %s", settings.REDIS_URL.split("@")[-1])
+    except redis.RedisError as e:
+        logger.warning(
+            "Não foi possível conectar ao Redis: %s. Rate limiting desabilitado.",
+            e,
+        )
+        _redis_client = None
+
     return _redis_client
 
 
@@ -270,6 +283,65 @@ class RedisRateLimiter:
         except redis.RedisError as e:
             logger.warning("Redis error em daily_limit: %s", e)
             return True, daily_limit, 0
+
+    def get_login_lockout_retry_after(self, scope: str, identifier: str) -> int:
+        """
+        Retorna segundos restantes de lockout de login para IP ou e-mail.
+        scope: 'ip' ou 'email'
+        """
+        client = get_redis_client()
+        if client is None:
+            return 0
+
+        lock_key = f"rl:login:{scope}:{identifier}:lock"
+        try:
+            ttl = client.ttl(lock_key)
+            if ttl and ttl > 0:
+                return int(ttl)
+        except redis.RedisError as e:
+            logger.warning("Redis error em login lockout check: %s", e)
+        return 0
+
+    def record_login_failure_streak(self, scope: str, identifier: str) -> None:
+        """
+        Incrementa falhas consecutivas de login. Ao atingir o limite,
+        aplica lockout progressivo (15min, 30min, 60min...) e zera o streak.
+        """
+        client = get_redis_client()
+        if client is None:
+            return
+
+        streak_key = f"rl:login:{scope}:{identifier}:streak"
+        lock_key = f"rl:login:{scope}:{identifier}:lock"
+        tier_key = f"rl:login:{scope}:{identifier}:tier"
+
+        try:
+            streak = client.incr(streak_key)
+            if streak < LOGIN_FAILURE_THRESHOLD:
+                return
+
+            tier = int(client.get(tier_key) or 0)
+            duration = LOGIN_LOCKOUT_BASE_SECONDS * (2 ** tier)
+            client.set(lock_key, "1", ex=duration)
+            client.incr(tier_key)
+            client.delete(streak_key)
+        except redis.RedisError as e:
+            logger.warning("Redis error em login failure streak: %s", e)
+
+    def clear_login_failure_streak(self, scope: str, identifier: str) -> None:
+        """Zera falhas consecutivas e nível de escalonamento após login bem-sucedido."""
+        client = get_redis_client()
+        if client is None:
+            return
+
+        prefix = f"rl:login:{scope}:{identifier}"
+        try:
+            client.delete(
+                f"{prefix}:streak",
+                f"{prefix}:tier",
+            )
+        except redis.RedisError as e:
+            logger.warning("Redis error ao limpar login streak: %s", e)
 
 
 # Singleton do rate limiter
