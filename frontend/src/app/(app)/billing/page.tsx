@@ -35,6 +35,8 @@ const PLANS = [
     id: "basic",
     name: "Basic",
     price: 0,
+    monthlyLimit: 5,
+    batchSize: null,
     features: [
       "5 consultas/mês",
       "1 API Key",
@@ -47,6 +49,8 @@ const PLANS = [
     id: "starter",
     name: "Starter",
     price: 199.9,
+    monthlyLimit: 5_000,
+    batchSize: 5,
     features: [
       "5.000 consultas/mês",
       "Batch até 5 GTINs",
@@ -58,6 +62,8 @@ const PLANS = [
     id: "pro",
     name: "Pro",
     price: 399.9,
+    monthlyLimit: 20_000,
+    batchSize: 10,
     features: [
       "20.000 consultas/mês",
       "Batch até 10 GTINs",
@@ -69,6 +75,8 @@ const PLANS = [
     id: "advanced",
     name: "Advanced",
     price: 799.9,
+    monthlyLimit: 100_000,
+    batchSize: 20,
     features: [
       "100.000 consultas/mês",
       "Batch até 20 GTINs",
@@ -336,6 +344,12 @@ export default function BillingPage() {
                             <span className="text-green-500">✓</span>
                             {feature}
                           </li>
+                          {isHighlight && plan.batchSize != null && (
+                            <li className="ml-6 text-xs text-zinc-500 dark:text-zinc-400">
+                              {(plan.monthlyLimit * plan.batchSize).toLocaleString("pt-BR")}{" "}
+                              GTINs com batch
+                            </li>
+                          )}
                           {isHighlight && (
                             <li className="ml-6 text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
                               Limites de API
