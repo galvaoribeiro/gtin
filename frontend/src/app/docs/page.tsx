@@ -325,7 +325,7 @@ export default function DocsPage() {
                   <div className="text-sm font-semibold text-foreground">Batch: limite de GTINs por requisição</div>
                   <p className="text-sm text-muted-foreground mt-2">
                     O batch tem um limite por plano. No{" "}
-                    <code className="bg-muted px-2 py-1 rounded text-xs">GET /v1/gtins/batch</code> o limite é 10.
+                    <code className="bg-muted px-2 py-1 rounded text-xs">GET /v1/gtins/batch</code> o limite é 20.
                   </p>
                   <div className="mt-4">
                     <Table>
@@ -338,15 +338,15 @@ export default function DocsPage() {
                       <TableBody>
                         <TableRow>
                           <TableCell>starter</TableCell>
-                          <TableCell>2</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>pro</TableCell>
                           <TableCell>5</TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell>advanced</TableCell>
+                          <TableCell>pro</TableCell>
                           <TableCell>10</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>advanced</TableCell>
+                          <TableCell>20</TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
@@ -402,11 +402,11 @@ export default function DocsPage() {
                         </TableRow>
                         <TableRow>
                           <TableCell>pro</TableCell>
-                          <TableCell>12.000</TableCell>
+                          <TableCell>20.000</TableCell>
                         </TableRow>
                         <TableRow>
                           <TableCell>advanced</TableCell>
-                          <TableCell>30.000</TableCell>
+                          <TableCell>100.000</TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>

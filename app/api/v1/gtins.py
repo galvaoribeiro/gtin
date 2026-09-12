@@ -266,7 +266,7 @@ def fetch_products_by_gtins(db: Session, gtins: list[str]) -> dict[str, ProductR
     "/batch",
     response_model=BatchResponse,
     summary="Consultar produtos em lote (POST)",
-    description="Consulta múltiplos produtos de uma vez. Limites por plano: starter=2, pro=5, advanced=10 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Requer API key válida. Rate limit por plano (10-120 req/min).",
+    description="Consulta múltiplos produtos de uma vez. Limites por plano: starter=5, pro=10, advanced=20 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Requer API key válida. Rate limit por plano (10-120 req/min).",
     responses={
         200: {"description": "Resultados da consulta em lote"},
         400: {"description": "Requisição inválida"},
@@ -297,7 +297,7 @@ async def get_products_batch(
     "/batch",
     response_model=BatchResponse,
     summary="Consultar produtos em lote (GET)",
-    description="Consulta múltiplos produtos de uma vez via query parameters. Limites por plano: starter=2, pro=5, advanced=10 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Ideal para cacheamento. Requer API key válida. Rate limit por plano (10-120 req/min).",
+    description="Consulta múltiplos produtos de uma vez via query parameters. Limites por plano: starter=5, pro=10, advanced=20 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Ideal para cacheamento. Requer API key válida. Rate limit por plano (10-120 req/min).",
     responses={
         200: {"description": "Resultados da consulta em lote"},
         400: {"description": "Requisição inválida"},
@@ -322,7 +322,7 @@ async def get_products_batch_query(
     Consulta múltiplos produtos por GTIN via GET.
     
     - **gtin**: Parâmetro repetido para cada GTIN (ex: ?gtin=123&gtin=456)
-    - Máximo de 10 GTINs por requisição
+    - Máximo de 20 GTINs por requisição
     
     Rate limit por plano: starter=60, pro=90, advanced=120 req/min.
     
@@ -332,10 +332,10 @@ async def get_products_batch_query(
     Retorna todos os GTINs solicitados, indicando quais foram encontrados.
     """
     # Validar quantidade de GTINs
-    if len(gtins) > 10:
+    if len(gtins) > 20:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Máximo de 10 GTINs permitidos por requisição GET. Use POST /v1/gtins/batch para lotes maiores."
+            detail="Máximo de 20 GTINs permitidos por requisição GET. Use POST /v1/gtins/batch para lotes maiores."
         )
     
     if len(gtins) == 0:

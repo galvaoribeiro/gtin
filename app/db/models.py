@@ -72,9 +72,9 @@ class Organization(Base):
         """Retorna o limite de GTINs por batch de acordo com o plano."""
         limits = {
             "basic": 0,       # batch desabilitado
-            "starter": 2,
-            "pro": 5,
-            "advanced": 10,
+            "starter": 5,
+            "pro": 10,
+            "advanced": 20,
             "enterprise": MAX_BATCH_SIZE,
         }
         return limits.get(self.plan, 0)
@@ -91,8 +91,8 @@ class Organization(Base):
         limits = {
             "basic": 5,
             "starter": 5000,
-            "pro": 12000,
-            "advanced": 30000,
+            "pro": 20000,
+            "advanced": 100000,
             "enterprise": 20000,
         }
         return limits.get(self.plan, 0)
