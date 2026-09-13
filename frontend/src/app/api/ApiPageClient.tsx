@@ -355,7 +355,7 @@ Authorization: Bearer sk_live_...`}
                   Começar integração
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="rounded-full px-8 border-white/20 text-white hover:bg-white/10">
+              <Button asChild variant="outline" className="rounded-full px-8 bg-transparent border-white/50 text-white hover:bg-white/10 hover:text-white">
                 <Link href={DOCS_PAGE_PATH} onClick={() => track("docs_click", { source: "developers" })}>
                   Ver documentação
                 </Link>
