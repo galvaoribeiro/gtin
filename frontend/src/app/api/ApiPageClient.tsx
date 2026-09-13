@@ -157,7 +157,7 @@ Authorization: Bearer sk_live_...`}
           </div>
         </section>
 
-        <section className="px-6 py-20">
+        <section id="como-funciona" className="px-6 py-20">
           <div className="max-w-5xl mx-auto text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-semibold text-primary mb-4">Como funciona</h2>
             <p className="text-muted-foreground">Integração simples em quatro passos</p>
@@ -215,7 +215,7 @@ Authorization: Bearer sk_live_...`}
           </div>
         </section>
 
-        <section className="px-6 py-20">
+        <section id="lote" className="px-6 py-20">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-semibold text-primary mb-4">
@@ -280,7 +280,7 @@ Authorization: Bearer sk_live_...`}
           </div>
         </section>
 
-        <section className="px-6 py-20 bg-primary text-white">
+        <section id="cadastro" className="px-6 py-20 bg-primary text-white">
           <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-semibold mb-4">Use durante o cadastro</h2>
@@ -311,7 +311,7 @@ Authorization: Bearer sk_live_...`}
           </div>
         </section>
 
-        <section className="px-6 py-20 bg-[#0B1120] text-white">
+        <section id="developers" className="px-6 py-20 bg-[#0B1120] text-white">
           <div className="max-w-6xl mx-auto">
             <div className="flex items-center gap-2 mb-4">
               <Code2 className="w-5 h-5 text-emerald-400" />
@@ -368,6 +368,27 @@ Authorization: Bearer sk_live_...`}
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Desenvolvido para software houses e sistemas de gestão.
           </p>
+        </section>
+
+        <section className="px-6 pb-20">
+          <FadeIn>
+            <div className="max-w-5xl mx-auto rounded-2xl border border-primary/20 bg-primary/5 p-8 md:p-10 flex flex-col md:flex-row items-center gap-6 md:gap-10">
+              <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <Building2 className="w-7 h-7" />
+              </div>
+              <div className="flex-1 text-center md:text-left">
+                <h3 className="text-xl font-semibold text-primary mb-1">Lidera um ERP ou software house?</h3>
+                <p className="text-muted-foreground">
+                  Veja o caso de uso completo, o modelo de parceria e os planos pensados para o seu negócio.
+                </p>
+              </div>
+              <Button asChild variant="outline" className="rounded-full px-6 shrink-0">
+                <Link href="/solucao-para-erp" onClick={() => track("erp_page_view", { source: "api_cross_link" })}>
+                  Ver solução para ERPs
+                </Link>
+              </Button>
+            </div>
+          </FadeIn>
         </section>
 
         <MarketingPricing />

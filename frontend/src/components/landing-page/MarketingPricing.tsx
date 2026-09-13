@@ -12,12 +12,14 @@ import { track } from "@/lib/analytics";
 type MarketingPricingProps = {
   title?: string;
   description?: string;
+  showEnterprise?: boolean;
   showEnterpriseVolume?: boolean;
 };
 
 export function MarketingPricing({
   title = "Planos para integração",
   description = "Escolha o volume de consultas conforme o caso de uso do seu sistema.",
+  showEnterprise = true,
   showEnterpriseVolume = false,
 }: MarketingPricingProps) {
   const publicPlans = MARKETING_PLANS.filter((plan) => plan.id !== "enterprise");
@@ -74,26 +76,28 @@ export function MarketingPricing({
           ))}
         </div>
 
-        <FadeIn delay={0.2}>
-          <Card className="mt-8 border-border/60 bg-slate-50">
-            <CardHeader className="md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <CardTitle className="text-xl text-primary">Enterprise</CardTitle>
-                <CardDescription className="text-base mt-2 max-w-2xl">
-                  {MARKETING_PLANS.find((plan) => plan.id === "enterprise")?.usageLabel}
-                </CardDescription>
-              </div>
-              <Button asChild variant="outline" className="rounded-full shrink-0">
-                <a
-                  href={MARKETING_PLANS.find((plan) => plan.id === "enterprise")?.ctaHref}
-                  onClick={() => track("contact_sales_click", { source: "enterprise_plan" })}
-                >
-                  Falar com nossa equipe
-                </a>
-              </Button>
-            </CardHeader>
-          </Card>
-        </FadeIn>
+        {showEnterprise && (
+          <FadeIn delay={0.2}>
+            <Card className="mt-8 border-border/60 bg-slate-50">
+              <CardHeader className="md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-xl text-primary">Enterprise</CardTitle>
+                  <CardDescription className="text-base mt-2 max-w-2xl">
+                    {MARKETING_PLANS.find((plan) => plan.id === "enterprise")?.usageLabel}
+                  </CardDescription>
+                </div>
+                <Button asChild variant="outline" className="rounded-full shrink-0">
+                  <a
+                    href={MARKETING_PLANS.find((plan) => plan.id === "enterprise")?.ctaHref}
+                    onClick={() => track("contact_sales_click", { source: "enterprise_plan" })}
+                  >
+                    Falar com nossa equipe
+                  </a>
+                </Button>
+              </CardHeader>
+            </Card>
+          </FadeIn>
+        )}
 
         {showEnterpriseVolume && (
           <div className="text-center mt-8">

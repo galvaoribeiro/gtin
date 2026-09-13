@@ -221,11 +221,6 @@ export const ERP_FAQ: FaqItem[] = [
     answer:
       "REST + JSON. Gere uma API Key no painel, configure o header de autenticação no seu sistema e chame GET /v1/gtins/{gtin} ou POST /v1/gtins/batch conforme o caso de uso.",
   },
-  {
-    question: "Posso negociar um volume maior?",
-    answer:
-      "Sim. Para volumes acima dos planos padrão ou necessidades específicas, entre em contato para condições Enterprise personalizadas.",
-  },
 ];
 
 export const CODE_SNIPPETS = {
