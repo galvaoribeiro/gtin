@@ -23,6 +23,8 @@ import {
 import { Typewriter } from "@/components/landing-page/components/ui/typewriter";
 import { FadeIn } from "@/components/landing-page/components/ui/fade-in";
 import { LandingNavbar } from "@/components/landing-page/LandingNavbar";
+import { LandingFooter } from "@/components/landing-page/LandingFooter";
+import { DOCS_PAGE_PATH } from "@/lib/marketing/constants";
 
 import { fetchGtinPublic, type Product, ApiError } from "@/lib/api";
 
@@ -526,11 +528,17 @@ export default function LandingPageClient() {
             </h2>
             <p className="text-lg text-white/80 leading-relaxed">
               Autenticação simples via Bearer API Key, respostas em JSON e contratos claros para integração rápida.
-              Ideal para consulta unitária e batch.
+              Ideal para consulta unitária e batch no seu ERP, PDV ou e-commerce.
             </p>
-            <div className="pt-4 flex gap-4">
+            <div className="pt-4 flex flex-col sm:flex-row gap-4">
               <Button asChild className="bg-white text-primary hover:bg-white/90 rounded-full px-8 h-12">
-                <Link href="/docs">Explorar Endpoints</Link>
+                <Link href="/api">Conhecer a API</Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-full px-8 h-12 border-white/30 text-white hover:bg-white/10">
+                <Link href="/solucao-para-erp">Para ERPs</Link>
+              </Button>
+              <Button asChild variant="outline" className="rounded-full px-8 h-12 border-white/30 text-white hover:bg-white/10">
+                <Link href={DOCS_PAGE_PATH}>Documentação</Link>
               </Button>
             </div>
             
@@ -551,7 +559,7 @@ export default function LandingPageClient() {
                 <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
                 <div className="w-3 h-3 rounded-full bg-green-500/80" />
               </div>
-              <div className="text-xs text-white/40">GET /v1/products/{'{gtin}'}</div>
+              <div className="text-xs text-white/40">GET /v1/gtins/{'{gtin}'}</div>
             </div>
             <div className="p-6 overflow-x-auto min-h-75">
               <pre className="text-emerald-400 font-mono text-sm leading-relaxed">
@@ -561,12 +569,13 @@ export default function LandingPageClient() {
                   text={`// Exemplo de resposta
 {
   "gtin": "7894900011517",
-  "description": "REFRIGERANTE COCA COLA 350ML",
+  "product_name": "REFRIGERANTE COCA COLA 350ML",
   "brand": "COCA COLA",
-  "ncm": "2202.10.00",
-  "cest": "03.007.00",
-  "origin": 0,
-  "gross_weight": 0.365
+  "ncm": "22021000",
+  "cest": ["03.007.00"],
+  "origin_country": "BR",
+  "gross_weight_value": 0.365,
+  "gross_weight_unit": "GRM"
 }`} 
                 />
               </pre>
@@ -690,58 +699,7 @@ export default function LandingPageClient() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-primary/5 border-t border-border/50 pt-16 pb-12 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
-            <div className="lg:col-span-2">
-              <div className="flex items-center gap-2 mb-6">
-                <img 
-                  src="/landing/logo.png" 
-                  alt="PESQUISA GTIN" 
-                  className="h-10 w-auto"
-                />
-                <span className="text-xl font-semibold tracking-tight text-primary">PESQUISA GTIN</span>
-              </div>
-              <p className="text-muted-foreground max-w-sm mb-6">
-                Consulta de código de barras em conformidade com a LGPD. 
-                A plataforma segura para dados cadastrais e fiscais de produtos.
-              </p>
-              <div className="flex gap-4">
-                <div className="w-10 h-10 rounded-full bg-white border border-border/50 flex items-center justify-center text-primary/60 hover:text-primary cursor-pointer transition-colors">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" /></svg>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-primary mb-6">Produto</h4>
-              <ul className="space-y-4 text-sm text-muted-foreground">
-                <li><Link href="#features" className="hover:text-primary">Funcionalidades</Link></li>
-                <li><Link href="#api" className="hover:text-primary">API</Link></li>
-                <li><Link href="#pricing" className="hover:text-primary">Preços</Link></li>
-                <li><Link href="/bulk" className="hover:text-primary">Consulta em massa</Link></li>
-                <li><Link href="/sobre" className="hover:text-primary">Sobre</Link></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-primary mb-6">Suporte</h4>
-              <ul className="space-y-4 text-sm text-muted-foreground">
-                <li><Link href="/docs" className="hover:text-primary">Para desenvolvedores</Link></li>
-                <li><a href="mailto:contato@pesquisagtin.com.br?subject=Contato%20Pesquisa%20GTIN" className="hover:text-primary">Fale Conosco</a></li>
-                <li><Link href="/termos-de-uso" className="hover:text-primary">Termos de Uso</Link></li>
-                <li><Link href="/politica-de-privacidade" className="hover:text-primary">Privacidade</Link></li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="border-t border-border/50 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-            <p>&copy; 2025 PESQUISA GTIN. Todos os direitos reservados.</p>
-            <p>Feito com dedicação no Brasil.</p>
-          </div>
-        </div>
-      </footer>
+      <LandingFooter />
     </div>
   );
 }

@@ -134,13 +134,6 @@ def get_api_key_auth(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Bloquear uso por plano basic
-    if organization.plan == "basic":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seu plano não permite uso de API key. Faça upgrade para Starter ou superior."
-        )
-    
     # Atualizar last_used_at no máx. 1x por dia
     now = datetime.utcnow()
     should_update_last_used = (
