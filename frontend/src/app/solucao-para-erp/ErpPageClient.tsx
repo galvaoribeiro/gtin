@@ -138,7 +138,7 @@ export default function ErpPageClient() {
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button asChild className="rounded-full px-8">
                     <Link href="/register" onClick={() => track("api_test_click", { source: "erp_hero" })}>
-                      Testar a API gratuitamente
+                      Testar com meu catálogo
                     </Link>
                   </Button>
                 </div>
