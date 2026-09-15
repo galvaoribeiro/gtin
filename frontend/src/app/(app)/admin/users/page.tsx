@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { TablePagination } from "@/components/ui/table-pagination";
 import {
   Card,
   CardContent,
@@ -28,6 +29,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+const PLANS = ["basic", "starter", "pro", "advanced", "enterprise"] as const;
+
+const filterSelectClass =
+  "h-9 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-white";
+
+function parsePositiveInt(value: string): number | undefined {
+  const n = Number(value.trim());
+  return value.trim() && Number.isInteger(n) && n > 0 ? n : undefined;
+}
+
 export default function AdminUsersPage() {
   const { user, startImpersonation } = useAuth();
   const router = useRouter();
@@ -36,6 +47,13 @@ export default function AdminUsersPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [idFilter, setIdFilter] = useState("");
+  const [orgIdFilter, setOrgIdFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [planFilter, setPlanFilter] = useState("");
+  const [createdFrom, setCreatedFrom] = useState("");
+  const [createdTo, setCreatedTo] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,13 +63,24 @@ export default function AdminUsersPage() {
   const [editPassword, setEditPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const perPage = 20;
+  const [perPage, setPerPage] = useState(20);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await adminListUsers({ page, per_page: perPage, q: search || undefined });
+      const data = await adminListUsers({
+        page,
+        per_page: perPage,
+        q: search.trim() || undefined,
+        user_id: parsePositiveInt(idFilter),
+        organization_id: parsePositiveInt(orgIdFilter),
+        role: roleFilter || undefined,
+        is_active: statusFilter === "" ? undefined : statusFilter === "true",
+        plan: planFilter || undefined,
+        created_from: createdFrom || undefined,
+        created_to: createdTo || undefined,
+      });
       setUsers(data.items);
       setTotal(data.total);
     } catch (err) {
@@ -62,7 +91,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, router]);
+  }, [page, perPage, search, idFilter, orgIdFilter, roleFilter, statusFilter, planFilter, createdFrom, createdTo, router]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -70,12 +99,29 @@ export default function AdminUsersPage() {
     return null;
   }
 
-  const totalPages = Math.ceil(total / perPage);
+  const hasFilters = Boolean(
+    search.trim() ||
+    idFilter.trim() ||
+    orgIdFilter.trim() ||
+    roleFilter ||
+    statusFilter ||
+    planFilter ||
+    createdFrom ||
+    createdTo
+  );
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const resetPage = () => setPage(1);
+
+  const clearFilters = () => {
+    setSearch("");
+    setIdFilter("");
+    setOrgIdFilter("");
+    setRoleFilter("");
+    setStatusFilter("");
+    setPlanFilter("");
+    setCreatedFrom("");
+    setCreatedTo("");
     setPage(1);
-    load();
   };
 
   const openEdit = (u: AdminUserItem) => {
@@ -124,15 +170,144 @@ export default function AdminUsersPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSearch} className="flex gap-2 max-w-md">
-        <Input
-          placeholder="Buscar por email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1"
-        />
-        <Button type="submit" variant="secondary">Buscar</Button>
-      </form>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-52 flex-1">
+          <label htmlFor="user-search" className="mb-1 block text-xs font-medium text-zinc-500">
+            Email ou organização
+          </label>
+          <Input
+            id="user-search"
+            placeholder="Buscar por email ou nome da org..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              resetPage();
+            }}
+          />
+        </div>
+        <div className="w-24">
+          <label htmlFor="user-id-filter" className="mb-1 block text-xs font-medium text-zinc-500">
+            ID
+          </label>
+          <Input
+            id="user-id-filter"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            placeholder="Ex.: 12"
+            value={idFilter}
+            onChange={(e) => {
+              setIdFilter(e.target.value);
+              resetPage();
+            }}
+          />
+        </div>
+        <div className="w-28">
+          <label htmlFor="user-org-id-filter" className="mb-1 block text-xs font-medium text-zinc-500">
+            Org. ID
+          </label>
+          <Input
+            id="user-org-id-filter"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            placeholder="Ex.: 42"
+            value={orgIdFilter}
+            onChange={(e) => {
+              setOrgIdFilter(e.target.value);
+              resetPage();
+            }}
+          />
+        </div>
+        <div className="w-32">
+          <label htmlFor="user-role-filter" className="mb-1 block text-xs font-medium text-zinc-500">
+            Papel
+          </label>
+          <select
+            id="user-role-filter"
+            className={filterSelectClass}
+            value={roleFilter}
+            onChange={(e) => {
+              setRoleFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="">Todos</option>
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div className="w-32">
+          <label htmlFor="user-status-filter" className="mb-1 block text-xs font-medium text-zinc-500">
+            Status
+          </label>
+          <select
+            id="user-status-filter"
+            className={filterSelectClass}
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="">Todos</option>
+            <option value="true">Ativo</option>
+            <option value="false">Inativo</option>
+          </select>
+        </div>
+        <div className="w-40">
+          <label htmlFor="user-plan-filter" className="mb-1 block text-xs font-medium text-zinc-500">
+            Plano da org
+          </label>
+          <select
+            id="user-plan-filter"
+            className={filterSelectClass}
+            value={planFilter}
+            onChange={(e) => {
+              setPlanFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="">Todos</option>
+            {PLANS.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </div>
+        <div className="w-40">
+          <label htmlFor="user-created-from" className="mb-1 block text-xs font-medium text-zinc-500">
+            Criado de
+          </label>
+          <Input
+            id="user-created-from"
+            type="date"
+            value={createdFrom}
+            onChange={(e) => {
+              setCreatedFrom(e.target.value);
+              resetPage();
+            }}
+          />
+        </div>
+        <div className="w-40">
+          <label htmlFor="user-created-to" className="mb-1 block text-xs font-medium text-zinc-500">
+            Criado até
+          </label>
+          <Input
+            id="user-created-to"
+            type="date"
+            value={createdTo}
+            onChange={(e) => {
+              setCreatedTo(e.target.value);
+              resetPage();
+            }}
+          />
+        </div>
+        {hasFilters && (
+          <Button type="button" variant="outline" onClick={clearFilters}>
+            Limpar
+          </Button>
+        )}
+      </div>
 
       {error && (
         <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
@@ -148,7 +323,9 @@ export default function AdminUsersPage() {
         <Card>
           <CardHeader>
             <CardTitle>Lista de Usuários</CardTitle>
-            <CardDescription>Página {page} de {totalPages || 1}</CardDescription>
+            <CardDescription>
+              {total === 1 ? "1 resultado" : `${total} resultados`}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -213,29 +390,14 @@ export default function AdminUsersPage() {
               </table>
             </div>
 
-            {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Anterior
-                </Button>
-                <span className="text-sm text-zinc-500">
-                  Página {page} de {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Próxima
-                </Button>
-              </div>
-            )}
+            <TablePagination
+              page={page}
+              perPage={perPage}
+              total={total}
+              onPageChange={setPage}
+              onPerPageChange={setPerPage}
+              itemLabel={{ singular: "usuário", plural: "usuários" }}
+            />
           </CardContent>
         </Card>
       )}

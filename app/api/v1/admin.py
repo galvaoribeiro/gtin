@@ -5,11 +5,12 @@ Permite listar/editar usuários e organizações e executar impersonação.
 Todos os endpoints exigem role=admin.
 """
 
-from datetime import timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import require_admin_user
 from app.core.config import settings
@@ -71,18 +72,48 @@ def list_users(
     page: int = 1,
     per_page: int = 20,
     q: Optional[str] = None,
+    user_id: Optional[int] = None,
     organization_id: Optional[int] = None,
+    role: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    plan: Optional[str] = None,
+    created_from: Optional[date] = None,
+    created_to: Optional[date] = None,
     admin: User = Depends(require_admin_user),
     db: Session = Depends(get_db),
 ):
     page = max(page, 1)
     per_page = min(max(per_page, 1), 200)
 
-    query = db.query(User)
-    if q:
-        query = query.filter(User.email.ilike(f"%{q.strip()}%"))
+    query = (
+        db.query(User)
+        .options(joinedload(User.organization))
+        .join(Organization, User.organization_id == Organization.id)
+    )
+
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        query = query.filter(or_(User.email.ilike(term), Organization.name.ilike(term)))
+    if user_id is not None:
+        query = query.filter(User.id == user_id)
     if organization_id is not None:
         query = query.filter(User.organization_id == organization_id)
+    if role:
+        role_norm = role.strip().lower()
+        if role_norm not in ("user", "admin"):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="role inválida (user/admin)")
+        query = query.filter(User.role == role_norm)
+    if is_active is not None:
+        query = query.filter(User.is_active == is_active)
+    if plan:
+        plan_norm = plan.strip().lower()
+        if plan_norm not in ALL_PLANS:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Plano inválido")
+        query = query.filter(Organization.plan == plan_norm)
+    if created_from is not None:
+        query = query.filter(User.created_at >= datetime.combine(created_from, time.min))
+    if created_to is not None:
+        query = query.filter(User.created_at < datetime.combine(created_to + timedelta(days=1), time.min))
 
     total = query.count()
     rows = (
@@ -106,9 +137,24 @@ def list_users(
     ]
 
     ip, ua = _request_meta(request)
-    _audit(db, actor_id=admin.id, action="users.list",
-           payload={"page": page, "q": q, "organization_id": organization_id},
-           ip=ip, user_agent=ua)
+    _audit(
+        db,
+        actor_id=admin.id,
+        action="users.list",
+        payload={
+            "page": page,
+            "q": q,
+            "user_id": user_id,
+            "organization_id": organization_id,
+            "role": role,
+            "is_active": is_active,
+            "plan": plan,
+            "created_from": created_from.isoformat() if created_from else None,
+            "created_to": created_to.isoformat() if created_to else None,
+        },
+        ip=ip,
+        user_agent=ua,
+    )
     db.commit()
 
     return AdminUsersPage(items=items, page=page, per_page=per_page, total=total)

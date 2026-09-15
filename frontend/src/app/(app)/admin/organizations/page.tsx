@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { TablePagination } from "@/components/ui/table-pagination";
 import {
   Card,
   CardContent,
@@ -72,7 +73,7 @@ export default function AdminOrganizationsPage() {
   const [enterpriseBatchOverride, setEnterpriseBatchOverride] = useState("");
   const [enterpriseMonthlyOverride, setEnterpriseMonthlyOverride] = useState("");
 
-  const perPage = 20;
+  const [perPage, setPerPage] = useState(20);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,13 +97,11 @@ export default function AdminOrganizationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, planFilter, idFilter, router]);
+  }, [page, perPage, search, planFilter, idFilter, router]);
 
   useEffect(() => { load(); }, [load]);
 
   if (user?.role !== "admin") return null;
-
-  const totalPages = Math.ceil(total / perPage);
 
   const hasFilters = Boolean(search || planFilter || idFilter.trim());
 
@@ -305,7 +304,9 @@ export default function AdminOrganizationsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Lista de Organizações</CardTitle>
-            <CardDescription>Página {page} de {totalPages || 1}</CardDescription>
+            <CardDescription>
+              {total === 1 ? "1 resultado" : `${total} resultados`}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -389,29 +390,14 @@ export default function AdminOrganizationsPage() {
               </table>
             </div>
 
-            {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Anterior
-                </Button>
-                <span className="text-sm text-zinc-500">
-                  Página {page} de {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Próxima
-                </Button>
-              </div>
-            )}
+            <TablePagination
+              page={page}
+              perPage={perPage}
+              total={total}
+              onPageChange={setPage}
+              onPerPageChange={setPerPage}
+              itemLabel={{ singular: "organização", plural: "organizações" }}
+            />
           </CardContent>
         </Card>
       )}

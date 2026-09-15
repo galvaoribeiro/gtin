@@ -1564,12 +1564,29 @@ async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json();
 }
 
-export function adminListUsers(params?: { page?: number; per_page?: number; q?: string; organization_id?: number }) {
+export function adminListUsers(params?: {
+  page?: number;
+  per_page?: number;
+  q?: string;
+  user_id?: number;
+  organization_id?: number;
+  role?: string;
+  is_active?: boolean;
+  plan?: string;
+  created_from?: string;
+  created_to?: string;
+}) {
   const sp = new URLSearchParams();
   if (params?.page) sp.set("page", String(params.page));
   if (params?.per_page) sp.set("per_page", String(params.per_page));
   if (params?.q) sp.set("q", params.q);
-  if (params?.organization_id) sp.set("organization_id", String(params.organization_id));
+  if (params?.user_id != null) sp.set("user_id", String(params.user_id));
+  if (params?.organization_id != null) sp.set("organization_id", String(params.organization_id));
+  if (params?.role) sp.set("role", params.role);
+  if (params?.is_active != null) sp.set("is_active", String(params.is_active));
+  if (params?.plan) sp.set("plan", params.plan);
+  if (params?.created_from) sp.set("created_from", params.created_from);
+  if (params?.created_to) sp.set("created_to", params.created_to);
   const qs = sp.toString();
   return adminFetch<AdminUsersPage>(`/v1/admin/users${qs ? `?${qs}` : ""}`);
 }
