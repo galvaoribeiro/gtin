@@ -1509,6 +1509,8 @@ export interface AdminUserItem {
   email: string;
   organization_id: number;
   organization_name: string | null;
+  plan: string | null;
+  subscription_status: string | null;
   role: string;
   is_active: boolean;
   created_at: string;
@@ -1573,6 +1575,7 @@ export function adminListUsers(params?: {
   role?: string;
   is_active?: boolean;
   plan?: string;
+  subscription_status?: string;
   created_from?: string;
   created_to?: string;
 }) {
@@ -1585,6 +1588,7 @@ export function adminListUsers(params?: {
   if (params?.role) sp.set("role", params.role);
   if (params?.is_active != null) sp.set("is_active", String(params.is_active));
   if (params?.plan) sp.set("plan", params.plan);
+  if (params?.subscription_status) sp.set("subscription_status", params.subscription_status);
   if (params?.created_from) sp.set("created_from", params.created_from);
   if (params?.created_to) sp.set("created_to", params.created_to);
   const qs = sp.toString();

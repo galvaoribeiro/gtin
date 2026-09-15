@@ -18,6 +18,8 @@ class AdminUserItem(BaseModel):
     email: EmailStr
     organization_id: int
     organization_name: Optional[str] = None
+    plan: Optional[str] = None
+    subscription_status: Optional[str] = None
     role: str
     is_active: bool
     created_at: datetime

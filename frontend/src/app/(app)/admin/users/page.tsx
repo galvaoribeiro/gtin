@@ -39,6 +39,46 @@ function parsePositiveInt(value: string): number | undefined {
   return value.trim() && Number.isInteger(n) && n > 0 ? n : undefined;
 }
 
+function subscriptionLabel(status: string | null | undefined): string {
+  switch (status) {
+    case "active":
+      return "Ativa";
+    case "trialing":
+      return "Trial";
+    case "canceled":
+    case "cancelled":
+      return "Cancelada";
+    case "past_due":
+      return "Vencida";
+    case "unpaid":
+      return "Não paga";
+    case "incomplete":
+      return "Incompleta";
+    default:
+      return status || "—";
+  }
+}
+
+function SubscriptionBadge({ status }: { status: string | null | undefined }) {
+  if (!status) {
+    return <span className="text-zinc-400">—</span>;
+  }
+  if (status === "active" || status === "trialing") {
+    return <Badge variant="default">{subscriptionLabel(status)}</Badge>;
+  }
+  if (status === "canceled" || status === "cancelled") {
+    return <Badge variant="destructive">Cancelada</Badge>;
+  }
+  if (status === "past_due" || status === "unpaid") {
+    return (
+      <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+        {subscriptionLabel(status)}
+      </Badge>
+    );
+  }
+  return <Badge variant="secondary">{subscriptionLabel(status)}</Badge>;
+}
+
 export default function AdminUsersPage() {
   const { user, startImpersonation } = useAuth();
   const router = useRouter();
@@ -52,6 +92,7 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [planFilter, setPlanFilter] = useState("");
+  const [subscriptionFilter, setSubscriptionFilter] = useState("");
   const [createdFrom, setCreatedFrom] = useState("");
   const [createdTo, setCreatedTo] = useState("");
   const [loading, setLoading] = useState(true);
@@ -78,6 +119,7 @@ export default function AdminUsersPage() {
         role: roleFilter || undefined,
         is_active: statusFilter === "" ? undefined : statusFilter === "true",
         plan: planFilter || undefined,
+        subscription_status: subscriptionFilter || undefined,
         created_from: createdFrom || undefined,
         created_to: createdTo || undefined,
       });
@@ -91,7 +133,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, search, idFilter, orgIdFilter, roleFilter, statusFilter, planFilter, createdFrom, createdTo, router]);
+  }, [page, perPage, search, idFilter, orgIdFilter, roleFilter, statusFilter, planFilter, subscriptionFilter, createdFrom, createdTo, router]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -106,6 +148,7 @@ export default function AdminUsersPage() {
     roleFilter ||
     statusFilter ||
     planFilter ||
+    subscriptionFilter ||
     createdFrom ||
     createdTo
   );
@@ -119,6 +162,7 @@ export default function AdminUsersPage() {
     setRoleFilter("");
     setStatusFilter("");
     setPlanFilter("");
+    setSubscriptionFilter("");
     setCreatedFrom("");
     setCreatedTo("");
     setPage(1);
@@ -274,6 +318,27 @@ export default function AdminUsersPage() {
             ))}
           </select>
         </div>
+        <div className="w-44">
+          <label htmlFor="user-subscription-filter" className="mb-1 block text-xs font-medium text-zinc-500">
+            Assinatura
+          </label>
+          <select
+            id="user-subscription-filter"
+            className={filterSelectClass}
+            value={subscriptionFilter}
+            onChange={(e) => {
+              setSubscriptionFilter(e.target.value);
+              resetPage();
+            }}
+          >
+            <option value="">Todas</option>
+            <option value="active">Ativa</option>
+            <option value="canceled">Cancelada</option>
+            <option value="past_due">Vencida</option>
+            <option value="trialing">Trial</option>
+            <option value="none">Sem assinatura</option>
+          </select>
+        </div>
         <div className="w-40">
           <label htmlFor="user-created-from" className="mb-1 block text-xs font-medium text-zinc-500">
             Criado de
@@ -335,6 +400,8 @@ export default function AdminUsersPage() {
                     <th className="pb-2 pr-4">ID</th>
                     <th className="pb-2 pr-4">Email</th>
                     <th className="pb-2 pr-4">Organização</th>
+                    <th className="pb-2 pr-4">Plano</th>
+                    <th className="pb-2 pr-4">Assinatura</th>
                     <th className="pb-2 pr-4">Role</th>
                     <th className="pb-2 pr-4">Status</th>
                     <th className="pb-2 pr-4">Criado em</th>
@@ -347,6 +414,16 @@ export default function AdminUsersPage() {
                       <td className="py-3 pr-4 font-mono text-xs">{u.id}</td>
                       <td className="py-3 pr-4">{u.email}</td>
                       <td className="py-3 pr-4 text-zinc-500">{u.organization_name ?? `#${u.organization_id}`}</td>
+                      <td className="py-3 pr-4">
+                        {u.plan ? (
+                          <Badge variant="secondary">{u.plan}</Badge>
+                        ) : (
+                          <span className="text-zinc-400">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <SubscriptionBadge status={u.subscription_status} />
+                      </td>
                       <td className="py-3 pr-4">
                         {u.role === "admin" ? (
                           <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">admin</Badge>
@@ -381,7 +458,7 @@ export default function AdminUsersPage() {
                   ))}
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-zinc-400">
+                      <td colSpan={9} className="py-8 text-center text-zinc-400">
                         Nenhum usuário encontrado
                       </td>
                     </tr>

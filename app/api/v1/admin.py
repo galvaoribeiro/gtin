@@ -32,6 +32,31 @@ from app.services.stripe_service import StripeService
 
 router = APIRouter(prefix="/v1/admin", tags=["Admin"])
 
+USER_SUBSCRIPTION_STATUS_FILTERS = {
+    "active",
+    "canceled",
+    "past_due",
+    "unpaid",
+    "trialing",
+    "incomplete",
+    "none",
+}
+
+
+def _user_item(user: User) -> AdminUserItem:
+    org = user.organization
+    return AdminUserItem(
+        id=user.id,
+        email=user.email,
+        organization_id=user.organization_id,
+        organization_name=org.name if org else None,
+        plan=org.plan if org else None,
+        subscription_status=org.subscription_status if org else None,
+        role=getattr(user, "role", "user") or "user",
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
+
 
 def _request_meta(request: Request) -> tuple[Optional[str], Optional[str]]:
     ip = request.client.host if request.client else None
@@ -77,6 +102,7 @@ def list_users(
     role: Optional[str] = None,
     is_active: Optional[bool] = None,
     plan: Optional[str] = None,
+    subscription_status: Optional[str] = None,
     created_from: Optional[date] = None,
     created_to: Optional[date] = None,
     admin: User = Depends(require_admin_user),
@@ -110,6 +136,19 @@ def list_users(
         if plan_norm not in ALL_PLANS:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Plano inválido")
         query = query.filter(Organization.plan == plan_norm)
+    if subscription_status:
+        status_norm = subscription_status.strip().lower()
+        if status_norm not in USER_SUBSCRIPTION_STATUS_FILTERS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="status de assinatura inválido",
+            )
+        if status_norm == "none":
+            query = query.filter(Organization.subscription_status.is_(None))
+        elif status_norm == "canceled":
+            query = query.filter(Organization.subscription_status.in_(("canceled", "cancelled")))
+        else:
+            query = query.filter(Organization.subscription_status == status_norm)
     if created_from is not None:
         query = query.filter(User.created_at >= datetime.combine(created_from, time.min))
     if created_to is not None:
@@ -123,18 +162,7 @@ def list_users(
         .all()
     )
 
-    items = [
-        AdminUserItem(
-            id=u.id,
-            email=u.email,
-            organization_id=u.organization_id,
-            organization_name=u.organization.name if u.organization else None,
-            role=getattr(u, "role", "user") or "user",
-            is_active=u.is_active,
-            created_at=u.created_at,
-        )
-        for u in rows
-    ]
+    items = [_user_item(u) for u in rows]
 
     ip, ua = _request_meta(request)
     _audit(
@@ -149,6 +177,7 @@ def list_users(
             "role": role,
             "is_active": is_active,
             "plan": plan,
+            "subscription_status": subscription_status,
             "created_from": created_from.isoformat() if created_from else None,
             "created_to": created_to.isoformat() if created_to else None,
         },
@@ -198,15 +227,7 @@ def update_user(
     db.commit()
     db.refresh(user)
 
-    return AdminUserItem(
-        id=user.id,
-        email=user.email,
-        organization_id=user.organization_id,
-        organization_name=user.organization.name if user.organization else None,
-        role=getattr(user, "role", "user") or "user",
-        is_active=user.is_active,
-        created_at=user.created_at,
-    )
+    return _user_item(user)
 
 
 @router.post("/users/{user_id}/impersonate", response_model=Token)
