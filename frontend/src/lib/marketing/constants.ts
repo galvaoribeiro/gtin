@@ -79,7 +79,7 @@ export const MARKETING_PLANS: MarketingPlan[] = [
   {
     id: "advanced",
     name: "Advanced",
-    priceLabel: "R$ 799,90/mês",
+    priceLabel: "R$ 899,90/mês",
     usageLabel: "Indicado para ERPs e plataformas com maior volume de consultas.",
     features: [
       "100.000 consultas/mês",

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/landing-page/components/ui/dialog";
 import { 
@@ -534,10 +534,10 @@ export default function LandingPageClient() {
               <Button asChild className="bg-white text-primary hover:bg-white/90 rounded-full px-8 h-12">
                 <Link href="/api">Conhecer a API</Link>
               </Button>
-              <Button asChild variant="outline" className="rounded-full px-8 h-12 border-white/30 text-white hover:bg-white/10">
+              <Button asChild className="rounded-full px-8 h-12 bg-transparent border border-white/30 text-white shadow-none hover:bg-white/10 hover:text-white">
                 <Link href="/solucao-para-erp">Para ERPs</Link>
               </Button>
-              <Button asChild variant="outline" className="rounded-full px-8 h-12 border-white/30 text-white hover:bg-white/10">
+              <Button asChild className="rounded-full px-8 h-12 bg-transparent border border-white/30 text-white shadow-none hover:bg-white/10 hover:text-white">
                 <Link href={DOCS_PAGE_PATH}>Documentação</Link>
               </Button>
             </div>
@@ -581,121 +581,6 @@ export default function LandingPageClient() {
               </pre>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section id="pricing" className="py-24 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16 max-w-2xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-semibold text-primary mb-4">Planos e Limites</h2>
-            <p className="text-lg text-muted-foreground">
-              Para cada uso.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Starter */}
-            <FadeIn delay={0.1}>
-              <Card className="border-border/50 shadow-sm hover:shadow-md transition-all h-full">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-semibold text-primary">Starter</CardTitle>
-                  <CardDescription className="text-base">Para pequenos projetos</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="text-3xl font-bold text-primary">R$ 199,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
-                  <ul className="space-y-3">
-                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Até 5.000 consultas/mês
-                    </li>
-                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Acesso ao Painel completo
-                    </li>
-                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Histórico de consultas
-                    </li>
-                  </ul>
-                  <Link href="/register">
-                    <Button className="w-full rounded-full bg-primary/10 text-primary hover:bg-primary/20 shadow-none border-0">
-                      Assinar Starter
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </FadeIn>
-
-            {/* Pro */}
-            <FadeIn delay={0.2} className="relative z-10">
-              <Card className="border-primary shadow-lg scale-105 relative bg-white h-full">
-                <div className="absolute top-0 right-0 -mt-3 mr-4 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-                  Popular
-                </div>
-                <CardHeader>
-                  <CardTitle className="text-2xl font-semibold text-primary">Pro</CardTitle>
-                  <CardDescription className="text-base">Para crescimento</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="text-3xl font-bold text-primary">R$ 399,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
-                  <ul className="space-y-3">
-                    <li className="flex items-center gap-2 text-sm text-primary font-medium">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Até 20.000 consultas/mês
-                    </li>
-                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Prioridade no processamento
-                    </li>
-                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Consultas em lote
-                    </li>
-                  </ul>
-                  <Link href="/register">
-                    <Button className="w-full rounded-full bg-primary hover:bg-primary/90 text-white">
-                      Assinar Pro
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </FadeIn>
-
-            {/* Advanced */}
-            <FadeIn delay={0.3}>
-              <Card className="border-border/50 shadow-sm hover:shadow-md transition-all bg-slate-50 h-full">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-semibold text-primary">Advanced</CardTitle>
-                  <CardDescription className="text-base">Para grandes volumes</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="text-3xl font-bold text-primary">R$ 799,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
-                  <ul className="space-y-3">
-                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Até 100.000 consultas/mês
-                    </li>
-                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Suporte prioritário
-                    </li>
-                    <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                      Múltiplos usuários na conta
-                    </li>
-                  </ul>
-                  <Link href="/register">
-                    <Button variant="outline" className="w-full rounded-full border-primary/20 text-primary hover:bg-primary/5">
-                      Assinar Advanced
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </FadeIn>
-          </div>
-          
-          
         </div>
       </section>
 

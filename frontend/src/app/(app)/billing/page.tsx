@@ -74,7 +74,7 @@ const PLANS = [
   {
     id: "advanced",
     name: "Advanced",
-    price: 799.9,
+    price: 899.9,
     monthlyLimit: 100_000,
     batchSize: 20,
     features: [
