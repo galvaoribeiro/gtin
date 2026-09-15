@@ -1033,11 +1033,20 @@ export interface UsageSummaryResponse {
 /**
  * Interface para resposta de série diária
  */
+export interface ApiKeySeries {
+  api_key_id: number;
+  api_key_name: string | null;
+  total_success: number;
+  total_error: number;
+  series: DailyUsage[];
+}
+
 export interface DailySeriesResponse {
   start_date: string;
   end_date: string;
   total_days: number;
   series: DailyUsage[];
+  by_api_key?: ApiKeySeries[];
 }
 
 /**
@@ -1057,11 +1066,21 @@ export interface ApiKeyDailySeriesResponse {
 /**
  * Obtém resumo de uso agregado
  * 
- * @param days - Número de dias para o período (padrão: 7)
+ * @param days - Número de dias para o período (padrão: 7). Ignorado se startDate for informado.
+ * @param startDate - Data inicial YYYY-MM-DD (opcional)
+ * @param endDate - Data final YYYY-MM-DD (opcional)
  * @returns Resumo de uso agregado
  */
-export async function getUsageSummary(days: number = 7): Promise<UsageSummaryResponse> {
-  const url = `${API_BASE_URL}/v1/metrics/summary?days=${days}`;
+export async function getUsageSummary(
+  days: number = 7,
+  startDate?: string,
+  endDate?: string
+): Promise<UsageSummaryResponse> {
+  const params = new URLSearchParams();
+  if (startDate) params.append("start_date", startDate);
+  if (endDate) params.append("end_date", endDate);
+  if (!startDate) params.append("days", String(days));
+  const url = `${API_BASE_URL}/v1/metrics/summary?${params.toString()}`;
 
   try {
     const response = await fetch(url, {

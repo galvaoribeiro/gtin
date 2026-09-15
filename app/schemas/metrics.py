@@ -38,12 +38,25 @@ class UsageSummaryResponse(BaseModel):
     by_api_key: list[ApiKeyUsageSummary] = Field(default_factory=list, description="Resumo por API key")
 
 
+class ApiKeySeries(BaseModel):
+    """Série diária de uma API key dentro de um período."""
+    api_key_id: int = Field(..., description="ID da API key")
+    api_key_name: Optional[str] = Field(None, description="Nome da API key")
+    total_success: int = Field(..., description="Total de sucesso no período")
+    total_error: int = Field(..., description="Total de erro no período")
+    series: list[DailyUsage] = Field(default_factory=list, description="Série diária de uso")
+
+
 class DailySeriesResponse(BaseModel):
     """Resposta com série diária de uso."""
     start_date: date = Field(..., description="Data inicial do período")
     end_date: date = Field(..., description="Data final do período")
     total_days: int = Field(..., description="Número de dias no período")
     series: list[DailyUsage] = Field(default_factory=list, description="Série diária de uso")
+    by_api_key: list[ApiKeySeries] = Field(
+        default_factory=list,
+        description="Série diária por API key no mesmo período",
+    )
 
 
 class ApiKeyDailySeriesResponse(BaseModel):

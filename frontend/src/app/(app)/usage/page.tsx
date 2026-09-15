@@ -1,7 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
 import {
   Card,
   CardContent,
@@ -9,7 +20,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -18,174 +28,285 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-
+import { TablePagination } from "@/components/ui/table-pagination";
+import { PeriodToolbar } from "@/components/usage/period-toolbar";
+import { useAuth } from "@/lib/auth-context";
 import {
   getUsageSummary,
   getUsageDaily,
-  getCurrentUser,
   ApiError,
   type UsageSummaryResponse,
   type DailySeriesResponse,
-  type UserData,
 } from "@/lib/api";
+import {
+  formatChartTick,
+  formatCompactCount,
+  formatCount,
+  formatFullDate,
+  getPeriodForPreset,
+  parseISODate,
+  type UsagePeriod,
+} from "@/lib/usage-period";
+import { cn } from "@/lib/utils";
+
+type GroupBy = "total" | "status" | "api_key";
+
+const KEY_COLORS = [
+  "#2dd4bf",
+  "#93c5fd",
+  "#3b82f6",
+  "#c4b5fd",
+  "#86efac",
+  "#67e8f9",
+  "#f9a8d4",
+  "#fcd34d",
+];
+
+const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
+  { id: "api_key", label: "Chave de acesso" },
+  { id: "status", label: "Status" },
+  { id: "total", label: "Total" },
+];
+
+function keySeriesId(apiKeyId: number) {
+  return `key_${apiKeyId}`;
+}
+
+function UsageChartTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{
+    name?: string;
+    value?: number;
+    color?: string;
+    payload?: { date?: string };
+  }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const date = payload[0]?.payload?.date;
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm shadow-md dark:border-zinc-700 dark:bg-zinc-900">
+      {date ? (
+        <p className="mb-1.5 font-medium text-zinc-900 dark:text-zinc-100">
+          {formatFullDate(date)}
+        </p>
+      ) : null}
+      <div className="space-y-1">
+        {[...payload].reverse().map((item) => (
+          <div
+            key={item.name}
+            className="flex items-center justify-between gap-6"
+          >
+            <span className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+              <span
+                className="size-2.5 rounded-sm"
+                style={{ backgroundColor: item.color }}
+              />
+              {item.name}
+            </span>
+            <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+              {formatCount(item.value ?? 0)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function UsagePage() {
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<UsageSummaryResponse | null>(null);
   const [dailySeries, setDailySeries] = useState<DailySeriesResponse | null>(null);
-  const [user, setUser] = useState<UserData | null>(null);
+  const [period, setPeriod] = useState<UsagePeriod>(() => getPeriodForPreset("7d"));
+  const [groupBy, setGroupBy] = useState<GroupBy>("api_key");
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePerPage, setTablePerPage] = useState(10);
+  const { user } = useAuth();
   const router = useRouter();
-  
-  // Refs para evitar chamadas duplicadas e cleanup
-  const isLoadingRef = useRef(false);
+
   const isMountedRef = useRef(true);
+  const requestIdRef = useRef(0);
+  const hasDataRef = useRef(false);
 
   useEffect(() => {
-    // Marcar como montado
     isMountedRef.current = true;
-    
-    loadData();
-    
-    // Cleanup: marcar como desmontado
     return () => {
       isMountedRef.current = false;
     };
   }, []);
 
-  const loadData = async () => {
-    // Evitar chamadas duplicadas
-    if (isLoadingRef.current) {
-      return;
-    }
-    
-    isLoadingRef.current = true;
-    
-    try {
-      setLoading(true);
-      setError(null);
+  const loadData = useCallback(
+    async (startDate: string, endDate: string) => {
+      const requestId = ++requestIdRef.current;
+      const isFirstLoad = !hasDataRef.current;
 
-      // Carregar resumo (30 dias), série diária e usuário em paralelo
-      const [summaryData, dailyData, userData] = await Promise.all([
-        getUsageSummary(30),
-        getUsageDaily(), // Últimos 30 dias por default
-        getCurrentUser(),
-      ]);
+      try {
+        if (isFirstLoad) {
+          setLoading(true);
+        } else {
+          setRefreshing(true);
+        }
+        setError(null);
 
-      // Só atualizar estado se ainda estiver montado
-      if (isMountedRef.current) {
+        const [summaryData, dailyData] = await Promise.all([
+          getUsageSummary(7, startDate, endDate),
+          getUsageDaily(startDate, endDate),
+        ]);
+
+        if (!isMountedRef.current || requestId !== requestIdRef.current) return;
+
         setSummary(summaryData);
         setDailySeries(dailyData);
-        setUser(userData);
-      }
-    } catch (err) {
-      console.error("Erro ao carregar dados de uso:", err);
-      
-      // Só atualizar estado se ainda estiver montado
-      if (!isMountedRef.current) return;
-      
-      if (err instanceof ApiError) {
-        if (err.status === 401) {
-          router.push("/login");
-          return;
-        }
-        setError(err.detail || err.message);
-      } else if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Erro ao carregar dados de uso");
-      }
-    } finally {
-      isLoadingRef.current = false;
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
-    }
-  };
+        hasDataRef.current = true;
+      } catch (err) {
+        console.error("Erro ao carregar dados de uso:", err);
+        if (!isMountedRef.current || requestId !== requestIdRef.current) return;
 
-  // O limite vem do backend para refletir qualquer plano, inclusive os negociados.
+        if (err instanceof ApiError) {
+          if (err.status === 401) {
+            router.push("/login");
+            return;
+          }
+          setError(err.detail || err.message);
+        } else if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Erro ao carregar dados de uso");
+        }
+      } finally {
+        if (isMountedRef.current && requestId === requestIdRef.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    void loadData(period.start, period.end);
+    setTablePage(1);
+  }, [loadData, period.start, period.end]);
+
   const monthlyLimit = user?.monthly_limit ?? 0;
 
-  // Calcular estatísticas do mês (usando série diária carregada)
-  const getMonthStats = () => {
-    if (!dailySeries || dailySeries.series.length === 0) {
-      return {
-        total: 0,
-        totalForLimits: 0, // Apenas sucessos para limites
-        average: 0,
-        peak: 0,
-        peakDate: null as string | null,
-      };
+  const totals = useMemo(() => {
+    if (!dailySeries) {
+      return { total: 0, success: 0, error: 0, peak: 0, peakDate: null as string | null };
     }
 
-    const series = dailySeries.series;
-    let total = 0; // Total para exibição (sucessos + erros)
-    let totalForLimits = 0; // Total para limites (apenas sucessos)
+    let total = 0;
+    let success = 0;
+    let error = 0;
     let peak = 0;
     let peakDate: string | null = null;
 
-    for (const day of series) {
-      // Total para exibição: sucessos + erros
+    for (const day of dailySeries.series) {
       const dayTotal = day.success_count + day.error_count;
       total += dayTotal;
-      
-      // Total para limites: apenas sucessos (usando total_count que vem do backend)
-      totalForLimits += day.total_count;
-      
+      success += day.success_count;
+      error += day.error_count;
       if (dayTotal > peak) {
         peak = dayTotal;
         peakDate = day.date;
       }
     }
 
-    const average = series.length > 0 ? Math.round(total / series.length) : 0;
+    return { total, success, error, peak, peakDate };
+  }, [dailySeries]);
 
-    return { total, totalForLimits, average, peak, peakDate };
-  };
+  const apiKeySeries = dailySeries?.by_api_key ?? [];
+  const effectiveGroupBy: GroupBy =
+    groupBy === "api_key" && apiKeySeries.length === 0 ? "total" : groupBy;
 
-  // Formatar série para o gráfico (últimos 14 dias)
-  const getChartData = () => {
+  const chartSeries = useMemo(() => {
+    if (effectiveGroupBy === "status") {
+      return [
+        { key: "sucesso", label: "Sucesso", color: "#2dd4bf" },
+        { key: "erro", label: "Erro", color: "#93c5fd" },
+      ];
+    }
+    if (effectiveGroupBy === "api_key") {
+      return apiKeySeries.map((item, index) => ({
+        key: keySeriesId(item.api_key_id),
+        label: item.api_key_name || `Chave #${item.api_key_id}`,
+        color: KEY_COLORS[index % KEY_COLORS.length],
+      }));
+    }
+    return [{ key: "total", label: "Consultas", color: "#2dd4bf" }];
+  }, [apiKeySeries, effectiveGroupBy]);
+
+  const chartData = useMemo(() => {
     if (!dailySeries) return [];
-    
-    // Pegar os últimos 14 dias
-    const last14 = dailySeries.series.slice(-14);
-    
-    return last14.map((item) => ({
-      dia: new Date(item.date + "T12:00:00").toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-      }),
-      consultas: item.success_count + item.error_count, // Total para exibição
-      sucesso: item.success_count,
-      erro: item.error_count,
-    }));
-  };
 
-  const monthStats = getMonthStats();
-  const chartData = getChartData();
+    const days = dailySeries.series;
+    if (effectiveGroupBy === "status") {
+      let successAcc = 0;
+      let errorAcc = 0;
+      return days.map((day) => {
+        successAcc += day.success_count;
+        errorAcc += day.error_count;
+        return {
+          date: day.date,
+          sucesso: successAcc,
+          erro: errorAcc,
+        };
+      });
+    }
 
-  // Para limites, usar apenas sucessos (totalForLimits)
-  const monthlyUsage = monthStats.totalForLimits;
-  const monthlyPercent = monthlyLimit
-    ? Math.min(100, Math.round((monthlyUsage / monthlyLimit) * 100))
-    : 0;
+    if (effectiveGroupBy === "api_key") {
+      const running: Record<string, number> = {};
+      for (const item of apiKeySeries) {
+        running[keySeriesId(item.api_key_id)] = 0;
+      }
+      return days.map((day, index) => {
+        const point: Record<string, string | number> = { date: day.date };
+        for (const item of apiKeySeries) {
+          const key = keySeriesId(item.api_key_id);
+          const dayUsage = item.series[index];
+          running[key] +=
+            (dayUsage?.success_count ?? 0) + (dayUsage?.error_count ?? 0);
+          point[key] = running[key];
+        }
+        return point;
+      });
+    }
+
+    let totalAcc = 0;
+    return days.map((day) => {
+      totalAcc += day.success_count + day.error_count;
+      return { date: day.date, total: totalAcc };
+    });
+  }, [apiKeySeries, dailySeries, effectiveGroupBy]);
+
+  const historyRows = useMemo(() => {
+    if (!dailySeries) return [];
+    return [...dailySeries.series]
+      .filter((day) => day.success_count + day.error_count > 0)
+      .reverse();
+  }, [dailySeries]);
+
+  const historyTotal = historyRows.length;
+  const historyPageRows = historyRows.slice(
+    (tablePage - 1) * tablePerPage,
+    tablePage * tablePerPage
+  );
+
+  const monthlyPercent =
+    monthlyLimit && period.preset === "mtd"
+      ? Math.min(100, Math.round((totals.success / monthlyLimit) * 100))
+      : null;
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
-            Uso
-          </h1>
+          <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">Uso</h1>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">
             Acompanhe suas consultas e o consumo do plano
           </p>
@@ -197,13 +318,11 @@ export default function UsagePage() {
     );
   }
 
-  if (error) {
+  if (error && !summary && !dailySeries) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
-            Uso
-          </h1>
+          <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">Uso</h1>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">
             Acompanhe suas consultas e o consumo do plano
           </p>
@@ -225,274 +344,269 @@ export default function UsagePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
-          Uso
-        </h1>
+        <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">Uso</h1>
         <p className="mt-1 text-zinc-600 dark:text-zinc-400">
           Acompanhe suas consultas e o consumo do plano
         </p>
       </div>
 
-      {/* Cards de Resumo */}
-      <div className="grid gap-4 md:grid-cols-5">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Últimos 30 Dias</CardDescription>
-            <CardTitle className="text-2xl">
-              {monthStats.total.toLocaleString()}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              consultas realizadas
-            </p>
+      <PeriodToolbar
+        period={period}
+        onChange={setPeriod}
+        disabled={refreshing}
+      />
+
+      {error ? (
+        <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
+          <CardContent className="pt-0">
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
           </CardContent>
         </Card>
+      ) : null}
+
+      <div
+        className={cn(
+          "space-y-6 transition-opacity",
+          refreshing && "pointer-events-none opacity-60"
+        )}
+      >
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Card className="gap-2 py-5">
+            <CardHeader className="pb-0">
+              <CardDescription>Total de consultas</CardDescription>
+              <CardTitle className="text-3xl font-semibold tracking-tight">
+                {formatCompactCount(totals.total)}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card className="gap-2 py-5">
+            <CardHeader className="pb-0">
+              <CardDescription>Com sucesso</CardDescription>
+              <CardTitle className="text-3xl font-semibold tracking-tight">
+                {formatCompactCount(totals.success)}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card className="gap-2 py-5">
+            <CardHeader className="pb-0">
+              <CardDescription>Com erro</CardDescription>
+              <CardTitle className="text-3xl font-semibold tracking-tight">
+                {formatCompactCount(totals.error)}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+
+        {monthlyLimit > 0 ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Limite do plano: {formatCount(monthlyLimit)} consultas / mês
+            {monthlyPercent != null ? ` · ${monthlyPercent}% usado neste mês` : null}
+            {totals.peakDate
+              ? ` · Pico de ${formatCount(totals.peak)} em ${parseISODate(
+                  totals.peakDate
+                ).toLocaleDateString("pt-BR")}`
+              : null}
+          </p>
+        ) : null}
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Média Diária (30d)</CardDescription>
-            <CardTitle className="text-2xl">
-              {monthStats.average.toLocaleString()}
-            </CardTitle>
+          <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1.5">
+              <CardTitle>Histórico de uso</CardTitle>
+              <CardDescription>
+                Uso acumulado por dia no período selecionado
+              </CardDescription>
+            </div>
+            <label className="flex shrink-0 items-center gap-2 text-sm text-zinc-500">
+              Agrupar por
+              <select
+                value={groupBy}
+                onChange={(event) => setGroupBy(event.target.value as GroupBy)}
+                className="h-8 rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
+              >
+                {GROUP_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              consultas/dia
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Pico do Período</CardDescription>
-            <CardTitle className="text-2xl">
-              {monthStats.peak.toLocaleString()}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              {monthStats.peakDate
-                ? `em ${new Date(monthStats.peakDate + "T12:00:00").toLocaleDateString("pt-BR")}`
-                : "—"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Limite do Plano</CardDescription>
-            <CardTitle className="text-2xl">
-              {monthlyLimit
-                ? `${monthlyLimit.toLocaleString()} / mês`
-                : "—"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Aplicado mensalmente por organização.
-            </p>
-            {monthlyLimit ? (
-              <div className="mt-2 flex items-center gap-2">
-                <div className="h-2 w-24 rounded-full bg-zinc-200 dark:bg-zinc-700">
-                  <div
-                    className="h-2 rounded-full bg-zinc-900 dark:bg-white"
-                    style={{ width: `${monthlyPercent}%` }}
-                  />
-                </div>
-                <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                  {monthlyPercent}% usado (30d)
-                </span>
+            {chartData.length === 0 ? (
+              <div className="flex h-80 items-center justify-center">
+                <p className="text-zinc-500">Nenhum dado de uso encontrado</p>
               </div>
-            ) : null}
+            ) : (
+              <div className="h-80 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={chartData}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-zinc-200 dark:stroke-zinc-800"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(value: string) =>
+                        formatChartTick(value, chartData.length)
+                      }
+                      minTickGap={24}
+                      tick={{ fill: "currentColor", fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tickFormatter={(value: number) => formatCompactCount(value)}
+                      tick={{ fill: "currentColor", fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={52}
+                      domain={[0, "auto"]}
+                    />
+                    <Tooltip content={<UsageChartTooltip />} />
+                    <Legend
+                      verticalAlign="bottom"
+                      iconType="square"
+                      iconSize={10}
+                      formatter={(value) => (
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                          {value}
+                        </span>
+                      )}
+                    />
+                    {chartSeries.map((item) => (
+                      <Area
+                        key={item.key}
+                        type="linear"
+                        dataKey={item.key}
+                        name={item.label}
+                        stackId="usage"
+                        stroke={item.color}
+                        fill={item.color}
+                        fillOpacity={0.55}
+                        strokeWidth={1.5}
+                        dot={chartData.length <= 2}
+                      />
+                    ))}
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Taxa de Sucesso</CardDescription>
-            <CardTitle className="text-2xl">
-              <Badge variant="default" className="text-lg">
-                {summary && (summary.total_success + summary.total_error) > 0
-                  ? `${Math.round((summary.total_success / (summary.total_success + summary.total_error)) * 100)}%`
-                  : "—"}
-              </Badge>
-            </CardTitle>
+          <CardHeader>
+            <CardTitle>Uso por chave de acesso</CardTitle>
+            <CardDescription>
+              Distribuição das consultas no período selecionado
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              {summary
-                ? `${summary.total_success.toLocaleString()} sucesso / ${summary.total_error.toLocaleString()} erro`
-                : "—"}
-            </p>
+            {!summary || summary.by_api_key.length === 0 ? (
+              <p className="py-4 text-center text-zinc-500">
+                Nenhuma chave de acesso com uso registrado
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {summary.by_api_key.map((apiKey) => {
+                  const apiKeyTotal = apiKey.total_success + apiKey.total_error;
+                  const summaryTotal = summary.total_success + summary.total_error;
+                  const percentage =
+                    summaryTotal > 0
+                      ? Math.round((apiKeyTotal / summaryTotal) * 100)
+                      : 0;
+                  return (
+                    <div key={apiKey.api_key_id} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">
+                          {apiKey.api_key_name || `Chave #${apiKey.api_key_id}`}
+                        </span>
+                        <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                          {formatCount(apiKeyTotal)} ({percentage}%)
+                        </span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-zinc-200 dark:bg-zinc-700">
+                        <div
+                          className="h-2 rounded-full bg-zinc-900 dark:bg-white"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-zinc-500">
+                        <span>Sucesso: {formatCount(apiKey.total_success)}</span>
+                        <span>Erro: {formatCount(apiKey.total_error)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Histórico detalhado</CardTitle>
+            <CardDescription>
+              Consumo diário no período selecionado
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {historyRows.length === 0 ? (
+              <p className="py-4 text-center text-zinc-500">
+                Nenhum dado de uso encontrado
+              </p>
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Consultas</TableHead>
+                      <TableHead>Sucesso</TableHead>
+                      <TableHead>Erro</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {historyPageRows.map((day) => {
+                      const dayTotal = day.success_count + day.error_count;
+                      return (
+                        <TableRow key={day.date}>
+                          <TableCell>
+                            {parseISODate(day.date).toLocaleDateString("pt-BR")}
+                          </TableCell>
+                          <TableCell>{formatCount(dayTotal)}</TableCell>
+                          <TableCell className="text-emerald-600 dark:text-emerald-400">
+                            {formatCount(day.success_count)}
+                          </TableCell>
+                          <TableCell className="text-red-600 dark:text-red-400">
+                            {formatCount(day.error_count)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={tablePage}
+                  perPage={tablePerPage}
+                  total={historyTotal}
+                  onPageChange={setTablePage}
+                  onPerPageChange={(value) => {
+                    setTablePerPage(value);
+                    setTablePage(1);
+                  }}
+                  itemLabel={{ singular: "dia", plural: "dias" }}
+                />
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Gráfico de Uso */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Histórico de Uso (14 dias)</CardTitle>
-          <CardDescription>
-            Quantidade de consultas realizadas por dia
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {chartData.length === 0 ? (
-            <div className="flex h-[300px] items-center justify-center">
-              <p className="text-zinc-500">Nenhum dado de uso encontrado</p>
-            </div>
-          ) : (
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-700" />
-                  <XAxis
-                    dataKey="dia"
-                    className="text-xs"
-                    tick={{ fill: "currentColor" }}
-                  />
-                  <YAxis
-                    className="text-xs"
-                    tick={{ fill: "currentColor" }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--background)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
-                    }}
-                    formatter={(value?: number, name?: string) => {
-                      const labels: Record<string, string> = {
-                        consultas: "Total",
-                        sucesso: "Sucesso",
-                        erro: "Erro",
-                      };
-                    
-                      const formattedValue =
-                        typeof value === "number" ? value.toLocaleString() : "";
-                    
-                      const label = name ? labels[name] ?? name : "";
-                    
-                      return [formattedValue, label];
-                    }}
-                    
-                  />
-                  <Bar
-                    dataKey="consultas"
-                    fill="#18181b"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Uso por Chave de Acesso */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Uso por Chave de Acesso</CardTitle>
-          <CardDescription>
-            Distribuição das consultas por chave de acesso (últimos 30 dias)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!summary || summary.by_api_key.length === 0 ? (
-            <p className="py-4 text-center text-zinc-500">
-              Nenhuma chave de acesso com uso registrado
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {summary.by_api_key.map((apiKey) => {
-                // Total para exibição: sucessos + erros
-                const apiKeyTotal = apiKey.total_success + apiKey.total_error;
-                const summaryTotal = summary.total_success + summary.total_error;
-                const percentage = summaryTotal > 0
-                  ? Math.round((apiKeyTotal / summaryTotal) * 100)
-                  : 0;
-                return (
-                  <div key={apiKey.api_key_id} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
-                        {apiKey.api_key_name || `Chave #${apiKey.api_key_id}`}
-                      </span>
-                      <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                        {apiKeyTotal.toLocaleString()} ({percentage}%)
-                      </span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-zinc-200 dark:bg-zinc-700">
-                      <div
-                        className="h-2 rounded-full bg-zinc-900 dark:bg-white"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs text-zinc-500">
-                      <span>Sucesso: {apiKey.total_success.toLocaleString()}</span>
-                      <span>Erro: {apiKey.total_error.toLocaleString()}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Tabela de Histórico */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Histórico Detalhado</CardTitle>
-          <CardDescription>
-            Consumo diário dos últimos 30 dias
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!dailySeries || dailySeries.series.length === 0 ? (
-            <p className="py-4 text-center text-zinc-500">
-              Nenhum dado de uso encontrado
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Consultas</TableHead>
-                  <TableHead>Sucesso</TableHead>
-                  <TableHead>Erro</TableHead>
-                  <TableHead>Limite</TableHead>
-                  <TableHead>Uso</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {/* Mostrar em ordem decrescente (mais recente primeiro) */}
-                {[...dailySeries.series].reverse().map((day) => {
-                  const dayTotal = day.success_count + day.error_count; // Total para exibição
-                  return (
-                    <TableRow key={day.date}>
-                      <TableCell>
-                        {new Date(day.date + "T12:00:00").toLocaleDateString("pt-BR")}
-                      </TableCell>
-                      <TableCell>{dayTotal.toLocaleString()}</TableCell>
-                      <TableCell className="text-green-600 dark:text-green-400">
-                        {day.success_count.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-red-600 dark:text-red-400">
-                        {day.error_count.toLocaleString()}
-                      </TableCell>
-                      <TableCell>—</TableCell>
-                      <TableCell>
-                        <span className="text-sm text-zinc-500">—</span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
