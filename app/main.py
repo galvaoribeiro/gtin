@@ -23,6 +23,38 @@ from app.api.v1.admin import router as admin_router
 from app.core.config import settings
 
 
+def _backfill_cancel_at_period_end() -> None:
+    """Sincroniza cancel_at_period_end das orgs que já têm assinatura no Stripe."""
+    from app.db.models import Organization
+    from app.services.stripe_service import StripeService
+
+    db = SessionLocal()
+    try:
+        orgs = (
+            db.query(Organization)
+            .filter(Organization.stripe_subscription_id.isnot(None))
+            .all()
+        )
+        updated = 0
+        for org in orgs:
+            try:
+                subscription = StripeService.get_subscription(org.stripe_subscription_id)
+            except Exception as exc:
+                print(f"[MIGRATION] Falha ao consultar Stripe da org {org.id}: {exc}")
+                continue
+            flag = bool(subscription.get("cancel_at_period_end")) if subscription else False
+            if org.cancel_at_period_end != flag:
+                org.cancel_at_period_end = flag
+                updated += 1
+        db.commit()
+        print(f"[MIGRATION] Backfill cancel_at_period_end: {updated} organização(ões) atualizada(s).")
+    except Exception as exc:
+        db.rollback()
+        print(f"[MIGRATION] Backfill cancel_at_period_end falhou: {exc}")
+    finally:
+        db.close()
+
+
 def run_migrations():
     """
     Executa migrações pendentes.
@@ -398,6 +430,23 @@ def run_migrations():
                 print("[MIGRATION] Campos de preço Enterprise customizado adicionados.")
             else:
                 print("[MIGRATION] Campos de preço Enterprise customizado ja existem.")
+
+            # Migração 14: Cancelamento agendado (cancel_at_period_end)
+            result = conn.execute(text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'organizations' AND column_name = 'cancel_at_period_end'
+            """))
+            if not result.fetchone():
+                print("[MIGRATION] Adicionando coluna cancel_at_period_end em organizations...")
+                conn.execute(text(
+                    "ALTER TABLE organizations ADD COLUMN cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE"
+                ))
+                conn.commit()
+                print("[MIGRATION] Coluna cancel_at_period_end adicionada.")
+                _backfill_cancel_at_period_end()
+            else:
+                print("[MIGRATION] Coluna cancel_at_period_end ja existe.")
 
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")

@@ -20,6 +20,7 @@ class AdminUserItem(BaseModel):
     organization_name: Optional[str] = None
     plan: Optional[str] = None
     subscription_status: Optional[str] = None
+    cancel_at_period_end: bool = False
     role: str
     is_active: bool
     created_at: datetime
@@ -56,6 +57,7 @@ class AdminOrganizationItem(BaseModel):
     stripe_customer_id: Optional[str] = None
     stripe_subscription_id: Optional[str] = None
     subscription_status: Optional[str] = None
+    cancel_at_period_end: bool = False
     current_period_end: Optional[datetime] = None
     default_payment_method: Optional[str] = None
     enterprise_price_id: Optional[str] = None

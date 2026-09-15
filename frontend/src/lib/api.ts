@@ -1530,6 +1530,7 @@ export interface AdminUserItem {
   organization_name: string | null;
   plan: string | null;
   subscription_status: string | null;
+  cancel_at_period_end: boolean;
   role: string;
   is_active: boolean;
   created_at: string;
@@ -1552,6 +1553,7 @@ export interface AdminOrganizationItem {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   subscription_status: string | null;
+  cancel_at_period_end: boolean;
   current_period_end: string | null;
   default_payment_method: string | null;
   enterprise_price_id: string | null;

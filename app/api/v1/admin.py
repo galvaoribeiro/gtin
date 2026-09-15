@@ -40,6 +40,7 @@ USER_SUBSCRIPTION_STATUS_FILTERS = {
     "trialing",
     "incomplete",
     "none",
+    "cancel_at_period_end",
 }
 
 
@@ -52,6 +53,7 @@ def _user_item(user: User) -> AdminUserItem:
         organization_name=org.name if org else None,
         plan=org.plan if org else None,
         subscription_status=org.subscription_status if org else None,
+        cancel_at_period_end=bool(getattr(org, "cancel_at_period_end", False)) if org else False,
         role=getattr(user, "role", "user") or "user",
         is_active=user.is_active,
         created_at=user.created_at,
@@ -147,6 +149,8 @@ def list_users(
             query = query.filter(Organization.subscription_status.is_(None))
         elif status_norm == "canceled":
             query = query.filter(Organization.subscription_status.in_(("canceled", "cancelled")))
+        elif status_norm == "cancel_at_period_end":
+            query = query.filter(Organization.cancel_at_period_end.is_(True))
         else:
             query = query.filter(Organization.subscription_status == status_norm)
     if created_from is not None:

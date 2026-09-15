@@ -685,6 +685,7 @@ class StripeService:
             "current_period_end": datetime.fromtimestamp(current_period_end) if current_period_end else None,
             "plan": plan_name,
             "default_payment_method": default_pm,
+            "cancel_at_period_end": bool(subscription.get("cancel_at_period_end")),
             "metadata": dict(subscription.get("metadata", {}) or {}),
             "price_id": price_id,
             "price_unit_amount": price_unit_amount,

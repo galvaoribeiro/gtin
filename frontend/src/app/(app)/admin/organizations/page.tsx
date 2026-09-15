@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TablePagination } from "@/components/ui/table-pagination";
+import { SubscriptionStatusBadges } from "@/components/admin/subscription-status";
 import {
   Card,
   CardContent,
@@ -338,13 +339,10 @@ export default function AdminOrganizationsPage() {
                         {o.stripe_customer_id ?? "—"}
                       </td>
                       <td className="py-3 pr-4">
-                        {o.subscription_status ? (
-                          <Badge variant={o.subscription_status === "active" ? "default" : "destructive"}>
-                            {o.subscription_status}
-                          </Badge>
-                        ) : (
-                          <span className="text-zinc-400">—</span>
-                        )}
+                        <SubscriptionStatusBadges
+                          status={o.subscription_status}
+                          cancelAtPeriodEnd={o.cancel_at_period_end}
+                        />
                       </td>
                       <td className="py-3 pr-4 text-zinc-500 text-xs">
                         {new Date(o.created_at).toLocaleDateString("pt-BR")}

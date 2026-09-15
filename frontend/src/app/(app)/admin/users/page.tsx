@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TablePagination } from "@/components/ui/table-pagination";
+import { SubscriptionStatusBadges } from "@/components/admin/subscription-status";
 import {
   Card,
   CardContent,
@@ -37,46 +38,6 @@ const filterSelectClass =
 function parsePositiveInt(value: string): number | undefined {
   const n = Number(value.trim());
   return value.trim() && Number.isInteger(n) && n > 0 ? n : undefined;
-}
-
-function subscriptionLabel(status: string | null | undefined): string {
-  switch (status) {
-    case "active":
-      return "Ativa";
-    case "trialing":
-      return "Trial";
-    case "canceled":
-    case "cancelled":
-      return "Cancelada";
-    case "past_due":
-      return "Vencida";
-    case "unpaid":
-      return "Não paga";
-    case "incomplete":
-      return "Incompleta";
-    default:
-      return status || "—";
-  }
-}
-
-function SubscriptionBadge({ status }: { status: string | null | undefined }) {
-  if (!status) {
-    return <span className="text-zinc-400">—</span>;
-  }
-  if (status === "active" || status === "trialing") {
-    return <Badge variant="default">{subscriptionLabel(status)}</Badge>;
-  }
-  if (status === "canceled" || status === "cancelled") {
-    return <Badge variant="destructive">Cancelada</Badge>;
-  }
-  if (status === "past_due" || status === "unpaid") {
-    return (
-      <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-        {subscriptionLabel(status)}
-      </Badge>
-    );
-  }
-  return <Badge variant="secondary">{subscriptionLabel(status)}</Badge>;
 }
 
 export default function AdminUsersPage() {
@@ -333,6 +294,7 @@ export default function AdminUsersPage() {
           >
             <option value="">Todas</option>
             <option value="active">Ativa</option>
+            <option value="cancel_at_period_end">Cancelamento agendado</option>
             <option value="canceled">Cancelada</option>
             <option value="past_due">Vencida</option>
             <option value="trialing">Trial</option>
@@ -422,7 +384,10 @@ export default function AdminUsersPage() {
                         )}
                       </td>
                       <td className="py-3 pr-4">
-                        <SubscriptionBadge status={u.subscription_status} />
+                        <SubscriptionStatusBadges
+                          status={u.subscription_status}
+                          cancelAtPeriodEnd={u.cancel_at_period_end}
+                        />
                       </td>
                       <td className="py-3 pr-4">
                         {u.role === "admin" ? (

@@ -55,6 +55,7 @@ class Organization(Base):
     subscription_status = Column(String(50), nullable=True, comment="Status da subscription: active, past_due, canceled, etc")
     current_period_end = Column(DateTime, nullable=True, comment="Data de término do período atual de cobrança")
     default_payment_method = Column(String(255), nullable=True, comment="ID do método de pagamento padrão")
+    cancel_at_period_end = Column(Boolean, nullable=False, default=False, comment="Se a assinatura será cancelada ao fim do período atual")
 
     # Preço Enterprise negociado (Price dedicado, customizado por organização)
     enterprise_price_id = Column(String(255), nullable=True, comment="ID do Price Enterprise dedicado desta organização no Stripe")

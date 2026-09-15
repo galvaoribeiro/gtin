@@ -50,6 +50,22 @@ def _parse_override_metadata(value: Optional[str]) -> Optional[int]:
     return parsed if parsed >= 0 else None
 
 
+def _sync_cancel_at_period_end(org: Organization, db: Session) -> bool:
+    """Lê cancel_at_period_end no Stripe e grava na organização se mudou."""
+    if not org.stripe_subscription_id:
+        if org.cancel_at_period_end:
+            org.cancel_at_period_end = False
+            db.commit()
+        return False
+
+    subscription = StripeService.get_subscription(org.stripe_subscription_id)
+    flag = bool(subscription.get("cancel_at_period_end")) if subscription else False
+    if org.cancel_at_period_end != flag:
+        org.cancel_at_period_end = flag
+        db.commit()
+    return flag
+
+
 def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> None:
     """
     Sincroniza a organização com os dados de uma subscription do Stripe.
@@ -61,6 +77,7 @@ def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> No
     org.subscription_status = subscription_data["subscription_status"]
     org.current_period_end = subscription_data["current_period_end"]
     org.default_payment_method = subscription_data["default_payment_method"]
+    org.cancel_at_period_end = bool(subscription_data.get("cancel_at_period_end"))
 
     plan = subscription_data["plan"]
     if plan:
@@ -179,12 +196,7 @@ def get_subscription(
     if not org:
         raise HTTPException(status_code=404, detail="Organização não encontrada")
     
-    # Se tem subscription ativa no Stripe, buscar detalhes
-    cancel_at_period_end = False
-    if org.stripe_subscription_id:
-        subscription = StripeService.get_subscription(org.stripe_subscription_id)
-        if subscription:
-            cancel_at_period_end = subscription.cancel_at_period_end
+    cancel_at_period_end = _sync_cancel_at_period_end(org, db)
     
     return SubscriptionResponse(
         plan=org.plan,
@@ -209,12 +221,7 @@ def get_billing_data(
     if not org:
         raise HTTPException(status_code=404, detail="Organização não encontrada")
     
-    # Subscription
-    cancel_at_period_end = False
-    if org.stripe_subscription_id:
-        subscription = StripeService.get_subscription(org.stripe_subscription_id)
-        if subscription:
-            cancel_at_period_end = subscription.cancel_at_period_end
+    cancel_at_period_end = _sync_cancel_at_period_end(org, db)
     
     subscription_data = SubscriptionResponse(
         plan=org.plan,
@@ -409,6 +416,7 @@ def switch_plan(
                 StripeService.cancel_subscription(org.stripe_subscription_id)
                 org.plan = "basic"
                 org.subscription_status = "canceled"
+                org.cancel_at_period_end = False
                 db.commit()
                 return SwitchPlanResponse(message="Plano alterado para Basic. Subscription cancelada.")
             except Exception as e:
@@ -519,6 +527,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         if org:
             org.plan = "basic"
             org.subscription_status = "canceled"
+            org.cancel_at_period_end = False
             org.stripe_subscription_id = None
             # Subscription encerrada ao fim do período → remover overrides manuais
             # e o preço Enterprise negociado (se havia)
