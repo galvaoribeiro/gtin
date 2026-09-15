@@ -1587,7 +1587,7 @@ async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json();
 }
 
-export function adminListUsers(params?: {
+export type AdminUserListParams = {
   page?: number;
   per_page?: number;
   q?: string;
@@ -1599,7 +1599,9 @@ export function adminListUsers(params?: {
   subscription_status?: string;
   created_from?: string;
   created_to?: string;
-}) {
+};
+
+function buildAdminUserQuery(params?: AdminUserListParams): string {
   const sp = new URLSearchParams();
   if (params?.page) sp.set("page", String(params.page));
   if (params?.per_page) sp.set("per_page", String(params.per_page));
@@ -1613,7 +1615,52 @@ export function adminListUsers(params?: {
   if (params?.created_from) sp.set("created_from", params.created_from);
   if (params?.created_to) sp.set("created_to", params.created_to);
   const qs = sp.toString();
-  return adminFetch<AdminUsersPage>(`/v1/admin/users${qs ? `?${qs}` : ""}`);
+  return qs ? `?${qs}` : "";
+}
+
+export function adminListUsers(params?: AdminUserListParams) {
+  return adminFetch<AdminUsersPage>(`/v1/admin/users${buildAdminUserQuery(params)}`);
+}
+
+function filenameFromContentDisposition(header: string | null, fallback: string): string {
+  if (!header) return fallback;
+  const utf8 = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8?.[1]) return decodeURIComponent(utf8[1]);
+  const ascii = header.match(/filename="?([^";]+)"?/i);
+  return ascii?.[1]?.trim() || fallback;
+}
+
+export async function adminExportUsers(params?: Omit<AdminUserListParams, "page" | "per_page">): Promise<void> {
+  const url = `${API_BASE_URL}/v1/admin/users/export${buildAdminUserQuery(params)}`;
+  const response = await fetch(url, { headers: getJwtAuthHeaders() });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearAuthToken();
+      throw new ApiError("Sessão expirada", 401);
+    }
+    let detail: string | undefined;
+    try {
+      const body = await response.json();
+      detail = body.detail;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(detail || `Erro ${response.status}`, response.status, detail);
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = filenameFromContentDisposition(
+    response.headers.get("Content-Disposition"),
+    `usuarios_${new Date().toISOString().slice(0, 10)}.csv`,
+  );
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(downloadUrl);
 }
 
 export function adminUpdateUser(userId: number, data: { is_active?: boolean; role?: string; new_password?: string }) {

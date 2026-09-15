@@ -7,10 +7,13 @@ Todos os endpoints exigem role=admin.
 
 from datetime import date, datetime, time, timedelta
 from typing import Optional
+import csv
+import io
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import Response
 from sqlalchemy import or_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Query, Session, joinedload
 
 from app.api.deps import require_admin_user
 from app.core.config import settings
@@ -90,14 +93,9 @@ def _audit(
     )
 
 
-# ── Users ────────────────────────────────────────────────────────────────────
-
-
-@router.get("/users", response_model=AdminUsersPage)
-def list_users(
-    request: Request,
-    page: int = 1,
-    per_page: int = 20,
+def _users_query(
+    db: Session,
+    *,
     q: Optional[str] = None,
     user_id: Optional[int] = None,
     organization_id: Optional[int] = None,
@@ -107,12 +105,7 @@ def list_users(
     subscription_status: Optional[str] = None,
     created_from: Optional[date] = None,
     created_to: Optional[date] = None,
-    admin: User = Depends(require_admin_user),
-    db: Session = Depends(get_db),
-):
-    page = max(page, 1)
-    per_page = min(max(per_page, 1), 200)
-
+) -> Query:
     query = (
         db.query(User)
         .options(joinedload(User.organization))
@@ -158,6 +151,45 @@ def list_users(
     if created_to is not None:
         query = query.filter(User.created_at < datetime.combine(created_to + timedelta(days=1), time.min))
 
+    return query
+
+
+# ── Users ────────────────────────────────────────────────────────────────────
+
+
+@router.get("/users", response_model=AdminUsersPage)
+def list_users(
+    request: Request,
+    page: int = 1,
+    per_page: int = 20,
+    q: Optional[str] = None,
+    user_id: Optional[int] = None,
+    organization_id: Optional[int] = None,
+    role: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    plan: Optional[str] = None,
+    subscription_status: Optional[str] = None,
+    created_from: Optional[date] = None,
+    created_to: Optional[date] = None,
+    admin: User = Depends(require_admin_user),
+    db: Session = Depends(get_db),
+):
+    page = max(page, 1)
+    per_page = min(max(per_page, 1), 200)
+
+    query = _users_query(
+        db,
+        q=q,
+        user_id=user_id,
+        organization_id=organization_id,
+        role=role,
+        is_active=is_active,
+        plan=plan,
+        subscription_status=subscription_status,
+        created_from=created_from,
+        created_to=created_to,
+    )
+
     total = query.count()
     rows = (
         query.order_by(User.id.desc())
@@ -191,6 +223,107 @@ def list_users(
     db.commit()
 
     return AdminUsersPage(items=items, page=page, per_page=per_page, total=total)
+
+
+def _csv_dt(value: Optional[datetime]) -> str:
+    if value is None:
+        return ""
+    return value.strftime("%Y-%m-%d %H:%M:%S")
+
+
+@router.get("/users/export")
+def export_users(
+    request: Request,
+    q: Optional[str] = None,
+    user_id: Optional[int] = None,
+    organization_id: Optional[int] = None,
+    role: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    plan: Optional[str] = None,
+    subscription_status: Optional[str] = None,
+    created_from: Optional[date] = None,
+    created_to: Optional[date] = None,
+    admin: User = Depends(require_admin_user),
+    db: Session = Depends(get_db),
+):
+    query = _users_query(
+        db,
+        q=q,
+        user_id=user_id,
+        organization_id=organization_id,
+        role=role,
+        is_active=is_active,
+        plan=plan,
+        subscription_status=subscription_status,
+        created_from=created_from,
+        created_to=created_to,
+    )
+    rows = query.order_by(User.id.desc()).all()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf, delimiter=";", quoting=csv.QUOTE_ALL, lineterminator="\n")
+    writer.writerow(
+        [
+            "ID",
+            "Email",
+            "Org ID",
+            "Organização",
+            "Plano",
+            "Assinatura",
+            "Cancelamento agendado",
+            "Fim do período",
+            "Role",
+            "Status",
+            "Criado em",
+        ]
+    )
+    for user in rows:
+        org = user.organization
+        writer.writerow(
+            [
+                user.id,
+                user.email,
+                user.organization_id,
+                org.name if org else "",
+                org.plan if org else "",
+                org.subscription_status if org and org.subscription_status else "",
+                "Sim" if org and org.cancel_at_period_end else "Não",
+                _csv_dt(org.current_period_end if org else None),
+                getattr(user, "role", "user") or "user",
+                "Ativo" if user.is_active else "Inativo",
+                _csv_dt(user.created_at),
+            ]
+        )
+
+    ip, ua = _request_meta(request)
+    _audit(
+        db,
+        actor_id=admin.id,
+        action="users.export",
+        payload={
+            "count": len(rows),
+            "q": q,
+            "user_id": user_id,
+            "organization_id": organization_id,
+            "role": role,
+            "is_active": is_active,
+            "plan": plan,
+            "subscription_status": subscription_status,
+            "created_from": created_from.isoformat() if created_from else None,
+            "created_to": created_to.isoformat() if created_to else None,
+        },
+        ip=ip,
+        user_agent=ua,
+    )
+    db.commit()
+
+    filename = f"usuarios_{date.today().isoformat()}.csv"
+    content = "\ufeff" + buf.getvalue()
+    return Response(
+        content=content.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.patch("/users/{user_id}", response_model=AdminUserItem)

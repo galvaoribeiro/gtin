@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
   adminListUsers,
+  adminExportUsers,
   adminUpdateUser,
   adminImpersonateUser,
   type AdminUserItem,
   ApiError,
 } from "@/lib/api";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +68,7 @@ export default function AdminUsersPage() {
   const [saving, setSaving] = useState(false);
 
   const [perPage, setPerPage] = useState(20);
+  const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -164,15 +167,51 @@ export default function AdminUsersPage() {
     }
   };
 
+  const currentFilters = () => ({
+    q: search.trim() || undefined,
+    user_id: parsePositiveInt(idFilter),
+    organization_id: parsePositiveInt(orgIdFilter),
+    role: roleFilter || undefined,
+    is_active: statusFilter === "" ? undefined : statusFilter === "true",
+    plan: planFilter || undefined,
+    subscription_status: subscriptionFilter || undefined,
+    created_from: createdFrom || undefined,
+    created_to: createdTo || undefined,
+  });
+
+  const handleExport = async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      await adminExportUsers(currentFilters());
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.detail || err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
-          Usuários
-        </h1>
-        <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-          Gerenciar todos os usuários da plataforma ({total})
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
+            Usuários
+          </h1>
+          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+            Gerenciar todos os usuários da plataforma ({total})
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="self-start shrink-0"
+          onClick={handleExport}
+          disabled={exporting || (!loading && total === 0)}
+        >
+          <Download />
+          {exporting ? "Exportando..." : "Exportar CSV"}
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-end gap-2">
