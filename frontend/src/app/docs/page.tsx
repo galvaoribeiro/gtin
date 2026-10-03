@@ -259,18 +259,18 @@ export default function DocsPage() {
                   path="/v1/gtins/search"
                   title="Buscar produtos por filtros"
                   badgeNote="Search (cooldown)"
-                  description="Busca produtos por brand, product_name e/ou ncm. Exige pelo menos um filtro. Paginação via offset com limite fixo de 10 itens."
+                  description="Busca produtos por brand e/ou product_name. A busca é por palavras inteiras (sem diferenciar maiúsculas/minúsculas); a última palavra pode ser parcial se tiver 4 ou mais caracteres (ex.: `leite condens` encontra `LEITE CONDENSADO`). Palavras com menos de 3 caracteres são ignoradas (exceto números) e são consideradas até 5 palavras. O filtro ncm é complementar: deve ser combinado com brand ou product_name e não pode ser usado sozinho. Paginação via offset com limite fixo de 10 itens por página (offset máximo 40); para refinar, adicione mais palavras."
                   params={[
-                    { name: "brand", description: "Marca (contém, case-insensitive)." },
-                    { name: "product_name", description: "Nome do produto (contém, case-insensitive)." },
-                    { name: "ncm", description: "Código NCM (match exato)." },
-                    { name: "offset", description: "Offset para paginação (recomendado múltiplos de 10)." },
+                    { name: "brand", description: "Marca (palavras inteiras; a última pode ser parcial com 4+ caracteres)." },
+                    { name: "product_name", description: "Nome do produto (palavras inteiras; a última pode ser parcial com 4+ caracteres)." },
+                    { name: "ncm", description: "Código NCM (match exato). Use junto com brand ou product_name." },
+                    { name: "offset", description: "Offset para paginação (múltiplos de 10, de 0 a 40)." },
                   ]}
                   requestExample={`curl -X GET "${baseUrl}/v1/gtins/search?brand=acme&offset=0" \\\n  -H "X-API-Key: SUA_CHAVE_API"`}
-                  responseExample={`{\n  "total": 42,\n  "offset": 0,\n  "limit": 10,\n  "returned": 2,\n  "items": [\n    {\n      "gtin": "7891234567890",\n      "gtin_type": "GTIN-13",\n      "brand": "Acme",\n      "product_name": "Produto Exemplo 500ml",\n      "owner_tax_id": "00000000000000",\n      "origin_country": "BR",\n      "ncm": "00000000",\n      "cest": "0000000",\n      "gross_weight_value": 0.5,\n      "gross_weight_unit": "kg",\n      "dsit_date": "2025-01-15",\n      "updated_at": "2026-01-16T10:30:00Z",\n      "image_url": "https://example.com/image.jpg"\n    }\n  ]\n}`}
+                  responseExample={`{\n  "total": null,\n  "offset": 0,\n  "limit": 10,\n  "returned": 1,\n  "has_more": false,\n  "items": [\n    {\n      "gtin": "7891234567890",\n      "gtin_type": "GTIN-13",\n      "brand": "Acme",\n      "product_name": "Produto Exemplo 500ml",\n      "owner_tax_id": "00000000000000",\n      "origin_country": "BR",\n      "ncm": "00000000",\n      "cest": "0000000",\n      "gross_weight_value": 0.5,\n      "gross_weight_unit": "kg",\n      "dsit_date": "2025-01-15",\n      "updated_at": "2026-01-16T10:30:00Z",\n      "image_url": "https://example.com/image.jpg"\n    }\n  ]\n}`}
                   statusCodes={[
                     { code: 200, description: "Resultados paginados" },
-                    { code: 400, description: "Nenhum filtro informado ou parâmetros inválidos" },
+                    { code: 400, description: "Nenhum filtro (brand ou product_name) informado, ncm usado sozinho, termos sem palavras válidas, offset acima de 40 ou busca muito ampla" },
                     { code: 401, description: "API key ausente ou inválida" },
                     { code: 403, description: "Plano sem acesso à API" },
                     { code: 429, description: "Cooldown/rate limit ou quota mensal excedida" },
