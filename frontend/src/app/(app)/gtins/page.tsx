@@ -142,6 +142,8 @@ export default function GtinsPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [isNameLoading, setIsNameLoading] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cooldownLeft, setCooldownLeft] = useState(0);
 
   const parsedGtins = parseGtinList(batchInput);
   const parsedCount = parsedGtins.length;
@@ -162,6 +164,23 @@ export default function GtinsPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (cooldownUntil === null) return;
+    const tick = () => {
+      const left = Math.ceil((cooldownUntil - Date.now()) / 1000);
+      if (left <= 0) {
+        setCooldownUntil(null);
+        setCooldownLeft(0);
+        setNameError(null);
+      } else {
+        setCooldownLeft(left);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [cooldownUntil]);
 
   // Individual search
   const handleSearch = async () => {
@@ -234,6 +253,7 @@ export default function GtinsPage() {
 
     setIsNameLoading(true);
     setNameError(null);
+    setCooldownUntil(null);
     setSelectedProduct(null);
 
     try {
@@ -249,7 +269,14 @@ export default function GtinsPage() {
         if (err.status === 401) {
           router.push("/login");
         } else {
-          setNameError(err.detail || err.message);
+          const message = err.detail || err.message;
+          const wait = err.status === 429 ? message.match(/Aguarde (\d+)s/) : null;
+          setNameError(message);
+          if (wait) {
+            const seconds = Number(wait[1]);
+            setCooldownLeft(seconds);
+            setCooldownUntil(Date.now() + seconds * 1000);
+          }
         }
       } else {
         setNameError("Ocorreu um erro inesperado. Tente novamente.");
@@ -472,7 +499,11 @@ export default function GtinsPage() {
                 />
                 <Button
                   onClick={() => runNameSearch(0)}
-                  disabled={isNameLoading || nameQuery.trim().length < MIN_NAME_LENGTH}
+                  disabled={
+                    isNameLoading ||
+                    cooldownUntil !== null ||
+                    nameQuery.trim().length < MIN_NAME_LENGTH
+                  }
                 >
                   {isNameLoading ? "Buscando..." : "Buscar"}
                 </Button>
@@ -489,7 +520,11 @@ export default function GtinsPage() {
                 <p className="font-medium text-red-800 dark:text-red-200">
                   Erro ao buscar
                 </p>
-                <p className="mt-1 text-sm text-red-700 dark:text-red-300">{nameError}</p>
+                <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+                  {cooldownUntil !== null
+                    ? nameError.replace(/Aguarde \d+s/, `Aguarde ${cooldownLeft}s`)
+                    : nameError}
+                </p>
               </CardContent>
             </Card>
           )}
