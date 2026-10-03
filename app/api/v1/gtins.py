@@ -18,8 +18,12 @@ from app.core.usage import (
     record_org_usage_monthly,
 )
 from app.core.rate_limit import rate_limit_lookup, rate_limit_search
-from app.core.config import settings
-from app.core.meilisearch_client import MeiliError, get_meili_client
+from app.core.product_search import (
+    SEARCH_LIMIT,
+    InvalidSearchError,
+    SearchTooBroadError,
+    search_products as run_product_search,
+)
 from app.schemas.product import (
     ProductResponse,
     BatchRequest,
@@ -29,7 +33,6 @@ from app.schemas.product import (
 )
 
 router = APIRouter(prefix="/v1/gtins", tags=["GTINs"])
-SEARCH_LIMIT = 10
 
 
 def normalize_gtin(gtin: str) -> str:
@@ -220,48 +223,6 @@ def process_batch_gtins(
     )
 
 
-def fetch_products_by_gtins(db: Session, gtins: list[str]) -> dict[str, ProductResponse]:
-    """
-    Busca produtos por lista de GTINs em uma única query.
-    Retorna mapa gtin -> ProductResponse.
-    """
-    if not gtins:
-        return {}
-
-    placeholders = ", ".join([f":gtin_{i}" for i in range(len(gtins))])
-    query = text(f"""
-        SELECT
-            gtin,
-            gtin_type,
-            brand,
-            product_name,
-            origin_country,
-            ncm,
-            cest,
-            gross_weight_value,
-            gross_weight_unit
-        FROM products
-        WHERE gtin IN ({placeholders})
-    """)
-    params = {f"gtin_{i}": g for i, g in enumerate(gtins)}
-    rows = db.execute(query, params).fetchall()
-
-    result: dict[str, ProductResponse] = {}
-    for row in rows:
-        result[row.gtin] = ProductResponse(
-            gtin=row.gtin,
-            gtin_type=row.gtin_type,
-            brand=row.brand,
-            product_name=row.product_name,
-            origin_country=row.origin_country,
-            ncm=row.ncm,
-            cest=row.cest,
-            gross_weight_value=row.gross_weight_value,
-            gross_weight_unit=row.gross_weight_unit,
-        )
-    return result
-
-
 @router.post(
     "/batch",
     response_model=BatchResponse,
@@ -356,76 +317,10 @@ async def get_products_batch_query(
     return batch_response
 
 
-def _search_pgfts(
-    db: Session,
-    *,
-    brand_filter: str | None,
-    product_name_filter: str | None,
-    ncm_filter: str | None,
-    offset: int,
-) -> tuple[list[ProductResponse], bool]:
-    """
-    Busca usando PostgreSQL Full-Text Search com índices GIN funcionais
-    por coluna. Cada filtro atua **apenas** na sua coluna correspondente.
-    """
-    where_clauses: list[str] = []
-    params: dict[str, str | int] = {}
-
-    if brand_filter:
-        where_clauses.append(
-            "to_tsvector('simple', coalesce(brand, '')) @@ plainto_tsquery('simple', :brand_q)"
-        )
-        params["brand_q"] = brand_filter
-
-    if product_name_filter:
-        where_clauses.append(
-            "to_tsvector('simple', coalesce(product_name, '')) @@ plainto_tsquery('simple', :name_q)"
-        )
-        params["name_q"] = product_name_filter
-
-    if ncm_filter:
-        where_clauses.append("ncm = :ncm")
-        params["ncm"] = ncm_filter
-
-    where_sql = " AND ".join(where_clauses) if where_clauses else "TRUE"
-
-    select_query = text(f"""
-        SELECT
-            gtin,
-            gtin_type,
-            brand,
-            product_name,
-            origin_country,
-            ncm,
-            cest,
-            gross_weight_value,
-            gross_weight_unit
-        FROM products
-        WHERE {where_sql}
-        LIMIT :limit OFFSET :offset
-    """)
-    params["limit"] = SEARCH_LIMIT + 1
-    params["offset"] = offset
-
-    rows = db.execute(select_query, params).fetchall()
-    has_more = len(rows) > SEARCH_LIMIT
-    rows = rows[:SEARCH_LIMIT]
-
-    items = [
-        ProductResponse(
-            gtin=row.gtin,
-            gtin_type=row.gtin_type,
-            brand=row.brand,
-            product_name=row.product_name,
-            origin_country=row.origin_country,
-            ncm=row.ncm,
-            cest=row.cest,
-            gross_weight_value=row.gross_weight_value,
-            gross_weight_unit=row.gross_weight_unit,
-        )
-        for row in rows
-    ]
-    return items, has_more
+def _record_search_error(db: Session, auth: ApiKeyAuth, status_code: int) -> None:
+    record_org_usage_monthly(db, auth.organization.id, status_code)
+    record_api_usage(db, auth.api_key.id, status_code)
+    db.commit()
 
 
 @router.get(
@@ -433,30 +328,31 @@ def _search_pgfts(
     response_model=SearchResponse,
     summary="Buscar produtos por filtros",
     description=(
-        "Busca produtos por brand, product_name e/ou ncm. "
-        "Backend configurável via SEARCH_BACKEND (pgfts, meili, postgres). "
-        "Retorna paginação por offset com limite fixo de 10 itens. "
-        "Rate limit: 1 pesquisa a cada 2-12 segundos dependendo do plano."
+        "Busca produtos por brand e/ou product_name (palavras inteiras; a última palavra "
+        "pode ser parcial, com 4+ caracteres). O filtro ncm é complementar e deve ser "
+        "combinado com brand ou product_name. "
+        "Retorna paginação por offset com limite fixo de 10 itens (offset máximo 40). "
+        "Rate limit: 1 pesquisa a cada 2-6 segundos dependendo do plano."
     ),
     responses={
         200: {"description": "Resultados paginados"},
-        400: {"description": "Requisição inválida"},
+        400: {"description": "Requisição inválida ou busca muito ampla"},
         401: {"description": "API key inválida ou não fornecida"},
         403: {"description": "Plano não permite consultas de API"},
         429: {"description": "Limite de rate ou mensal excedido"},
     }
 )
-async def search_products(
+def search_products(
     request: Request,
     brand: str | None = Query(None, description="Marca (busca textual)"),
     product_name: str | None = Query(None, description="Nome do produto (busca textual)"),
-    ncm: str | None = Query(None, description="Código NCM (match exato)"),
-    offset: int = Query(0, ge=0, description="Offset para paginação (múltiplos de 10)"),
+    ncm: str | None = Query(None, description="Código NCM (match exato; use junto com brand ou product_name)"),
+    offset: int = Query(0, ge=0, description="Offset para paginação (múltiplos de 10, máximo 40)"),
     auth: ApiKeyAuth = Depends(rate_limit_search),
     db: Session = Depends(get_db),
 ):
     """
-    Busca produtos aplicando filtros opcionais e retorna resultados paginados.
+    Busca produtos aplicando filtros e retorna resultados paginados.
     Limite fixo de 10 itens por página.
     """
     org = auth.organization
@@ -469,143 +365,38 @@ async def search_products(
             detail=f"Limite mensal excedido. Restam {max(monthly_limit - used_month, 0)} de {monthly_limit} chamadas para este mês.",
         )
 
-    # Normalizar filtros: remover espaços extras e ignorar strings vazias
     brand_filter = brand.strip() if brand else None
     product_name_filter = product_name.strip() if product_name else None
     ncm_filter = ncm.strip() if ncm else None
 
-    if brand_filter and len(brand_filter) < 3:
-        record_org_usage_monthly(db, org.id, 400)
-        record_api_usage(db, auth.api_key.id, 400)
-        db.commit()
+    if ncm_filter and not (brand_filter or product_name_filter):
+        _record_search_error(db, auth, 400)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Filtro brand deve ter pelo menos 3 caracteres.",
+            detail="O filtro ncm deve ser combinado com brand ou product_name.",
         )
 
-    if product_name_filter and len(product_name_filter) < 3:
-        record_org_usage_monthly(db, org.id, 400)
-        record_api_usage(db, auth.api_key.id, 400)
-        db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Filtro product_name deve ter pelo menos 3 caracteres.",
-        )
-
-    if not any([brand_filter, product_name_filter, ncm_filter]):
-        record_org_usage_monthly(db, org.id, 400)
-        record_api_usage(db, auth.api_key.id, 400)
-        db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Informe pelo menos um filtro: brand, product_name ou ncm."
-        )
-
-    items: list[ProductResponse] = []
-    has_more = False
-    total: int | None = None
-
-    if settings.SEARCH_BACKEND == "pgfts":
-        items, has_more = _search_pgfts(
+    try:
+        items, has_more = run_product_search(
             db,
-            brand_filter=brand_filter,
-            product_name_filter=product_name_filter,
-            ncm_filter=ncm_filter,
+            name=product_name_filter,
+            brand=brand_filter,
+            ncm=ncm_filter,
             offset=offset,
         )
-    elif settings.SEARCH_BACKEND == "meili":
-        query_terms = [t for t in [brand_filter, product_name_filter] if t]
-        meili_query = " ".join(query_terms).strip()
+    except (InvalidSearchError, SearchTooBroadError) as exc:
+        _record_search_error(db, auth, 400)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
-        try:
-            meili = get_meili_client()
-            meili_result = meili.search_products(
-                query=meili_query,
-                ncm_filter=ncm_filter,
-                offset=offset,
-                limit=SEARCH_LIMIT,
-            )
-        except MeiliError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Busca temporariamente indisponível (Meilisearch): {exc}",
-            )
-
-        products_by_gtin = fetch_products_by_gtins(db, meili_result.gtins)
-        for gtin in meili_result.gtins:
-            product = products_by_gtin.get(gtin)
-            if product:
-                items.append(product)
-
-        has_more = meili_result.has_more
-        total = meili_result.estimated_total_hits
-    else:
-        where_clauses = []
-        params: dict[str, str | int] = {}
-
-        if brand_filter:
-            where_clauses.append("brand ILIKE :brand")
-            params["brand"] = f"%{brand_filter}%"
-
-        if product_name_filter:
-            where_clauses.append("product_name ILIKE :product_name")
-            params["product_name"] = f"%{product_name_filter}%"
-
-        if ncm_filter:
-            where_clauses.append("ncm = :ncm")
-            params["ncm"] = ncm_filter
-
-        where_sql = " AND ".join(where_clauses)
-        base_select = """
-            SELECT
-                gtin,
-                gtin_type,
-                brand,
-                product_name,
-                origin_country,
-                ncm,
-                cest,
-                gross_weight_value,
-                gross_weight_unit
-            FROM products
-        """
-
-        select_query = text(
-            base_select
-            + " WHERE "
-            + where_sql
-            + " LIMIT :limit OFFSET :offset"
-        )
-        params_with_pagination = {**params, "limit": SEARCH_LIMIT + 1, "offset": offset}
-        rows = db.execute(select_query, params_with_pagination).fetchall()
-        has_more = len(rows) > SEARCH_LIMIT
-        rows = rows[:SEARCH_LIMIT]
-
-        for row in rows:
-            items.append(ProductResponse(
-                gtin=row.gtin,
-                gtin_type=row.gtin_type,
-                brand=row.brand,
-                product_name=row.product_name,
-                origin_country=row.origin_country,
-                ncm=row.ncm,
-                cest=row.cest,
-                gross_weight_value=row.gross_weight_value,
-                gross_weight_unit=row.gross_weight_unit,
-            ))
-
-    returned = len(items)
-
-    # Registrar sucesso
     record_org_usage_monthly(db, org.id, 200)
     record_api_usage(db, auth.api_key.id, 200)
     db.commit()
 
     return SearchResponse(
-        total=total,
+        total=None,
         offset=offset,
         limit=SEARCH_LIMIT,
-        returned=returned,
+        returned=len(items),
         has_more=has_more,
         items=items,
     )

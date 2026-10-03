@@ -26,14 +26,89 @@ import {
 import {
   fetchGtinDashboard,
   fetchGtinBatchDashboard,
+  searchProductsDashboard,
   getCurrentUser,
   ApiError,
   type Product,
   type BatchResponse,
+  type ProductSearchResult,
 } from "@/lib/api";
 
 // Teto técnico da API; o limite real vem do plano da organização.
 const MAX_BATCH_SIZE = 100;
+
+// Busca por nome: espelha os limites do backend (app/core/product_search.py).
+const PAGE_SIZE = 10;
+const MAX_NAME_OFFSET = 40;
+const MIN_NAME_LENGTH = 3;
+
+function ProductDetailCard({ product }: { product: Product }) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <CardTitle className="break-words">{product.product_name}</CardTitle>
+            <CardDescription className="mt-1">{product.brand}</CardDescription>
+          </div>
+          <Badge variant="outline" className="shrink-0 font-mono">
+            {product.gtin}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium text-zinc-500">GTIN</p>
+                <p className="font-mono">{product.gtin}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-zinc-500">Tipo GTIN</p>
+                <p>EAN-{product.gtin_type}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-zinc-500">NCM</p>
+                <p className="font-mono">{product.ncm_formatted || product.ncm || "\u2014"}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-zinc-500">CEST</p>
+                <p className="font-mono">
+                  {product.cest && product.cest.length > 0
+                    ? product.cest.join(", ")
+                    : "\u2014"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-zinc-500">País de Origem</p>
+              <p>{product.origin_country || "\u2014"}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-500">Peso Bruto</p>
+              <p>
+                {product.gross_weight?.value
+                  ? `${product.gross_weight.value} ${product.gross_weight.unit}`
+                  : "\u2014"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <p className="mb-2 text-sm font-medium text-zinc-500">Resposta JSON</p>
+          <pre className="overflow-auto rounded-lg bg-zinc-100 p-4 text-xs dark:bg-zinc-800">
+            {JSON.stringify(product, null, 2)}
+          </pre>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function parseGtinList(raw: string): string[] {
   return raw
@@ -58,6 +133,15 @@ export default function GtinsPage() {
   const [batchError, setBatchError] = useState<string | null>(null);
   const [isBatchLoading, setIsBatchLoading] = useState(false);
   const [batchLimit, setBatchLimit] = useState<number | null>(null);
+
+  // Name search state
+  const [nameQuery, setNameQuery] = useState("");
+  const [brandQuery, setBrandQuery] = useState("");
+  const [submittedSearch, setSubmittedSearch] = useState<{ q: string; brand: string } | null>(null);
+  const [nameResult, setNameResult] = useState<ProductSearchResult | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isNameLoading, setIsNameLoading] = useState(false);
 
   const parsedGtins = parseGtinList(batchInput);
   const parsedCount = parsedGtins.length;
@@ -140,6 +224,41 @@ export default function GtinsPage() {
     }
   };
 
+  // Name search: paginação reutiliza os termos da última busca enviada.
+  const runNameSearch = async (offset: number, isPaging = false) => {
+    if (isNameLoading) return;
+    const criteria = isPaging
+      ? submittedSearch
+      : { q: nameQuery.trim(), brand: brandQuery.trim() };
+    if (!criteria || criteria.q.length < MIN_NAME_LENGTH) return;
+
+    setIsNameLoading(true);
+    setNameError(null);
+    setSelectedProduct(null);
+
+    try {
+      const response = await searchProductsDashboard({
+        q: criteria.q,
+        brand: criteria.brand || undefined,
+        offset,
+      });
+      setSubmittedSearch(criteria);
+      setNameResult(response);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          router.push("/login");
+        } else {
+          setNameError(err.detail || err.message);
+        }
+      } else {
+        setNameError("Ocorreu um erro inesperado. Tente novamente.");
+      }
+    } finally {
+      setIsNameLoading(false);
+    }
+  };
+
   // CSV generation helper
   const buildCsv = () => {
     if (!batchResult) return "";
@@ -200,6 +319,7 @@ export default function GtinsPage() {
         <TabsList>
           <TabsTrigger value="individual">Individual</TabsTrigger>
           <TabsTrigger value="batch">Em lote</TabsTrigger>
+          <TabsTrigger value="name">Por nome</TabsTrigger>
         </TabsList>
 
         {/* ===== ABA INDIVIDUAL ===== */}
@@ -315,77 +435,149 @@ export default function GtinsPage() {
             </Card>
           )}
 
-          {result && (
+          {result && <ProductDetailCard product={result} />}
+        </TabsContent>
+
+        {/* ===== ABA POR NOME ===== */}
+        <TabsContent value="name" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Buscar por Nome</CardTitle>
+              <CardDescription>
+                Busca por palavras inteiras; a última palavra pode ser incompleta (mín. 4
+                letras). Mostra até {PAGE_SIZE} resultados por página.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-[2fr_1fr_auto]">
+                <Input
+                  type="text"
+                  placeholder="Nome do produto (ex: leite condens)"
+                  value={nameQuery}
+                  onChange={(e) => setNameQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") runNameSearch(0);
+                  }}
+                  maxLength={200}
+                />
+                <Input
+                  type="text"
+                  placeholder="Marca (opcional)"
+                  value={brandQuery}
+                  onChange={(e) => setBrandQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") runNameSearch(0);
+                  }}
+                  maxLength={200}
+                />
+                <Button
+                  onClick={() => runNameSearch(0)}
+                  disabled={isNameLoading || nameQuery.trim().length < MIN_NAME_LENGTH}
+                >
+                  {isNameLoading ? "Buscando..." : "Buscar"}
+                </Button>
+              </div>
+              <p className="text-sm text-zinc-500">
+                Cada busca (inclusive a troca de página) consome 1 consulta da sua cota mensal.
+              </p>
+            </CardContent>
+          </Card>
+
+          {nameError && (
+            <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
+              <CardContent className="pt-6">
+                <p className="font-medium text-red-800 dark:text-red-200">
+                  Erro ao buscar
+                </p>
+                <p className="mt-1 text-sm text-red-700 dark:text-red-300">{nameError}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {nameResult && nameResult.items.length === 0 && (
+            <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+              <CardContent className="pt-6">
+                <p className="text-amber-800 dark:text-amber-200">
+                  Nenhum produto encontrado para essa busca.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {nameResult && nameResult.items.length > 0 && (
             <Card>
               <CardHeader>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="break-words">{result.product_name}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {result.brand}
-                    </CardDescription>
-                  </div>
-                  <Badge variant="outline" className="shrink-0 font-mono">
-                    {result.gtin}
-                  </Badge>
-                </div>
+                <CardTitle>Resultados</CardTitle>
+                <CardDescription>
+                  Clique em uma linha para ver os detalhes do produto.
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-4">
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium text-zinc-500">GTIN</p>
-                        <p className="font-mono">{result.gtin}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-zinc-500">Tipo GTIN</p>
-                        <p>EAN-{result.gtin_type}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-zinc-500">NCM</p>
-                        <p className="font-mono">{result.ncm_formatted || result.ncm || "\u2014"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-zinc-500">CEST</p>
-                        <p className="font-mono">
-                          {result.cest && result.cest.length > 0
-                            ? result.cest.join(", ")
-                            : "\u2014"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+              <CardContent className="space-y-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>GTIN</TableHead>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Marca</TableHead>
+                      <TableHead>NCM</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {nameResult.items.map((item) => (
+                      <TableRow
+                        key={item.gtin}
+                        onClick={() => setSelectedProduct(item)}
+                        className={`cursor-pointer ${
+                          selectedProduct?.gtin === item.gtin ? "bg-zinc-100 dark:bg-zinc-800" : ""
+                        }`}
+                      >
+                        <TableCell className="font-mono text-xs">{item.gtin}</TableCell>
+                        <TableCell className="max-w-[320px] truncate">
+                          {item.product_name || "\u2014"}
+                        </TableCell>
+                        <TableCell>{item.brand || "\u2014"}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {item.ncm_formatted || item.ncm || "\u2014"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
 
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-medium text-zinc-500">
-                        País de Origem
-                      </p>
-                      <p>{result.origin_country || "\u2014"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-zinc-500">Peso Bruto</p>
-                      <p>
-                        {result.gross_weight?.value
-                          ? `${result.gross_weight.value} ${result.gross_weight.unit}`
-                          : "\u2014"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <p className="mb-2 text-sm font-medium text-zinc-500">
-                    Resposta JSON
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm text-zinc-500">
+                    {nameResult.has_more
+                      ? `Exibindo ${nameResult.items.length} resultados desta página. Adicione mais palavras para refinar.`
+                      : `${nameResult.items.length} resultado(s) nesta página.`}
                   </p>
-                  <pre className="overflow-auto rounded-lg bg-zinc-100 p-4 text-xs dark:bg-zinc-800">
-                    {JSON.stringify(result, null, 2)}
-                  </pre>
+                  <div className="flex gap-2 shrink-0">
+                    {nameResult.offset > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isNameLoading}
+                        onClick={() => runNameSearch(nameResult.offset - PAGE_SIZE, true)}
+                      >
+                        Anteriores {PAGE_SIZE}
+                      </Button>
+                    )}
+                    {nameResult.has_more && nameResult.offset + PAGE_SIZE <= MAX_NAME_OFFSET && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isNameLoading}
+                        onClick={() => runNameSearch(nameResult.offset + PAGE_SIZE, true)}
+                      >
+                        Próximos {PAGE_SIZE}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           )}
+
+          {selectedProduct && <ProductDetailCard product={selectedProduct} />}
         </TabsContent>
 
         {/* ===== ABA EM LOTE ===== */}

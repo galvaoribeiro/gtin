@@ -60,9 +60,8 @@ Armazena os dados confiáveis carregados da sua base.
 - `organizations`: planos e limites.
 - `api_keys`: chave hash, status, limites.
 - `usage_daily`: métricas de consumo por dia.
-- `search_tokens` (opcional): suporte para busca parcial por marca / product\_name no painel.
 
-Índices: PK em `gtin`, índice em `ncm`, GIN em `cest` e em `search_tokens` se existirem.
+Índices em `products`: PK em `gtin` e dois índices GIN de Full-Text Search (`idx_products_name_fts` em `product_name` e `idx_products_brand_fts` em `brand`, ambos sobre `to_tsvector('simple', coalesce(col, ''))`; criados por `scripts/create_fts_indexes.py`). Não há índice em `ncm`; por isso o filtro `ncm` da busca só é aceito junto com nome ou marca.
 
 ---
 

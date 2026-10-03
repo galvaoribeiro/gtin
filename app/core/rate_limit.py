@@ -482,6 +482,30 @@ def check_org_rate_limit_lookup(request: Request) -> None:
         )
 
 
+def enforce_org_search_cooldown(org) -> None:
+    """
+    Aplica o cooldown de pesquisa por organização (compartilhado entre API e painel).
+
+    Raises:
+        HTTPException 429 se a organização pesquisou há menos de `cooldown` segundos.
+    """
+    plan = org.plan
+    cooldown = SEARCH_COOLDOWNS.get(plan, SEARCH_COOLDOWNS["starter"])
+
+    allowed, retry_after = redis_rate_limiter.check_cooldown(
+        key=f"rl:org:{org.id}:search",
+        cooldown_seconds=cooldown,
+    )
+
+    if not allowed:
+        _raise_rate_limit_exceeded(
+            limit=1,
+            remaining=0,
+            retry_after=retry_after,
+            message=f"Aguarde {retry_after}s entre pesquisas. Seu plano ({plan}) permite 1 pesquisa a cada {cooldown}s.",
+        )
+
+
 def check_org_rate_limit_search(request: Request) -> None:
     """
     Dependency para rate limit de endpoint search (/search).
@@ -500,24 +524,7 @@ def check_org_rate_limit_search(request: Request) -> None:
         logger.warning("check_org_rate_limit_search chamado sem auth no request.state")
         return
     
-    org = auth.organization
-    plan = org.plan
-    cooldown = SEARCH_COOLDOWNS.get(plan, SEARCH_COOLDOWNS["starter"])
-    
-    key = f"rl:org:{org.id}:search"
-    
-    allowed, retry_after = redis_rate_limiter.check_cooldown(
-        key=key,
-        cooldown_seconds=cooldown,
-    )
-    
-    if not allowed:
-        _raise_rate_limit_exceeded(
-            limit=1,
-            remaining=0,
-            retry_after=retry_after,
-            message=f"Aguarde {retry_after}s entre pesquisas. Seu plano ({plan}) permite 1 pesquisa a cada {cooldown}s.",
-        )
+    enforce_org_search_cooldown(auth.organization)
 
 
 # =============================================================================
@@ -581,26 +588,7 @@ def get_rate_limit_search_dependency():
         Verifica rate limit de search e retorna auth.
         """
         request.state.auth = auth
-        
-        org = auth.organization
-        plan = org.plan
-        cooldown = SEARCH_COOLDOWNS.get(plan, SEARCH_COOLDOWNS["starter"])
-        
-        key = f"rl:org:{org.id}:search"
-        
-        allowed, retry_after = redis_rate_limiter.check_cooldown(
-            key=key,
-            cooldown_seconds=cooldown,
-        )
-        
-        if not allowed:
-            _raise_rate_limit_exceeded(
-                limit=1,
-                remaining=0,
-                retry_after=retry_after,
-                message=f"Aguarde {retry_after}s entre pesquisas. Seu plano ({plan}) permite 1 pesquisa a cada {cooldown}s.",
-            )
-        
+        enforce_org_search_cooldown(auth.organization)
         return auth
     
     return _check_search_rate_limit

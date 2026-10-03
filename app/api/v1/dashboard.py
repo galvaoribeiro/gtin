@@ -4,18 +4,26 @@ Endpoints de dashboard protegidos por JWT.
 Inclui consulta de GTIN para o painel administrativo.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.db.models import MAX_BATCH_SIZE, User, ApiKey
 from app.api.deps import get_current_user
+from app.core.rate_limit import enforce_org_search_cooldown
+from app.core.product_search import (
+    SEARCH_LIMIT,
+    InvalidSearchError,
+    SearchTooBroadError,
+    search_products as run_product_search,
+)
 from app.schemas.product import (
     ProductResponse,
     BatchRequest,
     BatchResponse,
     BatchResponseItem,
+    SearchResponse,
 )
 from app.core.usage import (
     record_api_usage,
@@ -83,6 +91,80 @@ def get_user_api_key(db: Session, organization_id: int) -> ApiKey | None:
         db.query(ApiKey)
         .filter(ApiKey.organization_id == organization_id, ApiKey.is_active == True)
         .first()
+    )
+
+
+@router.get(
+    "/gtins/search",
+    response_model=SearchResponse,
+    summary="Buscar produtos por nome (Dashboard)",
+    description=(
+        "Busca produtos pelo nome (palavras inteiras; a última palavra pode ser parcial, "
+        "com 4+ caracteres) e, opcionalmente, pela marca. Retorna até 10 itens por página "
+        "(offset máximo 40). Cada busca bem-sucedida consome 1 consulta da cota mensal. "
+        "Compartilha o cooldown de pesquisa da API. Requer autenticação JWT."
+    ),
+    responses={
+        200: {"description": "Resultados paginados"},
+        400: {"description": "Busca inválida ou muito ampla"},
+        401: {"description": "Não autenticado"},
+        403: {"description": "Sem API key ativa"},
+        429: {"description": "Cooldown ou limite mensal excedido"},
+    }
+)
+def search_products_dashboard(
+    q: str = Query(..., min_length=1, max_length=200, description="Nome do produto"),
+    brand: str | None = Query(None, max_length=200, description="Marca (opcional)"),
+    offset: int = Query(0, ge=0, description="Offset para paginação (múltiplos de 10, máximo 40)"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    api_key = get_user_api_key(db, current_user.organization_id)
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Nenhuma chave de acesso ativa para esta organização. Crie ou reative uma chave de acesso para fazer a consulta.",
+        )
+
+    org = current_user.organization
+
+    enforce_org_search_cooldown(org)
+
+    monthly_limit = org.monthly_limit
+    used_month = get_organization_monthly_usage(db, org.id)
+    if monthly_limit > 0 and used_month + 1 > monthly_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Limite mensal excedido. Restam {max(monthly_limit - used_month, 0)} de {monthly_limit} chamadas para este mês.",
+        )
+
+    name_filter = q.strip()
+    brand_filter = brand.strip() if brand else None
+
+    try:
+        items, has_more = run_product_search(
+            db,
+            name=name_filter,
+            brand=brand_filter,
+            offset=offset,
+        )
+    except (InvalidSearchError, SearchTooBroadError) as exc:
+        record_org_usage_monthly(db, org.id, 400)
+        record_api_usage(db, api_key.id, 400)
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    record_org_usage_monthly(db, org.id, 200)
+    record_api_usage(db, api_key.id, 200)
+    db.commit()
+
+    return SearchResponse(
+        total=None,
+        offset=offset,
+        limit=SEARCH_LIMIT,
+        returned=len(items),
+        has_more=has_more,
+        items=items,
     )
 
 

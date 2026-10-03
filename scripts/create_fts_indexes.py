@@ -3,7 +3,7 @@ Cria índices GIN funcionais para Full-Text Search por coluna.
 =============================================================
 
 Cria índices sobre to_tsvector('simple', ...) em brand e product_name
-separadamente. Não precisa de coluna extra (search_vector).
+separadamente. Não precisa de coluna extra.
 
 Uso:
     python scripts/create_fts_indexes.py

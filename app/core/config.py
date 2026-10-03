@@ -57,15 +57,6 @@ class Settings:
     SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() in ("true", "1", "yes")
     SMTP_USE_SSL: bool = os.getenv("SMTP_USE_SSL", "false").lower() in ("true", "1", "yes")
 
-    # Search backend
-    SEARCH_BACKEND: str = os.getenv("SEARCH_BACKEND", "postgres").lower()
-
-    # Meilisearch Settings
-    MEILI_URL: str = os.getenv("MEILI_URL", "").rstrip("/")
-    MEILI_API_KEY: str = os.getenv("MEILI_API_KEY", "")
-    MEILI_INDEX_PRODUCTS: str = os.getenv("MEILI_INDEX_PRODUCTS", "products")
-    MEILI_TIMEOUT_SECONDS: float = float(os.getenv("MEILI_TIMEOUT_SECONDS", "60"))
-
 
 settings = Settings()
 

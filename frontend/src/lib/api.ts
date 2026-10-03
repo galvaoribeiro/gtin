@@ -683,6 +683,82 @@ export async function fetchGtinBatchDashboard(gtins: string[]): Promise<BatchRes
 }
 
 // =============================================================================
+// Dashboard GTIN Search Endpoint (usa JWT)
+// =============================================================================
+
+export interface ProductSearchResult {
+  items: Product[];
+  has_more: boolean;
+  offset: number;
+}
+
+interface ApiSearchResponse {
+  offset: number;
+  has_more: boolean;
+  items: ApiProduct[];
+}
+
+/**
+ * Busca produtos pelo nome (e marca opcional) via dashboard (usa JWT).
+ * Retorna até 10 itens por página; cada busca bem-sucedida consome 1 consulta da cota.
+ */
+export async function searchProductsDashboard(params: {
+  q: string;
+  brand?: string;
+  offset?: number;
+}): Promise<ProductSearchResult> {
+  const searchParams = new URLSearchParams({ q: params.q });
+  if (params.brand) searchParams.set("brand", params.brand);
+  if (params.offset) searchParams.set("offset", String(params.offset));
+  const url = `${API_BASE_URL}/v1/dashboard/gtins/search?${searchParams.toString()}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getJwtAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthToken();
+        throw new ApiError("Sessão expirada", 401);
+      }
+
+      let detail: string | undefined;
+      try {
+        const errorBody = await response.json();
+        detail = typeof errorBody.detail === "string" ? errorBody.detail : undefined;
+      } catch {
+        // Ignora erro ao parsear resposta
+      }
+
+      throw new ApiError(
+        detail || `Erro ao buscar produtos: ${response.status}`,
+        response.status,
+        detail
+      );
+    }
+
+    const apiResponse: ApiSearchResponse = await response.json();
+    return {
+      items: apiResponse.items.map(transformProduct),
+      has_more: apiResponse.has_more,
+      offset: apiResponse.offset,
+    };
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    throw new ApiError(
+      "Erro de conexão com o servidor",
+      0,
+      error instanceof Error ? error.message : "Erro desconhecido"
+    );
+  }
+}
+
+// =============================================================================
 // Public GTIN Endpoint (sem autenticação)
 // =============================================================================
 

@@ -346,7 +346,7 @@ Authorization: Bearer sk_live_...`}
             </Tabs>
 
             <p className="text-sm text-white/50 mt-6">
-              Também disponível: GET /v1/gtins/search para busca por marca, nome ou NCM.
+              Também disponível: GET /v1/gtins/search para busca por marca ou nome (o NCM pode ser usado como filtro complementar, junto com marca ou nome).
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mt-8">
