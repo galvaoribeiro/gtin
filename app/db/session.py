@@ -8,7 +8,7 @@ import os
 from typing import Generator
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, Session
 
 # Importar Base para permitir create_all
@@ -43,14 +43,30 @@ DATABASE_URL = get_database_url()
 
 # Criar engine SQLAlchemy
 
+POOL_SIZE = 3
+POOL_MAX_OVERFLOW = 2
+POOL_TIMEOUT = 30
+POOL_RECYCLE = 1800  # recicla conexões a cada 30 min para liberar a memória acumulada no processo do Postgres
+
 engine = create_engine(
     DATABASE_URL,
-    pool_size=3,
-    max_overflow=2,
-    pool_timeout=30,
-    pool_recycle=1800,  # recicla conexões a cada 30 min para liberar a memória acumulada no processo do Postgres
+    pool_size=POOL_SIZE,
+    max_overflow=POOL_MAX_OVERFLOW,
+    pool_timeout=POOL_TIMEOUT,
+    pool_recycle=POOL_RECYCLE,
     pool_pre_ping=True,
 )
+
+# Pico de conexões simultâneas em uso neste processo (para o monitoramento admin).
+pool_peak_checked_out = 0
+
+
+@event.listens_for(engine, "checkout")
+def _track_pool_peak(dbapi_conn, connection_record, connection_proxy):
+    global pool_peak_checked_out
+    in_use = engine.pool.checkedout()
+    if in_use > pool_peak_checked_out:
+        pool_peak_checked_out = in_use
 
 
 # Criar factory de sessões

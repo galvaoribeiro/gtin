@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   BarChart3,
   Building2,
   CreditCard,
@@ -30,6 +31,7 @@ const sidebarLinks: { href: string; label: string; icon: LucideIcon }[] = [
 const adminLinks: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/users", label: "Usuários", icon: Users },
   { href: "/admin/organizations", label: "Organizações", icon: Building2 },
+  { href: "/admin/monitoring", label: "Monitoramento", icon: Activity },
 ];
 
 function isNavActive(pathname: string, href: string) {

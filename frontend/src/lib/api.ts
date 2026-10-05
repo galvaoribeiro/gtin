@@ -1811,3 +1811,67 @@ export function adminProvisionEnterprise(
     },
   );
 }
+
+export type MonitoringStatus = "ok" | "warn" | "error" | "disabled";
+
+export interface MonitoringBlock<T = Record<string, unknown>> {
+  status: MonitoringStatus;
+  error: string | null;
+  data: T;
+}
+
+export interface AdminMonitoringResponse {
+  generated_at: string;
+  app: MonitoringBlock<{
+    pid: number;
+    uptime_seconds: number;
+    started_at: string;
+    python: string;
+    web_concurrency: string | null;
+  }>;
+  pool: MonitoringBlock<{
+    pool_size: number;
+    max_overflow: number;
+    capacity: number;
+    timeout_seconds: number;
+    recycle_seconds: number;
+    checked_out: number;
+    checked_in: number;
+    overflow_in_use: number;
+    usage_ratio: number;
+    peak_checked_out: number;
+    peak_ratio: number;
+    note: string;
+  }>;
+  db_connections: MonitoringBlock<{
+    active: number;
+    idle: number;
+    idle_in_transaction: number;
+    total: number;
+    max_connections: number;
+    oldest_connection_seconds: number;
+    oldest_idle_in_transaction_seconds: number;
+    recycle_seconds: number;
+    note: string;
+  }>;
+  postgres: MonitoringBlock<{
+    latency_ms?: number;
+    shared_buffers?: string;
+    work_mem?: string;
+    max_connections?: number;
+  }>;
+  redis: MonitoringBlock<{
+    enabled?: boolean;
+    connected?: boolean;
+    latency_ms?: number;
+    note?: string;
+  }>;
+  stripe: MonitoringBlock<{
+    configured?: Record<string, boolean>;
+    note?: string;
+  }>;
+}
+
+export function adminGetMonitoring() {
+  return adminFetch<AdminMonitoringResponse>("/v1/admin/monitoring");
+}
