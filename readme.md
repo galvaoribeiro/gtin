@@ -309,7 +309,7 @@ O script pode: rodar manualmente, via cron, ou ser executado como job único em 
 
 | Plano | Preço | Consultas/Dia | Features |
 |-------|-------|---------------|----------|
-| **Basic** | Grátis | 15 | Acesso público limitado |
+| **Basic** | Grátis | 100/mês | Acesso público limitado |
 | **Starter** | R$ 249,90/mês | 1.000 | API Key dedicada, 10 req/min |
 | **Pro** | R$ 399,90/mês | 5.000 | Batch processing, 30 req/min |
 | **Enterprise** | R$ 899,90/mês | 50.000 | SLA garantido, gerente dedicado |

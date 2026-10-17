@@ -29,13 +29,58 @@ ALL_PLANS = PUBLIC_PLANS + PRIVATE_PLANS
 # Teto técnico de GTINs por requisição em lote, independente do plano.
 MAX_BATCH_SIZE = 100
 
+# Limite mensal padrão de consultas (sucessos) por plano.
+# O valor efetivo de cada organização é Organization.monthly_limit
+# (override da org, se houver; senão este mapa).
+PLAN_MONTHLY_LIMITS = {
+    "basic": 100,
+    "starter": 5000,
+    "pro": 20000,
+    "advanced": 100000,
+    "enterprise": 20000,
+}
+
+
+def clear_stale_basic_monthly_overrides(bind) -> int:
+    """
+    Remove overrides do plano gratuito (basic) abaixo do limite padrão atual.
+
+    O limite mensal do basic não é persistido por organização: vem de
+    PLAN_MONTHLY_LIMITS. Overrides menores que o novo padrão (por exemplo o
+    antigo teto de 5) impediriam a cota de 100/mês de valer imediatamente.
+    Planos pagos e contadores de uso não são alterados.
+
+    Returns:
+        Quantidade de linhas atualizadas.
+    """
+    from sqlalchemy import text
+
+    sql = text(
+        """
+        UPDATE organizations
+        SET monthly_limit_override = NULL
+        WHERE plan = :plan
+          AND monthly_limit_override IS NOT NULL
+          AND monthly_limit_override < :new_limit
+        """
+    )
+    with bind.begin() as conn:
+        result = conn.execute(
+            sql,
+            {
+                "plan": "basic",
+                "new_limit": PLAN_MONTHLY_LIMITS["basic"],
+            },
+        )
+        return int(result.rowcount or 0)
+
 
 class Organization(Base):
     """
     Modelo para organizações/clientes.
     
     Cada organização pode ter múltiplas API keys e um plano de uso.
-    Planos: basic (1 key, 5 consultas/mês, sem batch), starter, pro, advanced,
+    Planos: basic (1 key, 100 consultas/mês, sem batch), starter, pro, advanced,
     enterprise (negociado, atribuído apenas por administrador)
     """
     __tablename__ = "organizations"
@@ -89,14 +134,7 @@ class Organization(Base):
 
     def get_monthly_limit_by_plan(self) -> int:
         """Retorna o limite mensal de chamadas de API por organização, de acordo com o plano."""
-        limits = {
-            "basic": 5,
-            "starter": 5000,
-            "pro": 20000,
-            "advanced": 100000,
-            "enterprise": 20000,
-        }
-        return limits.get(self.plan, 0)
+        return PLAN_MONTHLY_LIMITS.get(self.plan, 0)
 
     @property
     def monthly_limit(self) -> int:

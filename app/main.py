@@ -434,8 +434,26 @@ def run_migrations():
             else:
                 print("[MIGRATION] Coluna cancel_at_period_end ja existe.")
 
+        # Fora do `with engine.connect()` para não abrir conexão aninhada.
+        _apply_basic_monthly_limit_raise()
+
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")
+
+
+def _apply_basic_monthly_limit_raise() -> None:
+    """
+    Libera 100 consultas/mês para orgs basic com override abaixo do novo padrão.
+    Idempotente; não mexe em planos pagos nem em contadores de uso.
+    """
+    from app.db.models import clear_stale_basic_monthly_overrides
+    from app.db.session import engine
+
+    updated = clear_stale_basic_monthly_overrides(engine)
+    print(
+        f"[MIGRATION] Plano basic: {updated} override(s) antigo(s) removido(s) "
+        "para aplicar 100 consultas/mês."
+    )
 
 
 @asynccontextmanager
@@ -461,6 +479,13 @@ async def lifespan(app: FastAPI):
         finally:
             db.close()
         print("[STARTUP] Seed concluido!")
+    else:
+        # Em produção as DDL históricas não rodam no boot; este ajuste de dados
+        # precisa valer no deploy para o novo limite de 100/mês do plano basic.
+        try:
+            _apply_basic_monthly_limit_raise()
+        except Exception as e:
+            print(f"[MIGRATION] Ajuste do limite mensal do plano basic falhou: {e}")
     
     yield  # Aplicação rodando
     

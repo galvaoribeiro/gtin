@@ -25,6 +25,7 @@ with engine.connect() as conn:
 ## Ordem de execução
 
 1. `001_add_stripe_fields.sql` - Adiciona campos Stripe à tabela organizations
+9. `009_raise_basic_monthly_limit.sql` - Zera overrides antigos do plano basic para aplicar 100 consultas/mês
 
 ## Notas
 

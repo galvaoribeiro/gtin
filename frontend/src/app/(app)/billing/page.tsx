@@ -35,10 +35,10 @@ const PLANS = [
     id: "basic",
     name: "Basic",
     price: 0,
-    monthlyLimit: 5,
+    monthlyLimit: 100,
     batchSize: null,
     features: [
-      "5 consultas/mês",
+      "100 consultas/mês",
       "1 API Key",
       "10 req/min",
       "Sem batch",
