@@ -52,6 +52,10 @@ PUBLIC_COOLDOWN_SECONDS = 5  # delay entre chamadas para desincentivar scraping
 LOGIN_FAILURE_THRESHOLD = 10
 LOGIN_LOCKOUT_BASE_SECONDS = 5 * 60  # 1º bloqueio: 5 min; depois 10, 15, 20...
 
+# Token estático do endpoint de cadastros (somente leitura)
+ADMIN_READONLY_RATE_LIMIT = 30
+ADMIN_READONLY_WINDOW_SECONDS = 60
+
 
 # =============================================================================
 # Redis connection singleton
@@ -384,6 +388,29 @@ def _raise_rate_limit_exceeded(
 # =============================================================================
 # FastAPI Dependencies para rate limit
 # =============================================================================
+
+def check_admin_readonly_rate_limit(request: Request) -> None:
+    """
+    Rate limit do GET /api/admin/signups: 30 req/min por IP.
+    Fail-open se o Redis não estiver disponível (igual aos demais limites).
+    """
+    ip = get_client_ip(request)
+    allowed, remaining, retry_after = redis_rate_limiter.check_sliding_window(
+        key=f"rl:ip:{ip}:admin_readonly",
+        limit=ADMIN_READONLY_RATE_LIMIT,
+        window_seconds=ADMIN_READONLY_WINDOW_SECONDS,
+    )
+    if not allowed:
+        _raise_rate_limit_exceeded(
+            limit=ADMIN_READONLY_RATE_LIMIT,
+            remaining=remaining,
+            retry_after=retry_after,
+            message=(
+                f"Limite de {ADMIN_READONLY_RATE_LIMIT} requisições/minuto "
+                "excedido para a consulta de cadastros."
+            ),
+        )
+
 
 def check_public_rate_limit(request: Request) -> str:
     """

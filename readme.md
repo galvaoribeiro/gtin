@@ -247,6 +247,21 @@ REDIS_ENABLED=true
 2. Railway injeta automaticamente `REDIS_URL`
 3. Conecte o Redis ao seu backend nas variáveis de ambiente
 
+### Consulta automática de cadastros (somente leitura)
+
+O painel admin (`/admin/users`, `/admin/organizations`) usa JWT de sessão e **não** serve para cron. Use:
+
+`GET /api/admin/signups?since_id=<n>&since=<ISO 8601>`
+
+com `Authorization: Bearer <ADMIN_READONLY_TOKEN>`.
+
+- Sem `ADMIN_READONLY_TOKEN` no ambiente o endpoint fica desabilitado (503).
+- Token ausente ou errado: 401.
+- Só lê usuários e organizações; não devolve hash de senha nem outros segredos.
+- Rate limit: 30 req/min por IP (Redis, fail-open).
+
+Variáveis: veja `.env.example`. Em produção, defina `ADMIN_READONLY_TOKEN` no serviço da API no Railway.
+
 ---
 
 # 8) Segurança, anti‑harvesting e LGPD

@@ -4,6 +4,8 @@ Módulo de segurança - JWT e senhas.
 Funções para criar/validar tokens JWT e hash de senhas.
 """
 
+import hashlib
+import hmac
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -83,6 +85,18 @@ def create_access_token(
     )
     
     return encoded_jwt
+
+
+def tokens_match(provided: str, expected: str) -> bool:
+    """
+    Compara dois segredos em tempo constante.
+
+    Faz hash SHA-256 antes do compare_digest para que o tempo não
+    dependa do tamanho (compare_digest exige buffers do mesmo comprimento).
+    """
+    provided_digest = hashlib.sha256(provided.encode("utf-8")).digest()
+    expected_digest = hashlib.sha256(expected.encode("utf-8")).digest()
+    return hmac.compare_digest(provided_digest, expected_digest)
 
 
 def decode_access_token(token: str) -> Optional[dict]:

@@ -110,6 +110,36 @@ class AdminEnterpriseUpgradeLinkRequest(BaseModel):
     )
 
 
+class AdminSignupUser(BaseModel):
+    """Usuário recém-criado (somente leitura; sem senha nem tokens)."""
+
+    id: int
+    email: EmailStr
+    name: Optional[str] = None
+    plan: Optional[str] = None
+    subscription_status: Optional[str] = None
+    created_at: datetime
+    organization_id: int
+    organization_name: Optional[str] = None
+
+
+class AdminSignupOrganization(BaseModel):
+    """Organização recém-criada (somente leitura; sem IDs Stripe)."""
+
+    id: int
+    name: str
+    email: Optional[str] = None
+    plan: str
+    subscription_status: Optional[str] = None
+    created_at: datetime
+    user_ids: list[int] = Field(default_factory=list)
+
+
+class AdminSignupsResponse(BaseModel):
+    users: list[AdminSignupUser]
+    organizations: list[AdminSignupOrganization]
+
+
 class AdminEnterpriseUpgradeLinkResponse(BaseModel):
     """
     Link do Portal de Cobrança gerado para o cliente confirmar o upgrade
