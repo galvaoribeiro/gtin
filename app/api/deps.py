@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.db.models import ApiKey, Organization, User
-from app.core.security import decode_access_token
+from app.core.config import settings
+from app.core.security import decode_access_token, tokens_match
 
 
 @dataclass
@@ -257,4 +258,45 @@ def require_admin_user(
             detail="Acesso restrito (admin).",
         )
     return current_user
+
+
+def _extract_bearer_token(authorization: Optional[str]) -> Optional[str]:
+    if not authorization:
+        return None
+    value = authorization.strip()
+    if value.lower().startswith("bearer "):
+        token = value[7:].strip()
+        return token or None
+    return value or None
+
+
+def require_admin_readonly_token(
+    request: Request,
+    authorization: Optional[str] = Security(authorization_header),
+) -> None:
+    """
+    Autentica GET /api/admin/signups com ADMIN_READONLY_TOKEN.
+
+    - Env var vazia/ausente: 503 (endpoint desabilitado)
+    - Token ausente ou incorreto: 401
+    - Comparação em tempo constante
+    """
+    from app.core.rate_limit import check_admin_readonly_rate_limit
+
+    check_admin_readonly_rate_limit(request)
+
+    expected = (settings.ADMIN_READONLY_TOKEN or "").strip()
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Consulta de cadastros desabilitada.",
+        )
+
+    provided = _extract_bearer_token(authorization)
+    if provided is None or not tokens_match(provided, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Não autenticado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 

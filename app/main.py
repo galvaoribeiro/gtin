@@ -21,6 +21,7 @@ from app.api.v1.public import router as public_router
 from app.api.v1.billing import router as billing_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.admin_monitoring import router as admin_monitoring_router
+from app.api.v1.admin_signups import router as admin_signups_router
 from app.core.config import settings
 
 
@@ -560,4 +561,5 @@ app.include_router(metrics_router)
 app.include_router(billing_router)
 app.include_router(admin_router)
 app.include_router(admin_monitoring_router)
+app.include_router(admin_signups_router)
 

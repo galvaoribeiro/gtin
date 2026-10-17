@@ -18,6 +18,10 @@ class Settings:
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "your-super-secret-key-change-in-production")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+
+    # Token estático para GET /api/admin/signups (assistente/automação somente leitura).
+    # Vazio = endpoint recusado (desabilitado).
+    ADMIN_READONLY_TOKEN: str = (os.getenv("ADMIN_READONLY_TOKEN") or "").strip()
     
     # Environment
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
