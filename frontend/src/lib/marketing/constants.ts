@@ -39,7 +39,7 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     priceLabel: "Grátis",
     usageLabel: "Para pequenos volumes e primeiros testes de integração.",
     features: [
-      "5 consultas/mês",
+      "100 consultas/mês",
       "1 API Key",
       "Consulta individual via API",
       "10 req/min",
@@ -151,12 +151,12 @@ export const API_FAQ: FaqItem[] = [
   {
     question: "Existe ambiente de testes?",
     answer:
-      "O plano Basic (grátis) permite testar a integração real com 5 consultas/mês e 1 API Key. Crie sua conta, gere a chave e faça chamadas contra os mesmos endpoints de produção.",
+      "O plano Basic (grátis) permite testar a integração real com 100 consultas/mês e 1 API Key. Crie sua conta, gere a chave e faça chamadas contra os mesmos endpoints de produção.",
   },
   {
     question: "Existe limite de consultas?",
     answer:
-      "Sim. Cada plano tem limite mensal (Basic: 5, Starter: 5.000, Pro: 20.000, Advanced: 100.000) e rate limit por minuto. Ao exceder, a API retorna HTTP 429.",
+      "Sim. Cada plano tem limite mensal (Basic: 100, Starter: 5.000, Pro: 20.000, Advanced: 100.000) e rate limit por minuto. Ao exceder, a API retorna HTTP 429.",
   },
   {
     question: "A API retorna NCM?",
@@ -214,7 +214,7 @@ export const ERP_FAQ: FaqItem[] = [
   {
     question: "Existe ambiente gratuito?",
     answer:
-      "Sim. O plano Basic oferece 5 consultas/mês com API Key real, ideal para validar a integração antes de assinar um plano pago.",
+      "Sim. O plano Basic oferece 100 consultas/mês com API Key real, ideal para validar a integração antes de assinar um plano pago.",
   },
   {
     question: "Como funciona a integração?",
