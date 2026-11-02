@@ -61,3 +61,17 @@ class BatchResponse(BaseModel):
     total_requested: int = Field(..., description="Total de GTINs solicitados")
     total_found: int = Field(..., description="Total de produtos encontrados")
     results: list[BatchResponseItem] = Field(..., description="Lista de resultados")
+
+
+class SearchResponse(BaseModel):
+    """Resposta paginada para busca de produtos por filtros."""
+
+    total: Optional[int] = Field(
+        None,
+        description="Total de registros que atendem aos filtros (desativado para evitar consultas caras)",
+    )
+    offset: int = Field(..., description="Offset atual da paginação")
+    limit: int = Field(..., description="Limite de itens por página (fixo em 10)")
+    returned: int = Field(..., description="Quantidade de itens retornados nesta página")
+    has_more: bool = Field(..., description="Indica se existe próxima página")
+    items: list[ProductResponse] = Field(..., description="Itens da página")

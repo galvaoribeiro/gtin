@@ -61,7 +61,7 @@ Armazena os dados confiáveis carregados da sua base.
 - `api_keys`: chave hash, status, limites.
 - `usage_daily`: métricas de consumo por dia.
 
-Índices em `products`: PK em `gtin`.
+Índices em `products`: PK em `gtin` e dois índices GIN de Full-Text Search (`idx_products_name_fts` em `product_name` e `idx_products_brand_fts` em `brand`, ambos sobre `to_tsvector('simple', coalesce(col, ''))`; criados por `scripts/create_fts_indexes.py`). Não há índice em `ncm`; por isso o filtro `ncm` da busca só é aceito junto com nome ou marca.
 
 ---
 
@@ -210,6 +210,9 @@ A API implementa rate limits por plano usando Redis:
 | `/{gtin}`, `/batch` | starter | 60 req/min |
 | `/{gtin}`, `/batch` | pro | 90 req/min |
 | `/{gtin}`, `/batch` | advanced | 120 req/min |
+| `/search` | starter | 1 req/6s |
+| `/search` | pro | 1 req/4s |
+| `/search` | advanced | 1 req/2s |
 
 ### Endpoint Público (por IP)
 
