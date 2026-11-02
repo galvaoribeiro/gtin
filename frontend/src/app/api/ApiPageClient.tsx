@@ -345,10 +345,6 @@ Authorization: Bearer sk_live_...`}
               </TabsContent>
             </Tabs>
 
-            <p className="text-sm text-white/50 mt-6">
-              Também disponível: GET /v1/gtins/search para busca por marca ou nome (o NCM pode ser usado como filtro complementar, junto com marca ou nome).
-            </p>
-
             <div className="flex flex-col sm:flex-row gap-3 mt-8">
               <Button asChild className="rounded-full px-8 bg-white text-primary hover:bg-white/90">
                 <Link href="/register" onClick={() => track("signup_click", { source: "developers" })}>

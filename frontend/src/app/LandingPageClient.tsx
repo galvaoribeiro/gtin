@@ -381,7 +381,6 @@ export default function LandingPageClient() {
               {[
                 "Consulta individual de GTIN pelo painel",
                 "Consulta em lote — vários produtos de uma só vez",
-                /*"Pesquisa por nome, marca ou descrição do produto",*/
                 "Painel com histórico de consultas e limites do plano",
                 "Dados completos: NCM, CEST, marca, peso, origem e mais",
                 "Acesso de qualquer dispositivo — computador, tablet ou celular",

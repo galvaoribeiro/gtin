@@ -4,7 +4,6 @@ Rate Limiter com Redis para endpoints públicos e autenticados.
 Implementa rate limits por organização (autenticados) e por IP (público).
 
 - Lookup (/{gtin}, /batch): req/min por plano
-- Search (/search): cooldown em segundos por plano
 - Público: 20 req/dia por IP + cooldown entre requisições
 """
 
@@ -33,15 +32,6 @@ LOOKUP_RATE_LIMITS = {
     "pro": 90,
     "advanced": 120,
     "enterprise": 120,
-}
-
-# Search endpoint: /search (cooldown em segundos entre requests)
-SEARCH_COOLDOWNS = {
-    "basic": 6,       # 1 req a cada 6s (~10 req/min)
-    "starter": 6,     # 1 req a cada 6s
-    "pro": 4,         # 1 req a cada 4s
-    "advanced": 2,    # 1 req a cada 2s
-    "enterprise": 2,  # 1 req a cada 2s
 }
 
 # Público: limites por IP
@@ -509,51 +499,6 @@ def check_org_rate_limit_lookup(request: Request) -> None:
         )
 
 
-def enforce_org_search_cooldown(org) -> None:
-    """
-    Aplica o cooldown de pesquisa por organização (compartilhado entre API e painel).
-
-    Raises:
-        HTTPException 429 se a organização pesquisou há menos de `cooldown` segundos.
-    """
-    plan = org.plan
-    cooldown = SEARCH_COOLDOWNS.get(plan, SEARCH_COOLDOWNS["starter"])
-
-    allowed, retry_after = redis_rate_limiter.check_cooldown(
-        key=f"rl:org:{org.id}:search",
-        cooldown_seconds=cooldown,
-    )
-
-    if not allowed:
-        _raise_rate_limit_exceeded(
-            limit=1,
-            remaining=0,
-            retry_after=retry_after,
-            message=f"Aguarde {retry_after}s entre pesquisas. Seu plano ({plan}) permite 1 pesquisa a cada {cooldown}s.",
-        )
-
-
-def check_org_rate_limit_search(request: Request) -> None:
-    """
-    Dependency para rate limit de endpoint search (/search).
-    Deve ser usado DEPOIS de get_api_key_auth resolver o auth.
-    
-    Limite: cooldown varia por plano (2-12 segundos entre requests por organização)
-    
-    Raises:
-        HTTPException 429 se limite excedido
-    """
-    from app.api.deps import ApiKeyAuth
-    
-    auth: Optional[ApiKeyAuth] = getattr(request.state, "auth", None)
-    
-    if auth is None:
-        logger.warning("check_org_rate_limit_search chamado sem auth no request.state")
-        return
-    
-    enforce_org_search_cooldown(auth.organization)
-
-
 # =============================================================================
 # Factory para criar dependency com auth injetado
 # =============================================================================
@@ -601,26 +546,5 @@ def get_rate_limit_lookup_dependency():
     return _check_lookup_rate_limit
 
 
-def get_rate_limit_search_dependency():
-    """
-    Retorna uma dependency que verifica rate limit de search.
-    """
-    from app.api.deps import get_api_key_auth, ApiKeyAuth
-    
-    async def _check_search_rate_limit(
-        request: Request,
-        auth: ApiKeyAuth = Depends(get_api_key_auth),
-    ) -> ApiKeyAuth:
-        """
-        Verifica rate limit de search e retorna auth.
-        """
-        request.state.auth = auth
-        enforce_org_search_cooldown(auth.organization)
-        return auth
-    
-    return _check_search_rate_limit
-
-
 # Criar as dependencies prontas para uso
 rate_limit_lookup = get_rate_limit_lookup_dependency()
-rate_limit_search = get_rate_limit_search_dependency()

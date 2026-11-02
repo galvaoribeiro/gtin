@@ -17,19 +17,12 @@ from app.core.usage import (
     get_organization_monthly_usage,
     record_org_usage_monthly,
 )
-from app.core.rate_limit import rate_limit_lookup, rate_limit_search
-from app.core.product_search import (
-    SEARCH_LIMIT,
-    InvalidSearchError,
-    SearchTooBroadError,
-    search_products as run_product_search,
-)
+from app.core.rate_limit import rate_limit_lookup
 from app.schemas.product import (
     ProductResponse,
     BatchRequest,
     BatchResponse,
     BatchResponseItem,
-    SearchResponse,
 )
 
 router = APIRouter(prefix="/v1/gtins", tags=["GTINs"])
@@ -315,91 +308,6 @@ async def get_products_batch_query(
     response.headers["Vary"] = "X-API-Key"
     
     return batch_response
-
-
-def _record_search_error(db: Session, auth: ApiKeyAuth, status_code: int) -> None:
-    record_org_usage_monthly(db, auth.organization.id, status_code)
-    record_api_usage(db, auth.api_key.id, status_code)
-    db.commit()
-
-
-@router.get(
-    "/search",
-    response_model=SearchResponse,
-    summary="Buscar produtos por filtros",
-    description=(
-        "Busca produtos por brand e/ou product_name (palavras inteiras; a última palavra "
-        "pode ser parcial, com 4+ caracteres). O filtro ncm é complementar e deve ser "
-        "combinado com brand ou product_name. "
-        "Retorna paginação por offset com limite fixo de 10 itens (offset máximo 40). "
-        "Rate limit: 1 pesquisa a cada 2-6 segundos dependendo do plano."
-    ),
-    responses={
-        200: {"description": "Resultados paginados"},
-        400: {"description": "Requisição inválida ou busca muito ampla"},
-        401: {"description": "API key inválida ou não fornecida"},
-        403: {"description": "Plano não permite consultas de API"},
-        429: {"description": "Limite de rate ou mensal excedido"},
-    }
-)
-def search_products(
-    request: Request,
-    brand: str | None = Query(None, description="Marca (busca textual)"),
-    product_name: str | None = Query(None, description="Nome do produto (busca textual)"),
-    ncm: str | None = Query(None, description="Código NCM (match exato; use junto com brand ou product_name)"),
-    offset: int = Query(0, ge=0, description="Offset para paginação (múltiplos de 10, máximo 40)"),
-    auth: ApiKeyAuth = Depends(rate_limit_search),
-    db: Session = Depends(get_db),
-):
-    """
-    Busca produtos aplicando filtros e retorna resultados paginados.
-    Limite fixo de 10 itens por página.
-    """
-    org = auth.organization
-
-    monthly_limit = org.monthly_limit
-    used_month = get_organization_monthly_usage(db, org.id)
-    if monthly_limit > 0 and used_month + 1 > monthly_limit:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Limite mensal excedido. Restam {max(monthly_limit - used_month, 0)} de {monthly_limit} chamadas para este mês.",
-        )
-
-    brand_filter = brand.strip() if brand else None
-    product_name_filter = product_name.strip() if product_name else None
-    ncm_filter = ncm.strip() if ncm else None
-
-    if ncm_filter and not (brand_filter or product_name_filter):
-        _record_search_error(db, auth, 400)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="O filtro ncm deve ser combinado com brand ou product_name.",
-        )
-
-    try:
-        items, has_more = run_product_search(
-            db,
-            name=product_name_filter,
-            brand=brand_filter,
-            ncm=ncm_filter,
-            offset=offset,
-        )
-    except (InvalidSearchError, SearchTooBroadError) as exc:
-        _record_search_error(db, auth, 400)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-
-    record_org_usage_monthly(db, org.id, 200)
-    record_api_usage(db, auth.api_key.id, 200)
-    db.commit()
-
-    return SearchResponse(
-        total=None,
-        offset=offset,
-        limit=SEARCH_LIMIT,
-        returned=len(items),
-        has_more=has_more,
-        items=items,
-    )
 
 
 @router.get(
