@@ -12,7 +12,16 @@ import os
 
 from app.api.deps import get_db, get_current_user
 from app.core.config import settings
-from app.db.models import PRIVATE_PLANS, PUBLIC_PLANS, Organization, User
+from app.db.models import (
+    PAID_PLANS,
+    PRIVATE_PLANS,
+    PUBLIC_PLANS,
+    SUBSCRIPTION_STATUSES_ELEVATE_PLAN,
+    SUBSCRIPTION_STATUSES_GRACE,
+    SUBSCRIPTION_STATUSES_REVOKE_PLAN,
+    Organization,
+    User,
+)
 from app.services.stripe_service import StripeService
 from app.schemas.organization import OrganizationResponse
 from pydantic import BaseModel, Field
@@ -66,12 +75,79 @@ def _sync_cancel_at_period_end(org: Organization, db: Session) -> bool:
     return flag
 
 
+def _clear_paid_plan_overrides(org: Organization) -> None:
+    """Remove overrides e preço Enterprise ligados a um plano pago."""
+    org.batch_limit_override = None
+    org.monthly_limit_override = None
+    org.enterprise_price_id = None
+    org.enterprise_amount_cents = None
+
+
+def _revert_org_to_basic_plan(org: Organization) -> None:
+    """Rebaixa para basic e limpa overrides de plano pago. Não mexe no status."""
+    org.plan = "basic"
+    org.cancel_at_period_end = False
+    _clear_paid_plan_overrides(org)
+
+
+def _assign_paid_plan_from_subscription(org: Organization, plan: str, subscription_data: dict) -> None:
+    """Aplica o plano reconhecido da subscription (somente após entitlement)."""
+    if plan != org.plan:
+        if plan == "enterprise":
+            metadata = subscription_data.get("metadata") or {}
+            org.batch_limit_override = _parse_override_metadata(
+                metadata.get(StripeService.PENDING_ENTERPRISE_BATCH_OVERRIDE_METADATA_KEY)
+            )
+            org.monthly_limit_override = _parse_override_metadata(
+                metadata.get(StripeService.PENDING_ENTERPRISE_MONTHLY_OVERRIDE_METADATA_KEY)
+            )
+        else:
+            org.batch_limit_override = None
+            org.monthly_limit_override = None
+    org.plan = plan
+
+    # O preço Enterprise negociado só faz sentido enquanto a organização
+    # estiver de fato no plano Enterprise; nos demais planos as colunas
+    # são limpas para não exibir um valor de uma negociação anterior.
+    if plan == "enterprise":
+        org.enterprise_price_id = subscription_data.get("price_id")
+        org.enterprise_amount_cents = subscription_data.get("price_unit_amount")
+    else:
+        org.enterprise_price_id = None
+        org.enterprise_amount_cents = None
+
+
+def _invoice_subscription_id(invoice: dict) -> Optional[str]:
+    """Extrai o ID da subscription de um invoice (API clássica ou parent.subscription_details)."""
+    if not invoice:
+        return None
+    subscription = invoice.get("subscription")
+    if isinstance(subscription, dict):
+        return subscription.get("id")
+    if subscription:
+        return str(subscription)
+    parent = invoice.get("parent") or {}
+    details = parent.get("subscription_details") or {}
+    nested = details.get("subscription")
+    if isinstance(nested, dict):
+        return nested.get("id")
+    if nested:
+        return str(nested)
+    return None
+
+
 def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> None:
     """
     Sincroniza a organização com os dados de uma subscription do Stripe.
 
+    O plano pago só é aplicado quando o status é active ou trialing.
+    past_due é carência: mantém plano já pago, nunca eleva de basic.
+    incomplete sem plano pago anterior, incomplete_expired, canceled e unpaid
+    voltam para basic. O status recebido é sempre gravado.
+
     O plano só é sobrescrito quando o Price/metadata é reconhecido: um Price
-    desconhecido não pode rebaixar silenciosamente um cliente para basic.
+    desconhecido não pode rebaixar silenciosamente um cliente para basic
+    enquanto a assinatura ainda estiver paga.
     """
     org.stripe_subscription_id = subscription_data["stripe_subscription_id"]
     org.subscription_status = subscription_data["subscription_status"]
@@ -79,36 +155,40 @@ def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> No
     org.default_payment_method = subscription_data["default_payment_method"]
     org.cancel_at_period_end = bool(subscription_data.get("cancel_at_period_end"))
 
-    plan = subscription_data["plan"]
-    if plan:
-        if plan != org.plan:
-            if plan == "enterprise":
-                metadata = subscription_data.get("metadata") or {}
-                org.batch_limit_override = _parse_override_metadata(
-                    metadata.get(StripeService.PENDING_ENTERPRISE_BATCH_OVERRIDE_METADATA_KEY)
-                )
-                org.monthly_limit_override = _parse_override_metadata(
-                    metadata.get(StripeService.PENDING_ENTERPRISE_MONTHLY_OVERRIDE_METADATA_KEY)
-                )
-            else:
-                org.batch_limit_override = None
-                org.monthly_limit_override = None
-        org.plan = plan
+    status = (subscription_data.get("subscription_status") or "").strip().lower()
+    plan = subscription_data.get("plan")
+    previous_was_paid = (org.plan or "basic") in PAID_PLANS
 
-        # O preço Enterprise negociado só faz sentido enquanto a organização
-        # estiver de fato no plano Enterprise; nos demais planos as colunas
-        # são limpas para não exibir um valor de uma negociação anterior.
-        if plan == "enterprise":
-            org.enterprise_price_id = subscription_data.get("price_id")
-            org.enterprise_amount_cents = subscription_data.get("price_unit_amount")
+    if status in SUBSCRIPTION_STATUSES_ELEVATE_PLAN:
+        if plan:
+            _assign_paid_plan_from_subscription(org, plan, subscription_data)
         else:
-            org.enterprise_price_id = None
-            org.enterprise_amount_cents = None
-    else:
+            print(
+                "[WEBHOOK] Price desconhecido na subscription "
+                f"{subscription_data['stripe_subscription_id']}; "
+                f"mantendo plano atual da organização {org.id}: {org.plan}"
+            )
+        return
+
+    if status in SUBSCRIPTION_STATUSES_GRACE:
+        # Carência de renovação: não eleva de basic e não rebaixa quem já pagava.
+        if not previous_was_paid:
+            _revert_org_to_basic_plan(org)
+        return
+
+    if status in SUBSCRIPTION_STATUSES_REVOKE_PLAN or status == "incomplete":
+        if status == "incomplete" and previous_was_paid:
+            # Checkout/invoice inicial de outra assinatura não deve rebaixar
+            # quem já estava em plano pago; também não eleva para o novo plano.
+            return
+        _revert_org_to_basic_plan(org)
+        return
+
+    # Status desconhecido: conservador — grava o status e não eleva o plano.
+    if plan and not previous_was_paid:
         print(
-            "[WEBHOOK] Price desconhecido na subscription "
-            f"{subscription_data['stripe_subscription_id']}; "
-            f"mantendo plano atual da organização {org.id}: {org.plan}"
+            "[WEBHOOK] Status de subscription desconhecido "
+            f"'{status}' na organização {org.id}; mantendo plano {org.plan}"
         )
 
 
@@ -525,16 +605,11 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         ).first()
 
         if org:
-            org.plan = "basic"
+            # Encerrada (inclusive incomplete_expired, se o Stripe emitir deleted):
+            # volta para basic. Status gravado como canceled, comportamento histórico.
+            _revert_org_to_basic_plan(org)
             org.subscription_status = "canceled"
-            org.cancel_at_period_end = False
             org.stripe_subscription_id = None
-            # Subscription encerrada ao fim do período → remover overrides manuais
-            # e o preço Enterprise negociado (se havia)
-            org.batch_limit_override = None
-            org.monthly_limit_override = None
-            org.enterprise_price_id = None
-            org.enterprise_amount_cents = None
             db.commit()
             print(f"[WEBHOOK] Organização {org.id} voltou para plano Basic; overrides removidos")
     
@@ -547,16 +622,28 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             print(f"[WEBHOOK] Pagamento bem-sucedido para organização {org.id}")
             # Você pode registrar o pagamento em uma tabela de transações, enviar email, etc.
     
-    # Pagamento falhou
+    # Pagamento falhou: sincroniza o status real da assinatura (não força past_due).
+    # Na primeira cobrança o Stripe mantém incomplete; past_due é só renovação.
     elif event_type == "invoice.payment_failed":
         customer_id = data_object["customer"]
         org = db.query(Organization).filter(Organization.stripe_customer_id == customer_id).first()
 
         if org:
             print(f"[WEBHOOK] Pagamento falhou para organização {org.id}")
-            org.subscription_status = "past_due"
+            subscription_id = _invoice_subscription_id(data_object) or org.stripe_subscription_id
+            subscription_obj = (
+                StripeService.get_subscription(subscription_id) if subscription_id else None
+            )
+            if subscription_obj:
+                subscription_data = StripeService.extract_subscription_data(subscription_obj)
+                _apply_subscription_to_org(org, subscription_data)
+            else:
+                print(
+                    "[WEBHOOK] invoice.payment_failed sem subscription recuperável; "
+                    "não alterando subscription_status "
+                    f"(atual={org.subscription_status})"
+                )
             db.commit()
-            # Enviar notificação por email, etc.
     
     # Checkout concluído: atualizar imediatamente usando a subscription retornada
     elif event_type == "checkout.session.completed":

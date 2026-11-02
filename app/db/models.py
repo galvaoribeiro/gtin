@@ -26,6 +26,31 @@ PRIVATE_PLANS = ("enterprise",)
 
 ALL_PLANS = PUBLIC_PLANS + PRIVATE_PLANS
 
+# Planos pagos. Cota desses planos só vale com entitlement (status Stripe
+# active/trialing, ou past_due em carência). Sem status gravado (admin/legado)
+# o plano da coluna continua valendo — não rebaixa quem nunca passou pelo Stripe.
+PAID_PLANS = frozenset({"starter", "pro", "advanced", "enterprise"})
+
+# Status em que a org de fato pagou (ou está em trial) e pode receber o plano.
+SUBSCRIPTION_STATUSES_ELEVATE_PLAN = frozenset({"active", "trialing"})
+
+# Renovação com falha: carência. Mantém plano já pago; nunca eleva de basic.
+SUBSCRIPTION_STATUSES_GRACE = frozenset({"past_due"})
+
+# Status que concedem cota paga (elevação + carência).
+SUBSCRIPTION_STATUSES_GRANT_PAID_ACCESS = (
+    SUBSCRIPTION_STATUSES_ELEVATE_PLAN | SUBSCRIPTION_STATUSES_GRACE
+)
+
+# Assinatura encerrada ou nunca chegou a pagar: plano volta para basic.
+SUBSCRIPTION_STATUSES_REVOKE_PLAN = frozenset({
+    "incomplete_expired",
+    "canceled",
+    "cancelled",
+    "unpaid",
+    "paused",
+})
+
 # Teto técnico de GTINs por requisição em lote, independente do plano.
 MAX_BATCH_SIZE = 100
 
@@ -114,6 +139,30 @@ class Organization(Base):
     def __repr__(self) -> str:
         return f"<Organization(id={self.id}, name='{self.name}', plan='{self.plan}')>"
     
+    @property
+    def has_paid_entitlement(self) -> bool:
+        """
+        True quando a organização pode usar cota de plano pago.
+
+        - plan precisa ser pago (starter/pro/advanced/enterprise)
+        - subscription_status active/trialing, ou past_due (carência de quem já pagou)
+        - status vazio/None: plano atribuído fora do Stripe (admin/legado); mantém a cota
+        - incomplete, incomplete_expired, canceled, unpaid, paused: sem cota paga
+        """
+        if (self.plan or "basic") not in PAID_PLANS:
+            return False
+        status = (self.subscription_status or "").strip().lower()
+        if not status:
+            return True
+        return status in SUBSCRIPTION_STATUSES_GRANT_PAID_ACCESS
+
+    @property
+    def effective_plan(self) -> str:
+        """Plano usado para cotas e rate limits. Sem entitlement pago, cai para basic."""
+        if self.has_paid_entitlement:
+            return self.plan
+        return "basic"
+
     def get_batch_limit_by_plan(self) -> int:
         """Retorna o limite de GTINs por batch de acordo com o plano."""
         limits = {
@@ -127,7 +176,9 @@ class Organization(Base):
 
     @property
     def batch_limit(self) -> int:
-        """Retorna o override se definido, caso contrário o padrão do plano."""
+        """Retorna o override se definido, caso contrário o padrão do plano efetivo."""
+        if not self.has_paid_entitlement and (self.plan or "basic") in PAID_PLANS:
+            return 0
         if self.batch_limit_override is not None:
             return self.batch_limit_override
         return self.get_batch_limit_by_plan()
@@ -138,7 +189,9 @@ class Organization(Base):
 
     @property
     def monthly_limit(self) -> int:
-        """Retorna o override se definido, caso contrário o padrão do plano."""
+        """Retorna o override se definido, caso contrário o padrão do plano efetivo."""
+        if not self.has_paid_entitlement and (self.plan or "basic") in PAID_PLANS:
+            return PLAN_MONTHLY_LIMITS["basic"]
         if self.monthly_limit_override is not None:
             return self.monthly_limit_override
         return self.get_monthly_limit_by_plan()
@@ -156,7 +209,9 @@ class Organization(Base):
 
     @property
     def api_key_active_limit(self) -> int:
-        """Propriedade de conveniência para limite de API keys ativas."""
+        """Propriedade de conveniência para limite de API keys ativas (plano efetivo)."""
+        if not self.has_paid_entitlement and (self.plan or "basic") in PAID_PLANS:
+            return 1
         return self.get_api_key_active_limit_by_plan()
 
 

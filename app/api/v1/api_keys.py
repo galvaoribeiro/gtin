@@ -136,7 +136,7 @@ def list_api_keys(
         .filter(ApiKey.organization_id == org.id, ApiKey.is_active.is_(True))
         .count()
     )
-    active_limit = org.get_api_key_active_limit_by_plan()
+    active_limit = org.api_key_active_limit
     
     return ApiKeyListResponse(
         items=[api_key_to_response(key) for key in api_keys],
@@ -171,7 +171,7 @@ def create_api_key(
     Returns:
         API key criada com a key completa.
     """
-    active_limit = org.get_api_key_active_limit_by_plan()
+    active_limit = org.api_key_active_limit
     active_count = (
         db.query(ApiKey)
         .filter(ApiKey.organization_id == org.id, ApiKey.is_active.is_(True))
