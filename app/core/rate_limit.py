@@ -489,7 +489,7 @@ def check_org_rate_limit_lookup(request: Request) -> None:
         return
     
     org = auth.organization
-    plan = org.plan
+    plan = org.effective_plan
     limit = LOOKUP_RATE_LIMITS.get(plan, LOOKUP_RATE_LIMITS["starter"])
     
     key = f"rl:org:{org.id}:lookup"
@@ -516,7 +516,7 @@ def enforce_org_search_cooldown(org) -> None:
     Raises:
         HTTPException 429 se a organização pesquisou há menos de `cooldown` segundos.
     """
-    plan = org.plan
+    plan = org.effective_plan
     cooldown = SEARCH_COOLDOWNS.get(plan, SEARCH_COOLDOWNS["starter"])
 
     allowed, retry_after = redis_rate_limiter.check_cooldown(
@@ -577,7 +577,7 @@ def get_rate_limit_lookup_dependency():
         request.state.auth = auth
         
         org = auth.organization
-        plan = org.plan
+        plan = org.effective_plan
         limit = LOOKUP_RATE_LIMITS.get(plan, LOOKUP_RATE_LIMITS["starter"])
         
         key = f"rl:org:{org.id}:lookup"

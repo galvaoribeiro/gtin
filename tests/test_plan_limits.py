@@ -30,6 +30,43 @@ def test_paid_plan_monthly_limits_unchanged():
         assert org.monthly_limit == expected
 
 
+def test_paid_quota_requires_entitled_subscription_status():
+    leftover_incomplete = Organization(
+        name="Checkout incompleto",
+        plan="starter",
+        subscription_status="incomplete",
+        monthly_limit_override=5000,
+    )
+    assert leftover_incomplete.has_paid_entitlement is False
+    assert leftover_incomplete.effective_plan == "basic"
+    assert leftover_incomplete.monthly_limit == PLAN_MONTHLY_LIMITS["basic"]
+    assert leftover_incomplete.batch_limit == 0
+
+    expired = Organization(
+        name="Incomplete expired",
+        plan="starter",
+        subscription_status="incomplete_expired",
+    )
+    assert expired.monthly_limit == PLAN_MONTHLY_LIMITS["basic"]
+
+    active = Organization(name="Coliseu", plan="starter", subscription_status="active")
+    trialing = Organization(name="Trial", plan="pro", subscription_status="trialing")
+    grace = Organization(name="Renovacao", plan="advanced", subscription_status="past_due")
+    scheduled_cancel = Organization(
+        name="Deak Sistemas",
+        plan="pro",
+        subscription_status="active",
+        cancel_at_period_end=True,
+    )
+    admin_assigned = Organization(name="Enterprise admin", plan="enterprise")
+
+    assert active.monthly_limit == 5000
+    assert trialing.monthly_limit == 20000
+    assert grace.monthly_limit == 100000
+    assert scheduled_cancel.monthly_limit == 20000
+    assert admin_assigned.monthly_limit == 20000
+
+
 def test_monthly_limit_override_takes_precedence():
     org = Organization(name="Custom", plan="basic", monthly_limit_override=10)
     assert org.get_monthly_limit_by_plan() == 100
