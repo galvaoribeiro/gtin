@@ -9,7 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.db.models import MAX_BATCH_SIZE, User, ApiKey
+from app.db.models import HARD_MAX_BATCH_SIZE, MAX_BATCH_SIZE, User, ApiKey
 from app.api.deps import get_current_user
 from app.core.rate_limit import enforce_org_search_cooldown
 from app.core.product_search import (
@@ -250,7 +250,7 @@ def get_product_by_gtin_dashboard(
     summary="Consultar produtos em lote (Dashboard)",
     description=(
         "Consulta vários GTINs de uma vez via dashboard, respeitando o limite de batch do plano "
-        f"(teto técnico de {MAX_BATCH_SIZE} GTINs por requisição). "
+        f"(padrão de até {MAX_BATCH_SIZE} GTINs por requisição; maior apenas com limite customizado da organização). "
         "Apenas GTINs encontrados consomem cota mensal. "
         "Requer autenticação JWT."
     ),
@@ -291,7 +291,7 @@ def get_products_batch_dashboard(
 
     org = current_user.organization
 
-    batch_limit = min(org.batch_limit, MAX_BATCH_SIZE)
+    batch_limit = min(org.batch_limit, HARD_MAX_BATCH_SIZE)
     if batch_limit <= 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.db.models import MAX_BATCH_SIZE, Organization
+from app.db.models import HARD_MAX_BATCH_SIZE, Organization
 from app.api.deps import get_api_key_auth, ApiKeyAuth
 from app.core.usage import (
     record_api_usage,
@@ -103,16 +103,16 @@ def process_batch_gtins(
     total_requested = len(gtins)
 
     # Limite "hard" defensivo para abuso
-    if total_requested > MAX_BATCH_SIZE:
+    if total_requested > HARD_MAX_BATCH_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Máximo de {MAX_BATCH_SIZE} GTINs por requisição."
+            detail=f"Máximo de {HARD_MAX_BATCH_SIZE} GTINs por requisição."
         )
 
     org = auth.organization
 
     # Limite por plano (cada requisição batch conta como 1)
-    batch_limit = min(org.batch_limit, MAX_BATCH_SIZE)
+    batch_limit = min(org.batch_limit, HARD_MAX_BATCH_SIZE)
     if batch_limit <= 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -227,7 +227,7 @@ def process_batch_gtins(
     "/batch",
     response_model=BatchResponse,
     summary="Consultar produtos em lote (POST)",
-    description="Consulta múltiplos produtos de uma vez. Limites por plano: starter=5, pro=10, advanced=20 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Requer API key válida. Rate limit por plano (10-120 req/min).",
+    description="Consulta múltiplos produtos de uma vez. Limites por plano: starter=5, pro=10, advanced=20 (basic não permite batch). Máximo de 100 GTINs por requisição (maior apenas com limite customizado da organização). Requer API key válida. Rate limit por plano (10-120 req/min).",
     responses={
         200: {"description": "Resultados da consulta em lote"},
         400: {"description": "Requisição inválida"},
@@ -236,7 +236,7 @@ def process_batch_gtins(
         429: {"description": "Limite de rate ou mensal excedido"},
     }
 )
-async def get_products_batch(
+def get_products_batch(
     batch_request: BatchRequest,
     request: Request,
     auth: ApiKeyAuth = Depends(rate_limit_lookup),
@@ -245,7 +245,7 @@ async def get_products_batch(
     """
     Consulta múltiplos produtos por GTIN via POST.
     
-    - **gtins**: Lista de códigos de barras (máximo 100)
+    - **gtins**: Lista de códigos de barras (máximo 100, ou o limite customizado da organização)
     
     Rate limit por plano: starter=60, pro=90, advanced=120 req/min.
     
@@ -267,7 +267,7 @@ async def get_products_batch(
         429: {"description": "Limite de rate ou mensal excedido"},
     }
 )
-async def get_products_batch_query(
+def get_products_batch_query(
     response: Response,
     gtins: list[str] = Query(
         ...,
@@ -414,7 +414,7 @@ def search_products(
         429: {"description": "Limite de rate ou mensal excedido"},
     }
 )
-async def get_product_by_gtin(
+def get_product_by_gtin(
     gtin: str,
     request: Request,
     auth: ApiKeyAuth = Depends(rate_limit_lookup),

@@ -565,7 +565,7 @@ def get_rate_limit_lookup_dependency():
     """
     from app.api.deps import get_api_key_auth, ApiKeyAuth
     
-    async def _check_lookup_rate_limit(
+    def _check_lookup_rate_limit(
         request: Request,
         auth: ApiKeyAuth = Depends(get_api_key_auth),
     ) -> ApiKeyAuth:
@@ -607,7 +607,7 @@ def get_rate_limit_search_dependency():
     """
     from app.api.deps import get_api_key_auth, ApiKeyAuth
     
-    async def _check_search_rate_limit(
+    def _check_search_rate_limit(
         request: Request,
         auth: ApiKeyAuth = Depends(get_api_key_auth),
     ) -> ApiKeyAuth:
