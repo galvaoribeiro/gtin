@@ -10,6 +10,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.db.models import HARD_MAX_BATCH_SIZE
+
 
 class ProductResponse(BaseModel):
     """Schema de resposta para um produto."""
@@ -43,7 +45,9 @@ class BatchRequest(BaseModel):
         ..., 
         description="Lista de GTINs para consultar",
         min_items=1,
-        max_items=100  # Limite de 100 GTINs por requisição
+        # Teto absoluto; o limite efetivo de cada organização (plano ou
+        # override) é verificado no endpoint.
+        max_items=HARD_MAX_BATCH_SIZE,
     )
 
 

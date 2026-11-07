@@ -7,6 +7,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, EmailStr
 
+from app.db.models import HARD_MAX_BATCH_SIZE
+
 
 # =============================================================================
 # Users (Admin)
@@ -77,7 +79,7 @@ class AdminOrganizationsPage(BaseModel):
 class AdminOrganizationUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=255)
     plan: Optional[str] = Field(None, description="basic, starter, pro, advanced, enterprise")
-    batch_limit_override: Optional[int] = Field(None, ge=0, description="Override do limite de batch (null = padrão do plano)")
+    batch_limit_override: Optional[int] = Field(None, ge=0, le=HARD_MAX_BATCH_SIZE, description="Override do limite de batch (null = padrão do plano)")
     monthly_limit_override: Optional[int] = Field(None, ge=0, description="Override do limite mensal (null = padrão do plano)")
     stripe_customer_id: Optional[str] = None
     stripe_subscription_id: Optional[str] = None
@@ -101,7 +103,7 @@ class AdminEnterpriseUpgradeLinkRequest(BaseModel):
         description="Valor mensal negociado com o cliente, em centavos (obrigatório)",
     )
     batch_limit_override: Optional[int] = Field(
-        None, ge=0,
+        None, ge=0, le=HARD_MAX_BATCH_SIZE,
         description="Limite de GTINs por batch a aplicar quando o cliente confirmar (null = padrão do plano, 100)",
     )
     monthly_limit_override: Optional[int] = Field(

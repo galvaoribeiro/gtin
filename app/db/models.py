@@ -51,8 +51,14 @@ SUBSCRIPTION_STATUSES_REVOKE_PLAN = frozenset({
     "paused",
 })
 
-# Teto técnico de GTINs por requisição em lote, independente do plano.
+# Teto padrão de GTINs por requisição em lote: é o limite do plano enterprise
+# e o máximo que qualquer plano alcança sem override.
 MAX_BATCH_SIZE = 100
+
+# Teto técnico absoluto de GTINs por requisição em lote. Só é alcançável por
+# organizações com ``batch_limit_override`` acima de MAX_BATCH_SIZE (definido
+# pelo admin); os limites padrão dos planos continuam em MAX_BATCH_SIZE.
+HARD_MAX_BATCH_SIZE = 1000
 
 # Limite mensal padrão de consultas (sucessos) por plano.
 # O valor efetivo de cada organização é Organization.monthly_limit
