@@ -25,6 +25,26 @@ from app.api.v1.admin_signups import router as admin_signups_router
 from app.core.config import settings
 
 
+def public_docs_kwargs() -> dict:
+    """
+    URLs da documentação FastAPI (Swagger, ReDoc e OpenAPI).
+
+    Só ficam ativas em development. Em qualquer outro ENVIRONMENT
+    (incluindo production) as três rotas deixam de existir (404).
+    """
+    if settings.ENVIRONMENT == "development":
+        return {
+            "docs_url": "/docs",
+            "redoc_url": "/redoc",
+            "openapi_url": "/openapi.json",
+        }
+    return {
+        "docs_url": None,
+        "redoc_url": None,
+        "openapi_url": None,
+    }
+
+
 def _backfill_cancel_at_period_end() -> None:
     """Sincroniza cancel_at_period_end das orgs que já têm assinatura no Stripe."""
     from app.db.models import Organization
@@ -517,8 +537,7 @@ app = FastAPI(
     title="GTIN→NCM Data Platform API",
     description="API para consulta de dados de produtos por GTIN (código de barras). Requer autenticação via API key.",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    **public_docs_kwargs(),
     lifespan=lifespan,
 )
 
