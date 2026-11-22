@@ -181,7 +181,7 @@ export default function DocsPage() {
                   </div>
                   <CodeBlock
                     title="cURL (lookup unitário)"
-                    code={`curl -X GET "${baseUrl}/v1/gtins/7891234567890" \\\n  -H "X-API-Key: SUA_CHAVE_API"`}
+                    code={`curl -X GET "${baseUrl}/v1/gtins/7894900011517" \\\n  -H "X-API-Key: SUA_CHAVE_API"`}
                   />
                 </div>
               </Card>
@@ -208,8 +208,8 @@ export default function DocsPage() {
                       description: "GTIN do produto (8, 12, 13 ou 14 dígitos).",
                     },
                   ]}
-                  requestExample={`curl -X GET "${baseUrl}/v1/gtins/7891234567890" \\\n  -H "Authorization: Bearer SUA_CHAVE_API"`}
-                  responseExample={`{\n  "gtin": "7891234567890",\n  "gtin_type": "GTIN-13",\n  "brand": "Marca Exemplo",\n  "product_name": "Produto Exemplo 500ml",\n  "owner_tax_id": "00000000000000",\n  "origin_country": "BR",\n  "ncm": "00000000",\n  "cest": "0000000",\n  "gross_weight_value": 0.5,\n  "gross_weight_unit": "kg",\n  "dsit_date": "2025-01-15",\n  "updated_at": "2026-01-16T10:30:00Z",\n  "image_url": "https://example.com/image.jpg"\n}`}
+                  requestExample={`curl -X GET "${baseUrl}/v1/gtins/7894900011517" \\\n  -H "Authorization: Bearer SUA_CHAVE_API"`}
+                  responseExample={`{\n  "gtin": "7894900011517",\n  "gtin_type": 13,\n  "brand": "Coca Cola",\n  "product_name": "Refrigerante Coca Cola Garrafa 2l",\n  "origin_country": "Brasil",\n  "ncm": "22021000",\n  "cest": ["0301001"],\n  "gross_weight_value": "2.050",\n  "gross_weight_unit": "KGM"\n}`}
                   statusCodes={[
                     { code: 200, description: "Produto encontrado" },
                     { code: 400, description: "GTIN inválido ou parâmetros inválidos" },
@@ -226,8 +226,8 @@ export default function DocsPage() {
                   title="Consultar produtos em lote (POST)"
                   badgeNote="Lookup (req/min)"
                   description="Consulta múltiplos GTINs em uma única requisição. O limite de itens por batch depende do seu plano."
-                  requestExample={`curl -X POST "${baseUrl}/v1/gtins/batch" \\\n  -H "X-API-Key: SUA_CHAVE_API" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "gtins": ["7891234567890", "0012345678905"]\n  }'`}
-                  responseExample={`{\n  "total_requested": 2,\n  "total_found": 1,\n  "results": [\n    {\n      "gtin": "7891234567890",\n      "found": true,\n      "product": {\n        "gtin": "7891234567890",\n        "gtin_type": "GTIN-13",\n        "brand": "Marca Exemplo",\n        "product_name": "Produto Exemplo 500ml",\n        "owner_tax_id": "00000000000000",\n        "origin_country": "BR",\n        "ncm": "00000000",\n        "cest": "0000000",\n        "gross_weight_value": 0.5,\n        "gross_weight_unit": "kg",\n        "dsit_date": "2025-01-15",\n        "updated_at": "2026-01-16T10:30:00Z",\n        "image_url": "https://example.com/image.jpg"\n      }\n    },\n    {\n      "gtin": "0012345678905",\n      "found": false,\n      "product": null\n    }\n  ]\n}`}
+                  requestExample={`curl -X POST "${baseUrl}/v1/gtins/batch" \\\n  -H "X-API-Key: SUA_CHAVE_API" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "gtins": ["7894900011517", "0012345678905"]\n  }'`}
+                  responseExample={`{\n  "total_requested": 2,\n  "total_found": 1,\n  "results": [\n    {\n      "gtin": "7894900011517",\n      "found": true,\n      "product": {\n        "gtin": "7894900011517",\n        "gtin_type": 13,\n        "brand": "Coca Cola",\n        "product_name": "Refrigerante Coca Cola Garrafa 2l",\n        "origin_country": "Brasil",\n        "ncm": "22021000",\n        "cest": ["0301001"],\n        "gross_weight_value": "2.050",\n        "gross_weight_unit": "KGM"\n      }\n    },\n    {\n      "gtin": "0012345678905",\n      "found": false,\n      "product": null\n    }\n  ]\n}`}
                   statusCodes={[
                     { code: 200, description: "Consulta em lote concluída" },
                     { code: 400, description: "Requisição inválida (ex.: acima do limite do plano)" },
@@ -242,12 +242,12 @@ export default function DocsPage() {
                   path="/v1/gtins/batch?gtin=..."
                   title="Consultar produtos em lote (GET)"
                   badgeNote="Lookup (req/min)"
-                  description="Versão cacheável do batch via query string. Use o parâmetro repetido `gtin` (ex.: `?gtin=...&gtin=...`). Esta rota limita o batch em 10 GTINs por requisição e responde com headers de cache (`Cache-Control: private, max-age=3600` e `Vary: X-API-Key`)."
-                  requestExample={`curl -X GET "${baseUrl}/v1/gtins/batch?gtin=7891234567890&gtin=0012345678905" \\\n  -H "X-API-Key: SUA_CHAVE_API"`}
-                  responseExample={`{\n  "total_requested": 2,\n  "total_found": 1,\n  "results": [\n    {\n      "gtin": "7891234567890",\n      "found": true,\n      "product": {\n        "gtin": "7891234567890",\n        "gtin_type": "GTIN-13",\n        "brand": "Marca Exemplo",\n        "product_name": "Produto Exemplo 500ml",\n        "ncm": "00000000",\n        "updated_at": "2026-01-16T10:30:00Z",\n        "image_url": "https://example.com/image.jpg"\n      }\n    },\n    {\n      "gtin": "0012345678905",\n      "found": false,\n      "product": null\n    }\n  ]\n}`}
+                  description="Versão cacheável do batch via query string. Use o parâmetro repetido `gtin` (ex.: `?gtin=...&gtin=...`). Esta rota limita o batch em 20 GTINs por requisição e responde com headers de cache (`Cache-Control: private, max-age=3600` e `Vary: X-API-Key`)."
+                  requestExample={`curl -X GET "${baseUrl}/v1/gtins/batch?gtin=7894900011517&gtin=0012345678905" \\\n  -H "X-API-Key: SUA_CHAVE_API"`}
+                  responseExample={`{\n  "total_requested": 2,\n  "total_found": 1,\n  "results": [\n    {\n      "gtin": "7894900011517",\n      "found": true,\n      "product": {\n        "gtin": "7894900011517",\n        "gtin_type": 13,\n        "brand": "Coca Cola",\n        "product_name": "Refrigerante Coca Cola Garrafa 2l",\n        "origin_country": "Brasil",\n        "ncm": "22021000",\n        "cest": ["0301001"],\n        "gross_weight_value": "2.050",\n        "gross_weight_unit": "KGM"\n      }\n    },\n    {\n      "gtin": "0012345678905",\n      "found": false,\n      "product": null\n    }\n  ]\n}`}
                   statusCodes={[
                     { code: 200, description: "Consulta em lote concluída" },
-                    { code: 400, description: "Máximo de 10 GTINs no GET /batch" },
+                    { code: 400, description: "Máximo de 20 GTINs no GET /batch" },
                     { code: 401, description: "API key ausente ou inválida" },
                     { code: 403, description: "Plano sem acesso a batch" },
                     { code: 429, description: "Rate limit ou quota mensal excedida" },
@@ -266,8 +266,8 @@ export default function DocsPage() {
                     { name: "ncm", description: "Código NCM (match exato). Use junto com brand ou product_name." },
                     { name: "offset", description: "Offset para paginação (múltiplos de 10, de 0 a 40)." },
                   ]}
-                  requestExample={`curl -X GET "${baseUrl}/v1/gtins/search?brand=acme&offset=0" \\\n  -H "X-API-Key: SUA_CHAVE_API"`}
-                  responseExample={`{\n  "total": null,\n  "offset": 0,\n  "limit": 10,\n  "returned": 1,\n  "has_more": false,\n  "items": [\n    {\n      "gtin": "7891234567890",\n      "gtin_type": "GTIN-13",\n      "brand": "Acme",\n      "product_name": "Produto Exemplo 500ml",\n      "owner_tax_id": "00000000000000",\n      "origin_country": "BR",\n      "ncm": "00000000",\n      "cest": "0000000",\n      "gross_weight_value": 0.5,\n      "gross_weight_unit": "kg",\n      "dsit_date": "2025-01-15",\n      "updated_at": "2026-01-16T10:30:00Z",\n      "image_url": "https://example.com/image.jpg"\n    }\n  ]\n}`}
+                  requestExample={`curl -X GET "${baseUrl}/v1/gtins/search?brand=Coca%20Cola&offset=0" \\\n  -H "X-API-Key: SUA_CHAVE_API"`}
+                  responseExample={`{\n  "total": null,\n  "offset": 0,\n  "limit": 10,\n  "returned": 1,\n  "has_more": false,\n  "items": [\n    {\n      "gtin": "7894900011517",\n      "gtin_type": 13,\n      "brand": "Coca Cola",\n      "product_name": "Refrigerante Coca Cola Garrafa 2l",\n      "origin_country": "Brasil",\n      "ncm": "22021000",\n      "cest": ["0301001"],\n      "gross_weight_value": "2.050",\n      "gross_weight_unit": "KGM"\n    }\n  ]\n}`}
                   statusCodes={[
                     { code: 200, description: "Resultados paginados" },
                     { code: 400, description: "Nenhum filtro (brand ou product_name) informado, ncm usado sozinho, termos sem palavras válidas, offset acima de 40 ou busca muito ampla" },
@@ -436,7 +436,7 @@ export default function DocsPage() {
               <Card className="p-6 mt-6">
                 <CodeBlock
                   title="Exemplo de erro"
-                  code={`{\n  "detail": "Produto com GTIN '7891234567890' não encontrado"\n}`}
+                  code={`{\n  "detail": "Produto com GTIN '7894900011517' não encontrado"\n}`}
                 />
               </Card>
             </section>
@@ -470,42 +470,42 @@ export default function DocsPage() {
                     <TabsContent value="javascript" className="mt-4">
                       <CodeBlock
                         className="mt-2"
-                        code={`const res = await fetch("${baseUrl}/v1/gtins/7891234567890", {\n  headers: {\n    "X-API-Key": "SUA_CHAVE_API",\n  },\n});\n\nif (!res.ok) throw new Error(await res.text());\nconst data = await res.json();\nconsole.log(data);`}
+                        code={`const res = await fetch("${baseUrl}/v1/gtins/7894900011517", {\n  headers: {\n    "X-API-Key": "SUA_CHAVE_API",\n  },\n});\n\nif (!res.ok) throw new Error(await res.text());\nconst data = await res.json();\nconsole.log(data);`}
                       />
                     </TabsContent>
 
                     <TabsContent value="python" className="mt-4">
                       <CodeBlock
                         className="mt-2"
-                        code={`import requests\n\nres = requests.get(\n  "${baseUrl}/v1/gtins/7891234567890",\n  headers={\"X-API-Key\": \"SUA_CHAVE_API\"},\n)\nres.raise_for_status()\nprint(res.json())`}
+                        code={`import requests\n\nres = requests.get(\n  "${baseUrl}/v1/gtins/7894900011517",\n  headers={\"X-API-Key\": \"SUA_CHAVE_API\"},\n)\nres.raise_for_status()\nprint(res.json())`}
                       />
                     </TabsContent>
 
                     <TabsContent value="java" className="mt-4">
                       <CodeBlock
                         className="mt-2"
-                        code={`var client = java.net.http.HttpClient.newHttpClient();\nvar request = java.net.http.HttpRequest.newBuilder()\n    .uri(java.net.URI.create("${baseUrl}/v1/gtins/7891234567890"))\n    .header("X-API-Key", "SUA_CHAVE_API")\n    .GET()\n    .build();\nvar response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());\nSystem.out.println(response.body());`}
+                        code={`var client = java.net.http.HttpClient.newHttpClient();\nvar request = java.net.http.HttpRequest.newBuilder()\n    .uri(java.net.URI.create("${baseUrl}/v1/gtins/7894900011517"))\n    .header("X-API-Key", "SUA_CHAVE_API")\n    .GET()\n    .build();\nvar response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());\nSystem.out.println(response.body());`}
                       />
                     </TabsContent>
 
                     <TabsContent value="ruby" className="mt-4">
                       <CodeBlock
                         className="mt-2"
-                        code={`require "net/http"\nrequire "json"\n\nuri = URI("${baseUrl}/v1/gtins/7891234567890")\nreq = Net::HTTP::Get.new(uri)\nreq["X-API-Key"] = "SUA_CHAVE_API"\n\nres = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|\n  http.request(req)\nend\nputs JSON.parse(res.body)`}
+                        code={`require "net/http"\nrequire "json"\n\nuri = URI("${baseUrl}/v1/gtins/7894900011517")\nreq = Net::HTTP::Get.new(uri)\nreq["X-API-Key"] = "SUA_CHAVE_API"\n\nres = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|\n  http.request(req)\nend\nputs JSON.parse(res.body)`}
                       />
                     </TabsContent>
 
                     <TabsContent value="php" className="mt-4">
                       <CodeBlock
                         className="mt-2"
-                        code={`<?php\n$apiKey = 'SUA_CHAVE_API';\n$url = '${baseUrl}/v1/gtins/7891234567890';\n\n$ch = curl_init($url);\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);\ncurl_setopt($ch, CURLOPT_HTTPHEADER, [\"X-API-Key: $apiKey\"]);\n$response = curl_exec($ch);\ncurl_close($ch);\n\necho $response;`}
+                        code={`<?php\n$apiKey = 'SUA_CHAVE_API';\n$url = '${baseUrl}/v1/gtins/7894900011517';\n\n$ch = curl_init($url);\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);\ncurl_setopt($ch, CURLOPT_HTTPHEADER, [\"X-API-Key: $apiKey\"]);\n$response = curl_exec($ch);\ncurl_close($ch);\n\necho $response;`}
                       />
                     </TabsContent>
 
                     <TabsContent value="csharp" className="mt-4">
                       <CodeBlock
                         className="mt-2"
-                        code={`using var http = new HttpClient();\nhttp.DefaultRequestHeaders.Add("X-API-Key", "SUA_CHAVE_API");\nvar res = await http.GetStringAsync("${baseUrl}/v1/gtins/7891234567890");\nConsole.WriteLine(res);`}
+                        code={`using var http = new HttpClient();\nhttp.DefaultRequestHeaders.Add("X-API-Key", "SUA_CHAVE_API");\nvar res = await http.GetStringAsync("${baseUrl}/v1/gtins/7894900011517");\nConsole.WriteLine(res);`}
                       />
                     </TabsContent>
                   </Tabs>
@@ -527,7 +527,7 @@ export default function DocsPage() {
                     limite do seu plano).
                   </li>
                   <li>
-                    Use <code className="bg-muted px-2 py-1 rounded text-xs">GET /batch</code> (máx. 10) quando quiser
+                    Use <code className="bg-muted px-2 py-1 rounded text-xs">GET /batch</code> (máx. 20) quando quiser
                     cachear facilmente.
                   </li>
                   <li>
