@@ -300,11 +300,11 @@ Authorization: Bearer sk_live_...`}
                 </div>
                 <div className="h-px bg-white/10" />
                 <div className="space-y-2 text-white/80">
-                  <p>product_name: REFRIGERANTE COCA-COLA 350ML</p>
-                  <p>brand: COCA-COLA</p>
+                  <p>product_name: Refrigerante Coca Cola Garrafa 2l</p>
+                  <p>brand: Coca Cola</p>
                   <p>ncm: 22021000</p>
-                  <p>cest: [&quot;03.007.00&quot;]</p>
-                  <p>gross_weight_value: 0.365</p>
+                  <p>cest: [&quot;0301001&quot;]</p>
+                  <p>gross_weight_value: &quot;2.050&quot;</p>
                 </div>
               </CardContent>
             </Card>

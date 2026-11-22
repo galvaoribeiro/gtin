@@ -11,13 +11,13 @@ export const EXAMPLE_GTIN = "7894900011517";
 export const EXAMPLE_PRODUCT_JSON = `{
   "gtin": "7894900011517",
   "gtin_type": 13,
-  "brand": "COCA-COLA",
-  "product_name": "REFRIGERANTE COCA-COLA 350ML",
-  "origin_country": "BR",
+  "brand": "Coca Cola",
+  "product_name": "Refrigerante Coca Cola Garrafa 2l",
+  "origin_country": "Brasil",
   "ncm": "22021000",
-  "cest": ["03.007.00"],
-  "gross_weight_value": 0.365,
-  "gross_weight_unit": "GRM"
+  "cest": ["0301001"],
+  "gross_weight_value": "2.050",
+  "gross_weight_unit": "KGM"
 }`;
 
 export type MarketingPlan = {

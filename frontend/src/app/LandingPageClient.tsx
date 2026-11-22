@@ -24,7 +24,7 @@ import { Typewriter } from "@/components/landing-page/components/ui/typewriter";
 import { FadeIn } from "@/components/landing-page/components/ui/fade-in";
 import { LandingNavbar } from "@/components/landing-page/LandingNavbar";
 import { LandingFooter } from "@/components/landing-page/LandingFooter";
-import { DOCS_PAGE_PATH } from "@/lib/marketing/constants";
+import { DOCS_PAGE_PATH, EXAMPLE_PRODUCT_JSON } from "@/lib/marketing/constants";
 
 import { fetchGtinPublic, type Product, ApiError } from "@/lib/api";
 
@@ -180,7 +180,7 @@ export default function LandingPageClient() {
                     
                     <div className="mt-3 flex flex-wrap gap-2 px-2">
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Exemplos:</span>
-                    {["7894900011517", "7891000100103", "7896004001358"].map(gtin => (
+                    {["7894900011517", "7891000100103", "7891910000197"].map(gtin => (
                         <button 
                           key={gtin} 
                           className="text-xs bg-primary/5 hover:bg-primary/10 text-primary px-2 py-0.5 rounded-full transition-colors border border-primary/10 font-mono disabled:opacity-50"
@@ -567,16 +567,7 @@ export default function LandingPageClient() {
                   delay={5}
                   multiline
                   text={`// Exemplo de resposta
-{
-  "gtin": "7894900011517",
-  "product_name": "REFRIGERANTE COCA COLA 350ML",
-  "brand": "COCA COLA",
-  "ncm": "22021000",
-  "cest": ["03.007.00"],
-  "origin_country": "BR",
-  "gross_weight_value": 0.365,
-  "gross_weight_unit": "GRM"
-}`} 
+${EXAMPLE_PRODUCT_JSON}`}
                 />
               </pre>
             </div>
