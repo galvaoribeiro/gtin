@@ -359,12 +359,37 @@ redis_rate_limiter = RedisRateLimiter()
 def get_client_ip(request: Request) -> str:
     """
     Extrai o IP do cliente da requisição.
-    Considera X-Forwarded-For se presente (proxy/load balancer).
+
+    Ordem (Railway preenche X-Real-IP e X-Forwarded-For na borda):
+    1. X-Real-IP
+    2. primeiro hop de X-Forwarded-For
+    3. request.client.host
+    4. "unknown" (apenas para rate limit; persistência usa get_stored_client_ip)
     """
+    real_ip = (request.headers.get("X-Real-IP") or "").strip()
+    if real_ip:
+        return real_ip.split(",")[0].strip()
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return first
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+def get_stored_client_ip(request: Request) -> Optional[str]:
+    """
+    IP a persistir em users.signup_ip / api_keys.created_ip.
+
+    Retorna None (não a string "unknown") quando o IP não puder ser determinado.
+    Truncado em 45 caracteres (IPv6).
+    """
+    ip = get_client_ip(request)
+    if not ip or ip.lower() == "unknown":
+        return None
+    return ip[:45]
 
 
 def _raise_rate_limit_exceeded(

@@ -112,6 +112,7 @@ def list_signups(
                 created_at=user.created_at,
                 organization_id=user.organization_id,
                 organization_name=org.name if org else None,
+                signup_ip=getattr(user, "signup_ip", None),
             )
         )
 

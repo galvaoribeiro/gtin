@@ -435,10 +435,26 @@ def run_migrations():
                 print("[MIGRATION] Coluna cancel_at_period_end ja existe.")
 
         # Fora do `with engine.connect()` para não abrir conexão aninhada.
+        _ensure_client_ip_columns()
         _apply_basic_monthly_limit_raise()
 
     except Exception as e:
         print(f"[MIGRATION] Erro ao executar migracoes: {e}")
+
+
+def _ensure_client_ip_columns() -> None:
+    """
+    Garante users.signup_ip e api_keys.created_ip antes de o código gravá-los.
+
+    Em produção o lifespan não executa as migrações SQL numeradas; este passo
+    replica o DDL idempotente do arquivo 010 para o deploy não quebrar
+    cadastro/criação de chave em um banco que ainda não tem as colunas.
+    """
+    from app.db.models import ensure_client_ip_columns
+    from app.db.session import engine
+
+    ensure_client_ip_columns(engine)
+    print("[MIGRATION] Colunas signup_ip/created_ip verificadas.")
 
 
 def _apply_basic_monthly_limit_raise() -> None:
@@ -480,8 +496,12 @@ async def lifespan(app: FastAPI):
             db.close()
         print("[STARTUP] Seed concluido!")
     else:
-        # Em produção as DDL históricas não rodam no boot; este ajuste de dados
-        # precisa valer no deploy para o novo limite de 100/mês do plano basic.
+        # Em produção as DDL históricas não rodam no boot. Ajustes idempotentes
+        # que o código novo depende (colunas de IP, cota do basic) rodam aqui.
+        try:
+            _ensure_client_ip_columns()
+        except Exception as e:
+            print(f"[MIGRATION] Garantia das colunas de IP falhou: {e}")
         try:
             _apply_basic_monthly_limit_raise()
         except Exception as e:

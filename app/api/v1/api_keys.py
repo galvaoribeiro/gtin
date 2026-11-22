@@ -8,13 +8,14 @@ Protegido por autenticação JWT.
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.db.models import ApiKey, Organization, User
 from app.api.deps import get_current_user, get_current_organization_from_user
+from app.core.rate_limit import get_stored_client_ip
 
 
 router = APIRouter(prefix="/v1/dashboard/api-keys", tags=["Dashboard - API Keys"])
@@ -156,6 +157,7 @@ def list_api_keys(
     description="Gera uma nova API key para a organização. A key completa só é exibida uma vez!",
 )
 def create_api_key(
+    http_request: Request,
     request: CreateApiKeyRequest = CreateApiKeyRequest(),
     org: Organization = Depends(get_current_organization_from_user),
     db: Session = Depends(get_db),
@@ -187,12 +189,13 @@ def create_api_key(
     # Gerar nova key
     new_key_value = ApiKey.generate_key()
     
-    # Criar registro
+    # Criar registro (IP só na criação da chave; lookups não gravam IP)
     api_key = ApiKey(
         organization_id=org.id,
         name=request.name,
         key=new_key_value,
         is_active=True,
+        created_ip=get_stored_client_ip(http_request),
     )
     
     db.add(api_key)

@@ -20,6 +20,7 @@ from app.schemas.user import (
 )
 from app.core.security import verify_password, create_access_token, get_password_hash, decode_access_token
 from app.core.config import settings
+from app.core.rate_limit import get_stored_client_ip
 from app.api.deps import get_current_user, oauth2_scheme
 from app.services.email_service import send_password_reset_email
 
@@ -113,6 +114,7 @@ def login(
 )
 def register(
     data: UserRegister,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """
@@ -141,12 +143,13 @@ def register(
     db.add(organization)
     db.flush()  # Para obter o ID da organização
     
-    # Criar usuário
+    # Criar usuário (IP só neste momento; lookups não gravam IP)
     user = User(
         email=data.email,
         hashed_password=get_password_hash(data.password),
         organization_id=organization.id,
         is_active=True,
+        signup_ip=get_stored_client_ip(request),
     )
     db.add(user)
     db.commit()
