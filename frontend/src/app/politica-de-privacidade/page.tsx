@@ -32,7 +32,7 @@ const sections = [
     content: [
       "Podemos tratar dados cadastrais e de autenticação, como e-mail, senha armazenada de forma protegida por hash, nome da organização vinculada à conta, identificadores internos do usuário e da organização, e informações de status da conta.",
       "Também tratamos dados operacionais e de uso, como métricas de utilização da plataforma e da API, identificadores de chaves de API, registros técnicos de autenticação, limites de uso, status de assinatura, informações de cobrança, datas de criação e histórico operacional necessário ao funcionamento do serviço.",
-      "Em contextos de segurança e prevenção a abuso, podemos tratar endereço IP, informações de rate limiting, dados mínimos de sessão, eventos técnicos e sinais compatíveis com proteção da infraestrutura, estabilidade do serviço e detecção de comportamento indevido.",
+      "Em contextos de segurança e prevenção a abuso, podemos tratar endereço IP, informações de rate limiting, dados mínimos de sessão, eventos técnicos e sinais compatíveis com proteção da infraestrutura, estabilidade do serviço e detecção de comportamento indevido. O endereço IP é armazenado em dois momentos específicos: (1) no cadastro da conta, associado ao usuário; e (2) a cada criação de chave de API, associado à chave criada. Esses registros servem à prevenção a abuso e à correlação de contas. Não armazenamos o IP a cada consulta ou lookup na API.",
       "Quando há contratação de planos pagos, também tratamos dados relacionados à cobrança, como identificadores de cliente e assinatura no Stripe, faturas, status de pagamento, últimos dígitos do cartão, bandeira, validade e método de pagamento padrão, sem armazenar o número completo do cartão em nossos sistemas.",
     ],
   },
@@ -169,7 +169,9 @@ export default function PrivacyPolicyPage() {
                 <p>
                   Tratamos dados de cadastro, autenticação, uso da plataforma, cobrança e
                   segurança para operar o Pesquisa GTIN de forma estável e contratualmente
-                  adequada.
+                  adequada. O IP do cliente é gravado no cadastro e na criação de cada
+                  chave de API, para prevenção a abuso e correlação de contas — não a
+                  cada consulta.
                 </p>
                 <p>
                   Usamos recursos técnicos como cookie funcional de interface e armazenamento local
@@ -250,7 +252,7 @@ export default function PrivacyPolicyPage() {
               </Card>
 
               <div className="text-xs text-muted-foreground">
-                Última atualização: 05 de abril de 2026.
+                Última atualização: 22 de novembro de 2026.
               </div>
             </div>
           </div>

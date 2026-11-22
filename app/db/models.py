@@ -72,6 +72,67 @@ PLAN_MONTHLY_LIMITS = {
 }
 
 
+def ensure_client_ip_columns(bind) -> None:
+    """
+    Garante colunas de IP de cadastro e de criação de API key.
+
+    Idempotente. Em PostgreSQL usa ADD COLUMN IF NOT EXISTS (seguro com
+    mais de um worker no boot). SQLite de teste não aceita essa sintaxe,
+    então as colunas são adicionadas só se ainda não existirem.
+
+    Destinado ao boot de produção: o lifespan de desenvolvimento também
+    chama este passo, mas produção não aplica o arquivo SQL 010 sozinho.
+    Sem as colunas, o código novo quebraria cadastro e criação de chave.
+
+    Não preenche linhas antigas (permanecem NULL). Não grava IP por lookup.
+    """
+    from sqlalchemy import inspect, text
+
+    statements = []
+    if bind.dialect.name == "sqlite":
+        inspector = inspect(bind)
+        tables = set(inspector.get_table_names())
+        user_cols = (
+            {col["name"] for col in inspector.get_columns("users")}
+            if "users" in tables
+            else set()
+        )
+        key_cols = (
+            {col["name"] for col in inspector.get_columns("api_keys")}
+            if "api_keys" in tables
+            else set()
+        )
+        if "signup_ip" not in user_cols:
+            statements.append("ALTER TABLE users ADD COLUMN signup_ip VARCHAR(45)")
+        if "created_ip" not in key_cols:
+            statements.append("ALTER TABLE api_keys ADD COLUMN created_ip VARCHAR(45)")
+    else:
+        statements.extend(
+            (
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_ip VARCHAR(45) NULL",
+                "ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS created_ip VARCHAR(45) NULL",
+            )
+        )
+
+    statements.extend(
+        (
+            """
+            CREATE INDEX IF NOT EXISTS ix_users_signup_ip
+                ON users(signup_ip)
+                WHERE signup_ip IS NOT NULL
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS ix_api_keys_created_ip
+                ON api_keys(created_ip)
+                WHERE created_ip IS NOT NULL
+            """,
+        )
+    )
+    with bind.begin() as conn:
+        for sql in statements:
+            conn.execute(text(sql))
+
+
 def clear_stale_basic_monthly_overrides(bind) -> int:
     """
     Remove overrides do plano gratuito (basic) abaixo do limite padrão atual.
@@ -236,6 +297,7 @@ class User(Base):
     role = Column(String(20), nullable=False, default="user", comment="Papel do usuário: user, admin")
     is_active = Column(Boolean, nullable=False, default=True, comment="Se o usuário está ativo")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    signup_ip = Column(String(45), nullable=True, comment="IP do cliente no momento do cadastro")
 
     password_reset_token_hash = Column(String(64), nullable=True, unique=True, comment="SHA-256 do token de reset (uso único)")
     password_reset_expires_at = Column(DateTime, nullable=True, comment="Expiração do token de reset")
@@ -281,6 +343,7 @@ class ApiKey(Base):
     key = Column(String(64), nullable=False, unique=True, index=True, comment="API Key em texto simples")
     is_active = Column(Boolean, nullable=False, default=True, comment="Se a key esta ativa")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_ip = Column(String(45), nullable=True, comment="IP do cliente no momento da criação da chave")
     last_used_at = Column(DateTime, nullable=True, comment="Ultima vez que a key foi usada")
     
     # Relacionamento com organização

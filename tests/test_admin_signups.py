@@ -71,11 +71,15 @@ def test_signups_returns_data_with_valid_token(client, readonly_token, seed_sign
     assert newer_user["plan"] == "basic"
     assert newer_user["subscription_status"] is None
     assert "created_at" in newer_user
+    assert newer_user["signup_ip"] is None
+    assert "created_ip" not in newer_user
 
     newer_org = next(item for item in body["organizations"] if item["name"] == "Org Nova")
     assert seed_signups["newer_user"].id in newer_org["user_ids"]
     assert newer_org["email"] == "novo@example.com"
     assert newer_org["plan"] == "basic"
+    assert "signup_ip" not in newer_org
+    assert "created_ip" not in newer_org
 
     dumped = str(body)
     for marker in SECRET_MARKERS:

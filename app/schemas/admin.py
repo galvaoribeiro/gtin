@@ -123,6 +123,7 @@ class AdminSignupUser(BaseModel):
     created_at: datetime
     organization_id: int
     organization_name: Optional[str] = None
+    signup_ip: Optional[str] = None
 
 
 class AdminSignupOrganization(BaseModel):

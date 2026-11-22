@@ -10,8 +10,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.v1.admin_signups import router as admin_signups_router
+from app.api.v1.api_keys import router as api_keys_router
+from app.api.v1.auth import router as auth_router
 from app.core.config import settings
-from app.db.models import Organization, User
+from app.db.models import ApiKey, Organization, User
 from app.db.session import get_db
 
 
@@ -24,6 +26,7 @@ def db_engine():
     )
     Organization.__table__.create(bind=engine)
     User.__table__.create(bind=engine)
+    ApiKey.__table__.create(bind=engine)
     yield engine
     engine.dispose()
 
@@ -85,6 +88,25 @@ def seed_signups(db_session):
 @pytest.fixture
 def client(db_session, seed_signups):
     app = FastAPI()
+    app.include_router(admin_signups_router)
+
+    def _override_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = _override_db
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def auth_client(db_session):
+    """App de teste com cadastro, API keys e consulta admin de cadastros."""
+    app = FastAPI()
+    app.include_router(auth_router)
+    app.include_router(api_keys_router)
     app.include_router(admin_signups_router)
 
     def _override_db():
