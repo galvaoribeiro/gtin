@@ -8,11 +8,12 @@ from fastapi.testclient import TestClient
 
 from app.api.deps import get_db
 from app.api.v1.billing import (
+    PUBLIC_PAID_PLANS,
     _apply_subscription_to_org,
     _invoice_subscription_id,
     router as billing_router,
 )
-from app.db.models import PLAN_MONTHLY_LIMITS, Organization
+from app.db.models import FREE_PLAN, PLAN_MONTHLY_LIMITS, Organization
 from app.services.stripe_service import StripeService
 
 
@@ -91,7 +92,7 @@ def _post_webhook(client, monkeypatch, event, subscription=None):
 def _make_org(db_session, **kwargs):
     values = {
         "name": "Org teste",
-        "plan": "basic",
+        "plan": FREE_PLAN,
         "stripe_customer_id": "cus_test",
     }
     values.update(kwargs)
@@ -108,11 +109,11 @@ def test_incomplete_checkout_does_not_elevate_plan(db_session):
     db_session.commit()
     db_session.refresh(org)
 
-    assert org.plan == "basic"
+    assert org.plan == FREE_PLAN
     assert org.subscription_status == "incomplete"
     assert org.stripe_subscription_id == "sub_test"
     assert org.monthly_limit_override is None
-    assert org.monthly_limit == PLAN_MONTHLY_LIMITS["basic"]
+    assert org.monthly_limit == PLAN_MONTHLY_LIMITS[FREE_PLAN]
 
 
 def test_active_and_trialing_elevate_plan(db_session):
@@ -193,17 +194,17 @@ def test_past_due_renewal_does_not_downgrade_paid_org(db_session):
     assert org.monthly_limit == 5000
 
 
-def test_past_due_does_not_elevate_from_basic(db_session):
+def test_past_due_does_not_elevate_from_free(db_session):
     org = _make_org(db_session)
     _apply_subscription_to_org(org, _sub_data(subscription_status="past_due", plan="starter"))
     db_session.commit()
 
-    assert org.plan == "basic"
+    assert org.plan == FREE_PLAN
     assert org.subscription_status == "past_due"
-    assert org.monthly_limit == PLAN_MONTHLY_LIMITS["basic"]
+    assert org.monthly_limit == PLAN_MONTHLY_LIMITS[FREE_PLAN]
 
 
-def test_incomplete_expired_reverts_to_basic_and_clears_overrides(db_session):
+def test_incomplete_expired_reverts_to_free_and_clears_overrides(db_session):
     org = _make_org(
         db_session,
         plan="starter",
@@ -224,17 +225,17 @@ def test_incomplete_expired_reverts_to_basic_and_clears_overrides(db_session):
     )
     db_session.commit()
 
-    assert org.plan == "basic"
+    assert org.plan == FREE_PLAN
     assert org.subscription_status == "incomplete_expired"
     assert org.monthly_limit_override is None
     assert org.batch_limit_override is None
     assert org.enterprise_price_id is None
     assert org.enterprise_amount_cents is None
-    assert org.monthly_limit == PLAN_MONTHLY_LIMITS["basic"]
+    assert org.monthly_limit == PLAN_MONTHLY_LIMITS[FREE_PLAN]
 
 
 @pytest.mark.parametrize("status", ["canceled", "unpaid"])
-def test_canceled_and_unpaid_revert_to_basic(db_session, status):
+def test_canceled_and_unpaid_revert_to_free(db_session, status):
     org = _make_org(
         db_session,
         plan="pro",
@@ -253,7 +254,7 @@ def test_canceled_and_unpaid_revert_to_basic(db_session, status):
     )
     db_session.commit()
 
-    assert org.plan == "basic"
+    assert org.plan == FREE_PLAN
     assert org.subscription_status == status
     assert org.monthly_limit_override is None
 
@@ -273,11 +274,11 @@ def test_webhook_subscription_created_incomplete_does_not_elevate(
     assert response.status_code == 200
 
     db_session.refresh(org)
-    assert org.plan == "basic"
+    assert org.plan == FREE_PLAN
     assert org.subscription_status == "incomplete"
 
 
-def test_webhook_incomplete_expired_updated_reverts_to_basic(
+def test_webhook_incomplete_expired_updated_reverts_to_free(
     billing_client, db_session, monkeypatch
 ):
     org = _make_org(
@@ -300,7 +301,7 @@ def test_webhook_incomplete_expired_updated_reverts_to_basic(
     assert response.status_code == 200
 
     db_session.refresh(org)
-    assert org.plan == "basic"
+    assert org.plan == FREE_PLAN
     assert org.subscription_status == "incomplete_expired"
 
 
@@ -329,8 +330,8 @@ def test_webhook_payment_failed_first_invoice_keeps_incomplete(
 
     db_session.refresh(org)
     assert org.subscription_status == "incomplete"
-    assert org.plan == "basic"
-    assert org.monthly_limit == PLAN_MONTHLY_LIMITS["basic"]
+    assert org.plan == FREE_PLAN
+    assert org.monthly_limit == PLAN_MONTHLY_LIMITS[FREE_PLAN]
 
 
 def test_webhook_payment_failed_renewal_past_due_keeps_paid_plan(
@@ -382,10 +383,10 @@ def test_webhook_payment_failed_without_subscription_does_not_force_past_due(
 
     db_session.refresh(org)
     assert org.subscription_status == "incomplete"
-    assert org.plan == "basic"
+    assert org.plan == FREE_PLAN
 
 
-def test_webhook_subscription_deleted_reverts_to_basic(
+def test_webhook_subscription_deleted_reverts_to_free(
     billing_client, db_session, monkeypatch
 ):
     org = _make_org(
@@ -415,7 +416,7 @@ def test_webhook_subscription_deleted_reverts_to_basic(
     assert response.status_code == 200
 
     db_session.refresh(org)
-    assert org.plan == "basic"
+    assert org.plan == FREE_PLAN
     assert org.subscription_status == "canceled"
     assert org.stripe_subscription_id is None
     assert org.cancel_at_period_end is False
@@ -425,7 +426,7 @@ def test_webhook_subscription_deleted_reverts_to_basic(
     assert org.enterprise_amount_cents is None
 
 
-def test_webhook_deleted_incomplete_expired_still_reverts_to_basic(
+def test_webhook_deleted_incomplete_expired_still_reverts_to_free(
     billing_client, db_session, monkeypatch
 ):
     org = _make_org(
@@ -450,7 +451,7 @@ def test_webhook_deleted_incomplete_expired_still_reverts_to_basic(
     assert response.status_code == 200
 
     db_session.refresh(org)
-    assert org.plan == "basic"
+    assert org.plan == FREE_PLAN
     assert org.subscription_status == "canceled"
     assert org.stripe_subscription_id is None
 
@@ -475,7 +476,7 @@ def test_checkout_completed_incomplete_does_not_elevate(
     assert response.status_code == 200
 
     db_session.refresh(org)
-    assert org.plan == "basic"
+    assert org.plan == FREE_PLAN
     assert org.subscription_status == "incomplete"
 
 
@@ -513,3 +514,87 @@ def test_invoice_subscription_id_reads_classic_and_parent_shapes():
         == "sub_c"
     )
     assert _invoice_subscription_id({"customer": "cus_x"}) is None
+
+
+def test_public_paid_plans_include_basic_below_starter():
+    assert PUBLIC_PAID_PLANS == ["basic", "starter", "pro", "advanced"]
+    assert FREE_PLAN not in PUBLIC_PAID_PLANS
+
+
+def test_active_basic_subscription_sets_plan_and_quota(db_session):
+    org = _make_org(db_session, name="Assina Basic")
+    _apply_subscription_to_org(
+        org,
+        _sub_data(
+            subscription_status="active",
+            plan="basic",
+            stripe_subscription_id="sub_basic",
+            price_id="price_1UeoChCXffxX2BMsAtx2n6tT",
+            price_unit_amount=4990,
+        ),
+    )
+    db_session.commit()
+    db_session.refresh(org)
+
+    assert org.plan == "basic"
+    assert org.subscription_status == "active"
+    assert org.monthly_limit == 1000
+    assert org.batch_limit == 0
+    assert org.has_paid_entitlement is True
+
+
+def test_webhook_checkout_completed_basic_elevates_plan(
+    billing_client, db_session, monkeypatch
+):
+    org = _make_org(db_session, stripe_customer_id="cus_basic")
+    subscription = _stripe_subscription(
+        "active", plan="basic", sub_id="sub_basic_paid", customer="cus_basic"
+    )
+    event = {
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "customer": "cus_basic",
+                "subscription": "sub_basic_paid",
+                "metadata": {"organization_id": str(org.id), "plan": "basic"},
+            }
+        },
+    }
+
+    response = _post_webhook(billing_client, monkeypatch, event, subscription=subscription)
+    assert response.status_code == 200
+
+    db_session.refresh(org)
+    assert org.plan == "basic"
+    assert org.subscription_status == "active"
+    assert org.monthly_limit == 1000
+
+
+def test_map_price_to_plan_recognizes_basic_price():
+    original = dict(StripeService.PLAN_PRICE_MAP)
+    StripeService.PLAN_PRICE_MAP = {
+        **original,
+        "basic": "price_1UeoChCXffxX2BMsAtx2n6tT",
+    }
+    try:
+        assert (
+            StripeService._map_price_to_plan("price_1UeoChCXffxX2BMsAtx2n6tT")
+            == "basic"
+        )
+        assert StripeService._map_price_to_plan("price_unknown") is None
+    finally:
+        StripeService.PLAN_PRICE_MAP = original
+
+
+def test_legacy_basic_org_is_not_treated_as_already_paid(db_session):
+    org = _make_org(db_session, plan="basic", stripe_customer_id=None)
+    assert org.is_legacy_free_basic is True
+    assert org.has_paid_plan_column is False
+    _apply_subscription_to_org(
+        org, _sub_data(subscription_status="past_due", plan="starter")
+    )
+    db_session.commit()
+    db_session.refresh(org)
+    assert org.plan == FREE_PLAN
+    assert org.monthly_limit == PLAN_MONTHLY_LIMITS[FREE_PLAN]
+

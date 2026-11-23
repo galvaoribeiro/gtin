@@ -32,7 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const PLANS = ["basic", "starter", "pro", "advanced", "enterprise"] as const;
+const PLANS = ["free", "basic", "starter", "pro", "advanced", "enterprise"] as const;
 
 const filterSelectClass =
   "h-9 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-white";

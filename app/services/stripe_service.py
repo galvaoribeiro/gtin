@@ -19,14 +19,15 @@ class StripeService:
     
     # Mapeamento de planos para Price IDs do Stripe
     PLAN_PRICE_MAP = {
+        "basic": settings.STRIPE_PRICE_BASIC,
         "starter": settings.STRIPE_PRICE_STARTER,
         "pro": settings.STRIPE_PRICE_PRO,
         "advanced": settings.STRIPE_PRICE_ADVANCED,
         "enterprise": settings.STRIPE_PRICE_ENTERPRISE,
     }
     
-    # Plano basic é gratuito (sem Stripe)
-    FREE_PLANS = ["basic"]
+    # Plano free é gratuito (sem Stripe)
+    FREE_PLANS = ["free"]
 
     # Chave de metadata usada para identificar Portal Configurations dedicadas.
     PORTAL_CONFIG_METADATA_KEY = "purpose"
@@ -97,7 +98,7 @@ class StripeService:
         
         Args:
             customer_id: ID do customer no Stripe
-            plan: Nome do plano (starter, pro, advanced)
+            plan: Nome do plano (basic, starter, pro, advanced)
             success_url: URL de redirecionamento após sucesso
             cancel_url: URL de redirecionamento após cancelamento
             organization_id: ID da organização
@@ -330,8 +331,8 @@ class StripeService:
     @classmethod
     def get_or_create_public_plan_portal_configuration(cls) -> str:
         """
-        Retorna o ID de uma Portal Configuration que contém os três planos
-        públicos (Starter, Pro, Advanced), criando-a se ainda não existir.
+        Retorna o ID de uma Portal Configuration que contém os planos
+        públicos pagos (Basic, Starter, Pro, Advanced), criando-a se ainda não existir.
 
         Usada pelo fluxo de troca self-service entre planos pagos. O ajuste
         proporcional é cobrado imediatamente (proration_behavior=always_invoice)
@@ -339,6 +340,7 @@ class StripeService:
         """
         price_ids = [
             p for p in [
+                settings.STRIPE_PRICE_BASIC,
                 settings.STRIPE_PRICE_STARTER,
                 settings.STRIPE_PRICE_PRO,
                 settings.STRIPE_PRICE_ADVANCED,
@@ -479,7 +481,7 @@ class StripeService:
         
         Args:
             subscription_id: ID da subscription
-            new_plan: Novo plano (starter, pro, advanced, enterprise)
+            new_plan: Novo plano (basic, starter, pro, advanced, enterprise)
             
         Returns:
             Subscription atualizada

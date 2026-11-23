@@ -247,6 +247,7 @@ def _stripe_block() -> MonitoringBlock:
     checks = {
         "secret_key": bool(settings.STRIPE_SECRET_KEY),
         "webhook_secret": bool(settings.STRIPE_WEBHOOK_SECRET),
+        "price_basic": bool(settings.STRIPE_PRICE_BASIC),
         "price_starter": bool(settings.STRIPE_PRICE_STARTER),
         "price_pro": bool(settings.STRIPE_PRICE_PRO),
         "price_advanced": bool(settings.STRIPE_PRICE_ADVANCED),

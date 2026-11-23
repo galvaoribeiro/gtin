@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const PLANS = ["basic", "starter", "pro", "advanced", "enterprise"] as const;
+const PLANS = ["free", "basic", "starter", "pro", "advanced", "enterprise"] as const;
 
 const brlFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -205,7 +205,8 @@ export default function AdminOrganizationsPage() {
 
   const planColor = (plan: string) => {
     switch (plan) {
-      case "basic": return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
+      case "free": return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
+      case "basic": return "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400";
       case "starter": return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
       case "pro": return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
       case "advanced": return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";

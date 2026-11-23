@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Lookup endpoints: /{gtin} e /batch (requests por minuto)
 LOOKUP_RATE_LIMITS = {
+    "free": 10,
     "basic": 10,
     "starter": 60,
     "pro": 90,
@@ -37,6 +38,7 @@ LOOKUP_RATE_LIMITS = {
 
 # Search endpoint: /search (cooldown em segundos entre requests)
 SEARCH_COOLDOWNS = {
+    "free": 6,        # 1 req a cada 6s (~10 req/min)
     "basic": 6,       # 1 req a cada 6s (~10 req/min)
     "starter": 6,     # 1 req a cada 6s
     "pro": 4,         # 1 req a cada 4s

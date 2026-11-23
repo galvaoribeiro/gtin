@@ -13,7 +13,8 @@ import os
 from app.api.deps import get_db, get_current_user
 from app.core.config import settings
 from app.db.models import (
-    PAID_PLANS,
+    FREE_PLAN,
+    FREE_PLANS,
     PRIVATE_PLANS,
     PUBLIC_PLANS,
     SUBSCRIPTION_STATUSES_ELEVATE_PLAN,
@@ -32,8 +33,8 @@ router = APIRouter(prefix="/api/v1/billing", tags=["Billing"])
 # URL base do frontend (configurável via variável de ambiente)
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
 
-# Planos que o cliente pode contratar sozinho (basic é gratuito e não usa checkout)
-PUBLIC_PAID_PLANS = [p for p in PUBLIC_PLANS if p != "basic"]
+# Planos que o cliente pode contratar sozinho (free é gratuito e não usa checkout)
+PUBLIC_PAID_PLANS = [p for p in PUBLIC_PLANS if p not in FREE_PLANS]
 
 
 def _reject_private_plan(plan: str) -> None:
@@ -83,9 +84,9 @@ def _clear_paid_plan_overrides(org: Organization) -> None:
     org.enterprise_amount_cents = None
 
 
-def _revert_org_to_basic_plan(org: Organization) -> None:
-    """Rebaixa para basic e limpa overrides de plano pago. Não mexe no status."""
-    org.plan = "basic"
+def _revert_org_to_free_plan(org: Organization) -> None:
+    """Rebaixa para free e limpa overrides de plano pago. Não mexe no status."""
+    org.plan = FREE_PLAN
     org.cancel_at_period_end = False
     _clear_paid_plan_overrides(org)
 
@@ -141,23 +142,25 @@ def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> No
     Sincroniza a organização com os dados de uma subscription do Stripe.
 
     O plano pago só é aplicado quando o status é active ou trialing.
-    past_due é carência: mantém plano já pago, nunca eleva de basic.
+    past_due é carência: mantém plano já pago, nunca eleva do gratuito.
     incomplete sem plano pago anterior, incomplete_expired, canceled e unpaid
-    voltam para basic. O status recebido é sempre gravado.
+    voltam para free. O status recebido é sempre gravado.
 
     O plano só é sobrescrito quando o Price/metadata é reconhecido: um Price
-    desconhecido não pode rebaixar silenciosamente um cliente para basic
+    desconhecido não pode rebaixar silenciosamente um cliente para free
     enquanto a assinatura ainda estiver paga.
     """
+    status = (subscription_data.get("subscription_status") or "").strip().lower()
+    plan = subscription_data.get("plan")
+    # Avaliar o plano atual antes de gravar o Stripe: senão um slug "basic"
+    # legado (gratuito) parece pago assim que o webhook preenche a assinatura.
+    previous_was_paid = org.has_paid_plan_column
+
     org.stripe_subscription_id = subscription_data["stripe_subscription_id"]
     org.subscription_status = subscription_data["subscription_status"]
     org.current_period_end = subscription_data["current_period_end"]
     org.default_payment_method = subscription_data["default_payment_method"]
     org.cancel_at_period_end = bool(subscription_data.get("cancel_at_period_end"))
-
-    status = (subscription_data.get("subscription_status") or "").strip().lower()
-    plan = subscription_data.get("plan")
-    previous_was_paid = (org.plan or "basic") in PAID_PLANS
 
     if status in SUBSCRIPTION_STATUSES_ELEVATE_PLAN:
         if plan:
@@ -171,9 +174,9 @@ def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> No
         return
 
     if status in SUBSCRIPTION_STATUSES_GRACE:
-        # Carência de renovação: não eleva de basic e não rebaixa quem já pagava.
+        # Carência de renovação: não eleva do gratuito e não rebaixa quem já pagava.
         if not previous_was_paid:
-            _revert_org_to_basic_plan(org)
+            _revert_org_to_free_plan(org)
         return
 
     if status in SUBSCRIPTION_STATUSES_REVOKE_PLAN or status == "incomplete":
@@ -181,7 +184,7 @@ def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> No
             # Checkout/invoice inicial de outra assinatura não deve rebaixar
             # quem já estava em plano pago; também não eleva para o novo plano.
             return
-        _revert_org_to_basic_plan(org)
+        _revert_org_to_free_plan(org)
         return
 
     # Status desconhecido: conservador — grava o status e não eleva o plano.
@@ -198,7 +201,7 @@ def _apply_subscription_to_org(org: Organization, subscription_data: dict) -> No
 
 class CheckoutSessionRequest(BaseModel):
     """Request para criar sessão de checkout."""
-    plan: str = Field(..., description="Plano self-service: starter, pro, advanced")
+    plan: str = Field(..., description="Plano self-service: basic, starter, pro, advanced")
 
 
 class CheckoutSessionResponse(BaseModel):
@@ -251,7 +254,7 @@ class BillingDataResponse(BaseModel):
 
 class SwitchPlanRequest(BaseModel):
     """Request para trocar de plano."""
-    new_plan: str = Field(..., description="Novo plano self-service: basic, starter, pro, advanced")
+    new_plan: str = Field(..., description="Novo plano self-service: free, basic, starter, pro, advanced")
 
 
 class SwitchPlanResponse(BaseModel):
@@ -467,7 +470,7 @@ def switch_plan(
     db: Session = Depends(get_db)
 ):
     """
-    Troca de plano. Para downgrade para 'basic', cancela a subscription.
+    Troca de plano. Para downgrade para 'free', cancela a subscription.
     Para upgrade/downgrade entre planos pagos, abre o Portal do Stripe com
     subscription_update_confirm para que o cliente confirme e pague o ajuste.
     O plano no banco só é atualizado quando o webhook confirma a troca.
@@ -489,22 +492,22 @@ def switch_plan(
     if new_plan not in PUBLIC_PLANS:
         raise HTTPException(status_code=400, detail="Plano inválido")
 
-    # Downgrade para basic (grátis) — cancela a subscription diretamente
-    if new_plan == "basic":
+    # Downgrade para free (grátis) — cancela a subscription diretamente
+    if new_plan == FREE_PLAN:
         if org.stripe_subscription_id:
             try:
                 StripeService.cancel_subscription(org.stripe_subscription_id)
-                org.plan = "basic"
+                org.plan = FREE_PLAN
                 org.subscription_status = "canceled"
                 org.cancel_at_period_end = False
                 db.commit()
-                return SwitchPlanResponse(message="Plano alterado para Basic. Subscription cancelada.")
+                return SwitchPlanResponse(message="Plano alterado para Free. Subscription cancelada.")
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Erro ao cancelar subscription: {str(e)}")
         else:
-            org.plan = "basic"
+            org.plan = FREE_PLAN
             db.commit()
-            return SwitchPlanResponse(message="Plano alterado para Basic")
+            return SwitchPlanResponse(message="Plano alterado para Free")
 
     # Upgrade/downgrade entre planos pagos → Portal confirm
     if not org.stripe_subscription_id:
@@ -606,12 +609,12 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 
         if org:
             # Encerrada (inclusive incomplete_expired, se o Stripe emitir deleted):
-            # volta para basic. Status gravado como canceled, comportamento histórico.
-            _revert_org_to_basic_plan(org)
+            # volta para free. Status gravado como canceled, comportamento histórico.
+            _revert_org_to_free_plan(org)
             org.subscription_status = "canceled"
             org.stripe_subscription_id = None
             db.commit()
-            print(f"[WEBHOOK] Organização {org.id} voltou para plano Basic; overrides removidos")
+            print(f"[WEBHOOK] Organização {org.id} voltou para plano Free; overrides removidos")
     
     # Pagamento de invoice bem-sucedido
     elif event_type == "invoice.payment_succeeded":

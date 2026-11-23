@@ -162,25 +162,27 @@ export default function DashboardPage() {
   // Formatar nome do plano para exibição
   const getPlanDisplayName = (plan: string | null | undefined): string => {
     const planNames: Record<string, string> = {
+      free: "Free",
       basic: "Basic",
       starter: "Starter",
       pro: "Pro",
       advanced: "Advanced",
       enterprise: "Enterprise",
     };
-    return planNames[plan || "basic"] || plan || "Basic";
+    return planNames[plan || "free"] || plan || "Free";
   };
 
   // Obter rate limit baseado no plano
   const getRateLimit = (plan: string | null | undefined): string => {
     const rateLimits: Record<string, string> = {
+      free: "10 req/min",
       basic: "10 req/min",
       starter: "60 req/min",
       pro: "90 req/min",
       advanced: "120 req/min",
       enterprise: "120 req/min",
     };
-    return rateLimits[plan || "basic"] || "10 req/min";
+    return rateLimits[plan || "free"] || "10 req/min";
   };
 
   if (loading) {

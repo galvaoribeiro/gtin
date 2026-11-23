@@ -24,7 +24,7 @@ from app.schemas.product import BatchRequest
 # ---------------------------------------------------------------------------
 
 def test_default_plan_batch_limits_unchanged():
-    expected = {"starter": 5, "pro": 10, "advanced": 20, "enterprise": 100}
+    expected = {"free": 0, "basic": 0, "starter": 5, "pro": 10, "advanced": 20, "enterprise": 100}
     for plan, limit in expected.items():
         org = Organization(name=f"Org {plan}", plan=plan, subscription_status="active")
         assert org.batch_limit == limit

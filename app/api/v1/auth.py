@@ -135,10 +135,10 @@ def register(
             detail="Este email já está cadastrado",
         )
     
-    # Criar organização com plano basic (gratuito)
+    # Criar organização com plano free (gratuito)
     organization = Organization(
         name=data.organization_name,
-        plan="basic",
+        plan="free",
     )
     db.add(organization)
     db.flush()  # Para obter o ID da organização

@@ -68,7 +68,7 @@ def test_signups_returns_data_with_valid_token(client, readonly_token, seed_sign
     assert newer_user["organization_id"] == seed_signups["newer_org"].id
     assert newer_user["organization_name"] == "Org Nova"
     assert newer_user["name"] == "Org Nova"
-    assert newer_user["plan"] == "basic"
+    assert newer_user["plan"] == "free"
     assert newer_user["subscription_status"] is None
     assert "created_at" in newer_user
     assert newer_user["signup_ip"] is None
@@ -77,7 +77,7 @@ def test_signups_returns_data_with_valid_token(client, readonly_token, seed_sign
     newer_org = next(item for item in body["organizations"] if item["name"] == "Org Nova")
     assert seed_signups["newer_user"].id in newer_org["user_ids"]
     assert newer_org["email"] == "novo@example.com"
-    assert newer_org["plan"] == "basic"
+    assert newer_org["plan"] == "free"
     assert "signup_ip" not in newer_org
     assert "created_ip" not in newer_org
 

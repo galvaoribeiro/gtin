@@ -307,12 +307,14 @@ O script pode: rodar manualmente, via cron, ou ser executado como job único em 
 
 ### Planos e Valores
 
-| Plano | Preço | Consultas/Dia | Features |
+| Plano | Preço | Consultas/mês | Features |
 |-------|-------|---------------|----------|
-| **Basic** | Grátis | 100/mês | Acesso público limitado |
-| **Starter** | R$ 249,90/mês | 1.000 | API Key dedicada, 10 req/min |
-| **Pro** | R$ 399,90/mês | 5.000 | Batch processing, 30 req/min |
-| **Enterprise** | R$ 899,90/mês | 50.000 | SLA garantido, gerente dedicado |
+| **Free** | Grátis | 100 | Acesso à API, 1 API Key |
+| **Basic** | R$ 49,90/mês | 1.000 | API Key dedicada, 10 req/min |
+| **Starter** | R$ 199,90/mês | 5.000 | Batch até 5 GTINs, 60 req/min |
+| **Pro** | R$ 399,90/mês | 20.000 | Batch até 10 GTINs, 90 req/min |
+| **Advanced** | R$ 899,90/mês | 100.000 | Batch até 20 GTINs, 120 req/min |
+| **Enterprise** | Sob consulta | Personalizado | SLA e limites negociados |
 
 ### Pagamentos via Stripe
 

@@ -18,23 +18,34 @@ class Base(DeclarativeBase):
     pass
 
 
+# Plano gratuito. Novos cadastros usam este slug.
+FREE_PLAN = "free"
+
+# Slug reutilizado: até a introdução do Basic pago, "basic" era o plano
+# gratuito (100 consultas/mês, sem Stripe). Contas nesse slug sem entitlement
+# Stripe continuam no Free; com assinatura paga, "basic" é o plano Basic.
+LEGACY_FREE_PLAN_SLUG = "basic"
+
 # Planos que o cliente pode contratar sozinho pelo self-service.
-PUBLIC_PLANS = ("basic", "starter", "pro", "advanced")
+PUBLIC_PLANS = ("free", "basic", "starter", "pro", "advanced")
 
 # Planos negociados: só podem ser atribuídos por um administrador.
 PRIVATE_PLANS = ("enterprise",)
 
 ALL_PLANS = PUBLIC_PLANS + PRIVATE_PLANS
 
+FREE_PLANS = frozenset({FREE_PLAN})
+
 # Planos pagos. Cota desses planos só vale com entitlement (status Stripe
 # active/trialing, ou past_due em carência). Sem status gravado (admin/legado)
 # o plano da coluna continua valendo — não rebaixa quem nunca passou pelo Stripe.
-PAID_PLANS = frozenset({"starter", "pro", "advanced", "enterprise"})
+# Exceção: "basic" sem Stripe ainda é o Free legado (ver is_legacy_free_basic).
+PAID_PLANS = frozenset({"basic", "starter", "pro", "advanced", "enterprise"})
 
 # Status em que a org de fato pagou (ou está em trial) e pode receber o plano.
 SUBSCRIPTION_STATUSES_ELEVATE_PLAN = frozenset({"active", "trialing"})
 
-# Renovação com falha: carência. Mantém plano já pago; nunca eleva de basic.
+# Renovação com falha: carência. Mantém plano já pago; nunca eleva do gratuito.
 SUBSCRIPTION_STATUSES_GRACE = frozenset({"past_due"})
 
 # Status que concedem cota paga (elevação + carência).
@@ -42,7 +53,7 @@ SUBSCRIPTION_STATUSES_GRANT_PAID_ACCESS = (
     SUBSCRIPTION_STATUSES_ELEVATE_PLAN | SUBSCRIPTION_STATUSES_GRACE
 )
 
-# Assinatura encerrada ou nunca chegou a pagar: plano volta para basic.
+# Assinatura encerrada ou nunca chegou a pagar: plano volta para free.
 SUBSCRIPTION_STATUSES_REVOKE_PLAN = frozenset({
     "incomplete_expired",
     "canceled",
@@ -64,7 +75,8 @@ HARD_MAX_BATCH_SIZE = 1000
 # O valor efetivo de cada organização é Organization.monthly_limit
 # (override da org, se houver; senão este mapa).
 PLAN_MONTHLY_LIMITS = {
-    "basic": 100,
+    "free": 100,
+    "basic": 1000,
     "starter": 5000,
     "pro": 20000,
     "advanced": 100000,
@@ -133,11 +145,11 @@ def ensure_client_ip_columns(bind) -> None:
             conn.execute(text(sql))
 
 
-def clear_stale_basic_monthly_overrides(bind) -> int:
+def clear_stale_free_monthly_overrides(bind) -> int:
     """
-    Remove overrides do plano gratuito (basic) abaixo do limite padrão atual.
+    Remove overrides do plano gratuito abaixo do limite padrão atual.
 
-    O limite mensal do basic não é persistido por organização: vem de
+    O limite mensal do Free não é persistido por organização: vem de
     PLAN_MONTHLY_LIMITS. Overrides menores que o novo padrão (por exemplo o
     antigo teto de 5) impediriam a cota de 100/mês de valer imediatamente.
     Planos pagos e contadores de uso não são alterados.
@@ -160,11 +172,15 @@ def clear_stale_basic_monthly_overrides(bind) -> int:
         result = conn.execute(
             sql,
             {
-                "plan": "basic",
-                "new_limit": PLAN_MONTHLY_LIMITS["basic"],
+                "plan": FREE_PLAN,
+                "new_limit": PLAN_MONTHLY_LIMITS[FREE_PLAN],
             },
         )
         return int(result.rowcount or 0)
+
+
+# Nome antigo, mantido para imports que ainda não foram atualizados.
+clear_stale_basic_monthly_overrides = clear_stale_free_monthly_overrides
 
 
 class Organization(Base):
@@ -172,14 +188,14 @@ class Organization(Base):
     Modelo para organizações/clientes.
     
     Cada organização pode ter múltiplas API keys e um plano de uso.
-    Planos: basic (1 key, 100 consultas/mês, sem batch), starter, pro, advanced,
-    enterprise (negociado, atribuído apenas por administrador)
+    Planos: free (1 key, 100 consultas/mês, sem batch), basic (pago, 1.000/mês,
+    sem batch), starter, pro, advanced, enterprise (negociado, só admin).
     """
     __tablename__ = "organizations"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False, comment="Nome da organização/cliente")
-    plan = Column(String(50), nullable=False, default="basic", comment="Plano: basic, starter, pro, advanced, enterprise")
+    plan = Column(String(50), nullable=False, default=FREE_PLAN, comment="Plano: free, basic, starter, pro, advanced, enterprise")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
     # Overrides de limites (quando NULL, usa o valor padrão do plano)
@@ -207,16 +223,39 @@ class Organization(Base):
         return f"<Organization(id={self.id}, name='{self.name}', plan='{self.plan}')>"
     
     @property
+    def is_legacy_free_basic(self) -> bool:
+        """
+        True quando plan='basic' ainda representa o plano gratuito antigo.
+
+        O slug "basic" foi reutilizado no plano pago. Sem assinatura Stripe
+        (nem status que conceda cota paga), a conta continua no Free.
+        """
+        if (self.plan or "") != LEGACY_FREE_PLAN_SLUG:
+            return False
+        if self.stripe_subscription_id:
+            return False
+        status = (self.subscription_status or "").strip().lower()
+        return status not in SUBSCRIPTION_STATUSES_GRANT_PAID_ACCESS
+
+    @property
+    def has_paid_plan_column(self) -> bool:
+        """True se a coluna plan é um slug pago e não o Free legado."""
+        if self.is_legacy_free_basic:
+            return False
+        return (self.plan or FREE_PLAN) in PAID_PLANS
+
+    @property
     def has_paid_entitlement(self) -> bool:
         """
         True quando a organização pode usar cota de plano pago.
 
-        - plan precisa ser pago (starter/pro/advanced/enterprise)
+        - plan precisa ser pago (basic/starter/pro/advanced/enterprise)
+        - "basic" sem Stripe continua sendo o Free legado
         - subscription_status active/trialing, ou past_due (carência de quem já pagou)
         - status vazio/None: plano atribuído fora do Stripe (admin/legado); mantém a cota
         - incomplete, incomplete_expired, canceled, unpaid, paused: sem cota paga
         """
-        if (self.plan or "basic") not in PAID_PLANS:
+        if not self.has_paid_plan_column:
             return False
         status = (self.subscription_status or "").strip().lower()
         if not status:
@@ -225,15 +264,16 @@ class Organization(Base):
 
     @property
     def effective_plan(self) -> str:
-        """Plano usado para cotas e rate limits. Sem entitlement pago, cai para basic."""
+        """Plano usado para cotas e rate limits. Sem entitlement pago, cai para free."""
         if self.has_paid_entitlement:
             return self.plan
-        return "basic"
+        return FREE_PLAN
 
     def get_batch_limit_by_plan(self) -> int:
         """Retorna o limite de GTINs por batch de acordo com o plano."""
         limits = {
-            "basic": 0,       # batch desabilitado
+            "free": 0,        # batch desabilitado
+            "basic": 0,       # Basic pago: mesmo comportamento de batch do Free
             "starter": 5,
             "pro": 10,
             "advanced": 20,
@@ -244,7 +284,7 @@ class Organization(Base):
     @property
     def batch_limit(self) -> int:
         """Retorna o override se definido, caso contrário o padrão do plano efetivo."""
-        if not self.has_paid_entitlement and (self.plan or "basic") in PAID_PLANS:
+        if not self.has_paid_entitlement and self.has_paid_plan_column:
             return 0
         if self.batch_limit_override is not None:
             return self.batch_limit_override
@@ -252,13 +292,15 @@ class Organization(Base):
 
     def get_monthly_limit_by_plan(self) -> int:
         """Retorna o limite mensal de chamadas de API por organização, de acordo com o plano."""
+        if self.is_legacy_free_basic:
+            return PLAN_MONTHLY_LIMITS[FREE_PLAN]
         return PLAN_MONTHLY_LIMITS.get(self.plan, 0)
 
     @property
     def monthly_limit(self) -> int:
         """Retorna o override se definido, caso contrário o padrão do plano efetivo."""
-        if not self.has_paid_entitlement and (self.plan or "basic") in PAID_PLANS:
-            return PLAN_MONTHLY_LIMITS["basic"]
+        if not self.has_paid_entitlement and self.has_paid_plan_column:
+            return PLAN_MONTHLY_LIMITS[FREE_PLAN]
         if self.monthly_limit_override is not None:
             return self.monthly_limit_override
         return self.get_monthly_limit_by_plan()
@@ -266,18 +308,19 @@ class Organization(Base):
     def get_api_key_active_limit_by_plan(self) -> int:
         """Limite de API keys ativas permitido por plano."""
         limits = {
+            "free": 1,
             "basic": 1,
             "starter": 1,
             "pro": 10,
             "advanced": 50,
             "enterprise": 50,
         }
-        return limits.get(self.plan, 0)
+        return limits.get(self.plan, 1 if self.is_legacy_free_basic else 0)
 
     @property
     def api_key_active_limit(self) -> int:
         """Propriedade de conveniência para limite de API keys ativas (plano efetivo)."""
-        if not self.has_paid_entitlement and (self.plan or "basic") in PAID_PLANS:
+        if not self.has_paid_entitlement and self.has_paid_plan_column:
             return 1
         return self.get_api_key_active_limit_by_plan()
 

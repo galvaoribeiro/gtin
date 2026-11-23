@@ -32,7 +32,7 @@ export function MarketingPricing({
           <p className="text-lg text-muted-foreground">{description}</p>
         </div>
 
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-6">
           {publicPlans.map((plan, index) => (
             <FadeIn key={plan.id} delay={index * 0.05}>
               <Card
