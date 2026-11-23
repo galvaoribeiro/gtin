@@ -479,15 +479,15 @@ def _ensure_client_ip_columns() -> None:
 
 def _apply_basic_monthly_limit_raise() -> None:
     """
-    Libera 100 consultas/mês para orgs basic com override abaixo do novo padrão.
+    Libera 100 consultas/mês para orgs free com override abaixo do novo padrão.
     Idempotente; não mexe em planos pagos nem em contadores de uso.
     """
-    from app.db.models import clear_stale_basic_monthly_overrides
+    from app.db.models import clear_stale_free_monthly_overrides
     from app.db.session import engine
 
-    updated = clear_stale_basic_monthly_overrides(engine)
+    updated = clear_stale_free_monthly_overrides(engine)
     print(
-        f"[MIGRATION] Plano basic: {updated} override(s) antigo(s) removido(s) "
+        f"[MIGRATION] Plano free: {updated} override(s) antigo(s) removido(s) "
         "para aplicar 100 consultas/mês."
     )
 
@@ -517,7 +517,7 @@ async def lifespan(app: FastAPI):
         print("[STARTUP] Seed concluido!")
     else:
         # Em produção as DDL históricas não rodam no boot. Ajustes idempotentes
-        # que o código novo depende (colunas de IP, cota do basic) rodam aqui.
+        # que o código novo depende (colunas de IP, cota do free) rodam aqui.
         try:
             _ensure_client_ip_columns()
         except Exception as e:
@@ -525,7 +525,7 @@ async def lifespan(app: FastAPI):
         try:
             _apply_basic_monthly_limit_raise()
         except Exception as e:
-            print(f"[MIGRATION] Ajuste do limite mensal do plano basic falhou: {e}")
+            print(f"[MIGRATION] Ajuste do limite mensal do plano free falhou: {e}")
     
     yield  # Aplicação rodando
     

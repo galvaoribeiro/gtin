@@ -25,8 +25,9 @@ with engine.connect() as conn:
 ## Ordem de execução
 
 1. `001_add_stripe_fields.sql` - Adiciona campos Stripe à tabela organizations
-9. `009_raise_basic_monthly_limit.sql` - Zera overrides antigos do plano basic para aplicar 100 consultas/mês
+9. `009_raise_basic_monthly_limit.sql` - Zera overrides antigos do plano básico gratuito para aplicar 100 consultas/mês
 10. `010_add_signup_and_api_key_ip.sql` - IP no cadastro (`users.signup_ip`) e na criação de API key (`api_keys.created_ip`)
+11. `011_rename_free_plan_slug.sql` - Renomeia o plano gratuito histórico (`basic` sem Stripe) para `free`; o slug `basic` fica o plano pago
 
 ## Notas
 

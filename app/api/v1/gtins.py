@@ -227,7 +227,7 @@ def process_batch_gtins(
     "/batch",
     response_model=BatchResponse,
     summary="Consultar produtos em lote (POST)",
-    description="Consulta múltiplos produtos de uma vez. Limites por plano: starter=5, pro=10, advanced=20 (basic não permite batch). Máximo de 100 GTINs por requisição (maior apenas com limite customizado da organização). Requer API key válida. Rate limit por plano (10-120 req/min).",
+    description="Consulta múltiplos produtos de uma vez. Limites por plano: starter=5, pro=10, advanced=20 (free e basic não permitem batch). Máximo de 100 GTINs por requisição (maior apenas com limite customizado da organização). Requer API key válida. Rate limit por plano (10-120 req/min).",
     responses={
         200: {"description": "Resultados da consulta em lote"},
         400: {"description": "Requisição inválida"},
@@ -258,7 +258,7 @@ def get_products_batch(
     "/batch",
     response_model=BatchResponse,
     summary="Consultar produtos em lote (GET)",
-    description="Consulta múltiplos produtos de uma vez via query parameters. Limites por plano: starter=5, pro=10, advanced=20 (basic não permite batch). Máximo absoluto de 100 GTINs por requisição. Ideal para cacheamento. Requer API key válida. Rate limit por plano (10-120 req/min).",
+    description="Consulta múltiplos produtos de uma vez via query parameters. Limites por plano: starter=5, pro=10, advanced=20 (free e basic não permitem batch). Máximo absoluto de 100 GTINs por requisição. Ideal para cacheamento. Requer API key válida. Rate limit por plano (10-120 req/min).",
     responses={
         200: {"description": "Resultados da consulta em lote"},
         400: {"description": "Requisição inválida"},

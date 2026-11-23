@@ -123,7 +123,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
                 <div className="flex items-center gap-2">
                   <span>Plano:</span>
-                  <Badge variant="outline">{profile?.plan || "basic"}</Badge>
+                  <Badge variant="outline">{profile?.plan || "free"}</Badge>
                 </div>
                 <div className="flex items-center gap-2">
                   <span>Limite do plano:</span>

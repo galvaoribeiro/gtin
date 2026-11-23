@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.pool import StaticPool
 
 from app.core.rate_limit import get_client_ip, get_stored_client_ip
-from app.db.models import ApiKey, User, ensure_client_ip_columns
+from app.db.models import ApiKey, Organization, User, ensure_client_ip_columns
 
 
 def _request(headers=None, client_host="127.0.0.1"):
@@ -102,6 +102,8 @@ def test_register_stores_x_forwarded_for_and_hides_it_from_response(auth_client,
 
     user = db_session.query(User).filter(User.email == "com-ip@example.com").one()
     assert user.signup_ip == "203.0.113.10"
+    org = db_session.query(Organization).filter(Organization.id == user.organization_id).one()
+    assert org.plan == "free"
 
 
 def test_register_without_forwarded_for_stores_client_host(auth_client, db_session):

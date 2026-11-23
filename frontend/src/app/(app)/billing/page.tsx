@@ -29,16 +29,45 @@ import {
 // Planos negociados com o time comercial: não aparecem na grade de self-service.
 const PRIVATE_PLANS = ["enterprise"];
 
+const PAID_STATUSES = ["active", "trialing", "past_due"];
+
+function hasPaidSubscriptionStatus(subscription: { status?: string | null } | null | undefined): boolean {
+  const status = (subscription?.status || "").toLowerCase();
+  return PAID_STATUSES.includes(status);
+}
+
+function isFreeLikePlan(subscription: { plan?: string | null; status?: string | null } | null | undefined): boolean {
+  const plan = subscription?.plan;
+  if (!plan || plan === "free") return true;
+  // Slug legado: "basic" sem assinatura paga ainda é o plano gratuito.
+  if (plan === "basic" && !hasPaidSubscriptionStatus(subscription)) return true;
+  return false;
+}
+
 // Definição dos planos disponíveis para contratação direta
 const PLANS = [
   {
-    id: "basic",
-    name: "Basic",
+    id: "free",
+    name: "Free",
     price: 0,
     monthlyLimit: 100,
     batchSize: null,
     features: [
       "100 consultas/mês",
+      "1 API Key",
+      "10 req/min",
+      "Sem batch",
+      "Acesso ao dashboard",
+    ],
+  },
+  {
+    id: "basic",
+    name: "Basic",
+    price: 49.9,
+    monthlyLimit: 1_000,
+    batchSize: null,
+    features: [
+      "1.000 consultas/mês",
       "1 API Key",
       "10 req/min",
       "Sem batch",
@@ -115,17 +144,15 @@ export default function BillingPage() {
   };
 
   const handleUpgradePlan = async (planId: string) => {
-    // Plano basic é grátis, não precisa checkout
-    if (planId === "basic") {
-      alert("Para voltar ao plano Basic, cancele sua assinatura no portal de cobrança.");
+    // Plano free é grátis, não precisa checkout
+    if (planId === "free") {
+      alert("Para voltar ao plano Free, cancele sua assinatura no portal de cobrança.");
       return;
     }
 
     const subscription = billingData?.subscription;
     const hasActiveSubscription =
-      subscription?.status &&
-      ["active", "trialing", "past_due"].includes(subscription.status) &&
-      subscription.plan !== "basic";
+      hasPaidSubscriptionStatus(subscription) && !isFreeLikePlan(subscription);
 
     try {
       setProcessingPlan(planId);
@@ -136,7 +163,7 @@ export default function BillingPage() {
           window.location.href = result.portal_url;
           return;
         }
-        // Downgrade para basic (sem portal_url): troca imediata
+        // Downgrade para free (sem portal_url): troca imediata
         alert(result.message);
         await loadBillingData();
         setProcessingPlan(null);
@@ -247,7 +274,7 @@ export default function BillingPage() {
             <div>
               <p className="text-sm font-medium text-zinc-500">Plano</p>
               <p className="text-2xl font-bold capitalize">
-                {subscription?.plan || "Basic"}
+                {isFreeLikePlan(subscription) ? "Free" : subscription?.plan || "Free"}
               </p>
             </div>
             <div>
@@ -281,7 +308,7 @@ export default function BillingPage() {
               comercial. Pagamentos e faturas continuam disponíveis no portal de cobrança.
             </p>
           )}
-          {subscription?.plan !== "basic" && (
+          {!isFreeLikePlan(subscription) && (
             <div className="mt-4">
               <Button onClick={handleManageBilling} variant="outline">
                 Gerenciar Assinatura
@@ -296,9 +323,14 @@ export default function BillingPage() {
         <h2 className="mb-4 text-xl font-semibold text-zinc-900 dark:text-white">
           Planos Disponíveis
         </h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {PLANS.map((plan) => {
-            const isCurrent = subscription?.plan === plan.id;
+            const isCurrent =
+              plan.id === "free"
+                ? isFreeLikePlan(subscription)
+                : plan.id === "basic"
+                  ? subscription?.plan === "basic" && hasPaidSubscriptionStatus(subscription)
+                  : subscription?.plan === plan.id;
             return (
               <Card
                 key={plan.id}
@@ -317,7 +349,7 @@ export default function BillingPage() {
                           /mês
                         </span>
                       </span>
-                    ) : plan.id === "basic" ? (
+                    ) : plan.id === "free" ? (
                       <span className="text-2xl font-bold text-zinc-900 dark:text-white">
                         Grátis
                       </span>
@@ -331,7 +363,7 @@ export default function BillingPage() {
                 <CardContent>
                   <ul className="space-y-2">
                     {plan.features.map((feature, index) => {
-                      const isHighlight = index === 0 && plan.id !== "basic";
+                      const isHighlight = index === 0 && plan.id !== "free";
                       return (
                         <Fragment key={index}>
                           <li

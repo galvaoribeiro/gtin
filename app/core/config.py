@@ -35,6 +35,7 @@ class Settings:
     STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     
     # Stripe Price IDs por plano
+    STRIPE_PRICE_BASIC: str = os.getenv("STRIPE_PRICE_BASIC", "")
     STRIPE_PRICE_STARTER: str = os.getenv("STRIPE_PRICE_STARTER", "")
     STRIPE_PRICE_PRO: str = os.getenv("STRIPE_PRICE_PRO", "")
     STRIPE_PRICE_ADVANCED: str = os.getenv("STRIPE_PRICE_ADVANCED", "")

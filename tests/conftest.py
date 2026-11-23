@@ -51,7 +51,7 @@ def seed_signups(db_session):
     )
     newer_org = Organization(
         name="Org Nova",
-        plan="basic",
+        plan="free",
         subscription_status=None,
         created_at=datetime(2026, 10, 16, 15, 0, 0),
     )

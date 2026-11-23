@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 class OrganizationBase(BaseModel):
     """Schema base para Organization."""
     name: str = Field(..., description="Nome da organização/cliente")
-    plan: str = Field(default="basic", description="Plano: basic (grátis), starter, pro, advanced")
+    plan: str = Field(default="free", description="Plano: free (grátis), basic, starter, pro, advanced")
 
 
 class OrganizationCreate(OrganizationBase):

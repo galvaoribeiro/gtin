@@ -34,12 +34,26 @@ export type MarketingPlan = {
 
 export const MARKETING_PLANS: MarketingPlan[] = [
   {
-    id: "basic",
-    name: "Basic",
+    id: "free",
+    name: "Free",
     priceLabel: "Grátis",
     usageLabel: "Para pequenos volumes e primeiros testes de integração.",
     features: [
       "100 consultas/mês",
+      "1 API Key",
+      "Consulta individual via API",
+      "10 req/min",
+    ],
+    cta: "Começar gratuitamente",
+    ctaHref: "/register",
+  },
+  {
+    id: "basic",
+    name: "Basic",
+    priceLabel: "R$ 49,90/mês",
+    usageLabel: "Para quem já saiu do teste e precisa de mais consultas.",
+    features: [
+      "1.000 consultas/mês",
       "1 API Key",
       "Consulta individual via API",
       "10 req/min",
@@ -126,7 +140,7 @@ export const API_FAQ: FaqItem[] = [
   {
     question: "Posso consultar vários GTINs em lote?",
     answer:
-      "Sim. Use POST /v1/gtins/batch com uma lista de GTINs em JSON. O limite por requisição depende do plano (Starter: 5, Pro: 10, Advanced: 20, Enterprise: até 100). O plano Basic não inclui batch.",
+      "Sim. Use POST /v1/gtins/batch com uma lista de GTINs em JSON. O limite por requisição depende do plano (Starter: 5, Pro: 10, Advanced: 20, Enterprise: até 100). Os planos Free e Basic não incluem batch.",
   },
   {
     question: "Posso integrar ao meu ERP?",
@@ -151,12 +165,12 @@ export const API_FAQ: FaqItem[] = [
   {
     question: "Existe ambiente de testes?",
     answer:
-      "O plano Basic (grátis) permite testar a integração real com 100 consultas/mês e 1 API Key. Crie sua conta, gere a chave e faça chamadas contra os mesmos endpoints de produção.",
+      "O plano Free permite testar a integração real com 100 consultas/mês e 1 API Key. Crie sua conta, gere a chave e faça chamadas contra os mesmos endpoints de produção.",
   },
   {
     question: "Existe limite de consultas?",
     answer:
-      "Sim. Cada plano tem limite mensal (Basic: 100, Starter: 5.000, Pro: 20.000, Advanced: 100.000) e rate limit por minuto. Ao exceder, a API retorna HTTP 429.",
+      "Sim. Cada plano tem limite mensal (Free: 100, Basic: 1.000, Starter: 5.000, Pro: 20.000, Advanced: 100.000) e rate limit por minuto. Ao exceder, a API retorna HTTP 429.",
   },
   {
     question: "A API retorna NCM?",
@@ -214,7 +228,7 @@ export const ERP_FAQ: FaqItem[] = [
   {
     question: "Existe ambiente gratuito?",
     answer:
-      "Sim. O plano Basic oferece 100 consultas/mês com API Key real, ideal para validar a integração antes de assinar um plano pago.",
+      "Sim. O plano Free oferece 100 consultas/mês com API Key real, ideal para validar a integração antes de assinar um plano pago.",
   },
   {
     question: "Como funciona a integração?",
